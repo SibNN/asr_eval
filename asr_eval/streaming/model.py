@@ -3,9 +3,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
 import math
-import random
 import threading
-import time
 from typing import Literal, Self, TypeVar, override
 
 import numpy as np
@@ -74,12 +72,12 @@ class StreamingBlackBoxASR(ABC):
     the previous words. See details in the class docstring.
     - **Recording ID**: a unique int or string identifier for a recording. This is useful if several recordings
     are streamed simultaneously, and we should know which audio recording each chunk belongs to. IDs should be
-    unique for StreamingBlackBoxASR object and should not be reused to avoid silent errors.
-    StreamingBlackBoxASR implementation.
+    unique for StreamingBlackBoxASR object and should not be reused, or the exception will be thrown.
     - **Signal.FINISH**: a symbol that signals that a stream for a specific recording ID has ended. This can
     refer to either the input stream (audio chunks) or the output stream (PartialTranscription-s).
     - **Signal.EXIT**: a symbol that signals that all streams for all recording IDs have ended. This can refer
-    to either the input stream or the output stream. After emitting EXIT, StreamingBlackBoxASR thread finishes.
+    to either the input stream or the output stream. After receiving and emitting EXIT, StreamingBlackBoxASR
+    thread finishes.
     
     Each input chunk can be one of:
     - a tuple (Recording ID, Audio chunk)
@@ -112,18 +110,20 @@ class StreamingBlackBoxASR(ABC):
     Exception handling:
     1) Any exception raised from the StreamingBlackBoxASR thread will set the output buffer in the error state.
     This will raise the exception when reading from the output buffer.
-    2) Trying to write invalid data into the input buffer may set it into the error state. This will raise
-    the exception when reading from the input buffer in the StreamingBlackBoxASR thread, then see pt. 1.
+    2) Trying to write invalid data into the input buffer (including reusing previous IDs) may set it into the
+    error state. This will raise the exception when reading from the input buffer in the StreamingBlackBoxASR
+    thread, then see pt. 1.
     3) Exceptions in StreamingAudioSender thread will set the input buffer into the error state, then see pt. 2.
     """
     def __init__(self, sampling_rate: int = 16_000):
         self._sampling_rate = sampling_rate
-        self.input_buffer = InputBuffer(name='input buffer')
-        self.output_buffer = OutputBuffer(name='output buffer')
         self._thread: threading.Thread | None = None
     
     def start_thread(self) -> Self:
         """Start the processor in a background thread"""
+        assert self._thread is None
+        self.input_buffer = InputBuffer(name='input buffer')
+        self.output_buffer = OutputBuffer(name='output buffer')
         self._thread = threading.Thread(target=self._run_and_send_exit, daemon=True)
         self._thread.start()
         return self
@@ -135,6 +135,7 @@ class StreamingBlackBoxASR(ABC):
     
     def _run_and_send_exit(self):
         try:
+            assert self._thread.ident == threading.get_ident()
             self._run()
         except BaseException as e:
             # catch any exception (maybe originating from input buffer being in error state, or not)
