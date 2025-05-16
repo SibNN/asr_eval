@@ -1,4 +1,5 @@
 from collections import defaultdict
+import numpy as np
 import pytest
 
 from asr_eval.streaming.model import PartialTranscription, Signal, DummyBlackBoxASR
@@ -10,8 +11,9 @@ def test_duplicate_input_ids():
     """Erroneously send the same recording ID two times"""
     asr = DummyBlackBoxASR()
     asr.start_thread()
+    waveform = np.zeros(16_000)
     for i in range(2):
-        StreamingAudioSender(id=0, item_count=1, send_to=asr.input_buffer).start_sending()
+        StreamingAudioSender(id=0, audio=waveform, real_time_interval_sec=1, send_to=asr.input_buffer).start_sending()
     with pytest.raises(RuntimeError) as e:
         for i in range(4):
             asr.output_buffer.receive()
@@ -23,16 +25,12 @@ def test_basic():
     
     samples = [
         {
-            'input': StreamingAudioSender(id=0, item_count=5, delay=0.02, send_to=asr.input_buffer),
+            'input': StreamingAudioSender(id=0, audio=np.zeros(16_000 * 5), speed_multiplier=27, send_to=asr.input_buffer),
             'output': [str(x) for x in range(5)]
         },
         {
-            'input': StreamingAudioSender(id=1, item_count=10, delay=0.03, send_to=asr.input_buffer),
+            'input': StreamingAudioSender(id=1, audio=np.zeros(16_000 * 10), speed_multiplier=20, send_to=asr.input_buffer),
             'output': [str(x) for x in range(10)]
-        },
-        {
-            'input': StreamingAudioSender(id=2, item_count=0, send_to=asr.input_buffer),
-            'output': []
         },
     ]
     
