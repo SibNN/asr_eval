@@ -11,11 +11,10 @@ def test_duplicate_input_ids():
     """Erroneously send the same recording ID two times"""
     asr = DummyBlackBoxASR()
     asr.start_thread()
-    waveform = np.zeros(16_000)
-    for i in range(2):
-        StreamingAudioSender(id=0, audio=waveform, real_time_interval_sec=1, send_to=asr.input_buffer).start_sending()
+    for _ in range(2):
+        StreamingAudioSender(id=0, audio=np.zeros(16_000), real_time_interval_sec=1, send_to=asr.input_buffer).start_sending()
     with pytest.raises(RuntimeError) as e:
-        for i in range(4):
+        for _ in range(4):
             asr.output_buffer.receive()
 
 
