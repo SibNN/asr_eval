@@ -8,7 +8,7 @@ def test_join_transcriptions():
         PartialTranscription(id=2, text='c'),
         PartialTranscription(text='x'),
         PartialTranscription(id=1, text='b2'),
-        PartialTranscription(text='xx'),
-        PartialTranscription(id=1, text='b3'),
+        PartialTranscription(text='!@<>'),
+        PartialTranscription(id=1, text='b2 b3'),
         PartialTranscription(id=2, text='c2'),
-    ]) == 'a b3 c2 x xx'
+    ]) == 'a b2 b3 c2 x !@<>'

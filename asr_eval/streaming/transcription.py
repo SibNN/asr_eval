@@ -14,8 +14,8 @@ class PartialTranscription:
         PartialTranscription(text='a'),
         PartialTranscription(id=1, text='b'),
         PartialTranscription(id=2, text='c'),
-        PartialTranscription(id=1, text='b2'),
-    ]) == 'a b2 c'
+        PartialTranscription(id=1, text='b2 b3'),
+    ]) == 'a b2 b3 c'
     """
     id: int = field(default_factory=lambda: str(uuid.uuid4()))
     text: str
