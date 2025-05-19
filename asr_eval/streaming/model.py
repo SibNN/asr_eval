@@ -19,7 +19,7 @@ class Signal(Enum):
 
 
 RECORDING_ID_TYPE = int | str
-AUDIO_CHUNK_TYPE = np.ndarray
+AUDIO_CHUNK_TYPE = np.ndarray | bytes
 
 CHUNK_TYPE = tuple[RECORDING_ID_TYPE, TypeVar('PAYLOAD') | Literal[Signal.FINISH, Signal.EXIT]]
 
@@ -124,7 +124,7 @@ class StreamingBlackBoxASR(ABC):
         self._thread.start()
         return self
     
-    def join(self) -> None:
+    def stop_thread(self) -> None:
         self.input_buffer.put((0, Signal.EXIT))
         self._thread.join()
         self._thread = None

@@ -31,3 +31,7 @@ def test_wave():
 
     # compare
     assert all(np.int16(waveform_librosa * 32768) == waveform_from_bytes)
+    
+    # inverse convertion
+    bytes_from_waveform = np.int16(waveform_librosa * 32768).tobytes()
+    assert bytes_from_waveform == data

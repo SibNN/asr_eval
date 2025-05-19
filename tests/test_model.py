@@ -55,4 +55,4 @@ def test_basic():  # TODO extend test suite
     for sample in samples:
         assert [x.text for x in results[sample['input'].id]] == sample['output']
     
-    asr.join()
+    asr.stop_thread()

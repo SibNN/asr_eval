@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import InitVar, dataclass
 import math
 import threading
 import time
@@ -12,6 +12,9 @@ from .model import InputBuffer, RECORDING_ID_TYPE, Signal
 
 @dataclass(kw_only=True)
 class AbstractStreamingAudioSender(ABC):
+    """
+    Can be used to send int waveform, float waveform or wav bytes
+    """
     audio: np.ndarray
     send_to: InputBuffer
     id: RECORDING_ID_TYPE = 0
@@ -19,14 +22,14 @@ class AbstractStreamingAudioSender(ABC):
     propagate_errors: bool = True
     verbose: bool = False
 
-    _thread: threading.Thread | None = None
+    _thread: InitVar[threading.Thread | None] = None
 
     @abstractmethod
     def get_send_times(self) -> list[tuple[float, float]]:
         '''Get send times, in real time scale and audio time scale'''
         ...
 
-    def __post_init__(self):
+    def __post_init__(self, *_args):
         assert len(self.audio), 'audio has zero length'
 
     @property
@@ -44,22 +47,22 @@ class AbstractStreamingAudioSender(ABC):
         self._thread = None
     
     def _run(self):
-        times = self.get_send_times()
-        print(times)
-        points = [int(t_audio * self.sampling_rate) for _t_real, t_audio in times]
-        if points[-1] == points[-2]:
-            # cut a possible small ending
-            times = times[:-1]
-            points = points[:-1]
-
-        assert all(np.diff(points) > 0), 'at least one audio chunk has zero size'
-        assert all(np.diff([t_real for t_real, _t_audio in times]) >= 0), 'real times should not decrease'
-
         try:
+            times = self.get_send_times()
+            points = [int(t_audio * self.sampling_rate) for _t_real, t_audio in times]
+            if points[-1] == points[-2]:
+                # cut a possible small ending
+                times = times[:-1]
+                points = points[:-1]
+
+            assert all(np.diff(points) > 0), 'at least one audio chunk has zero size'
+            assert all(np.diff([t_real for t_real, _t_audio in times]) >= 0), 'real times should not decrease'
+            assert all(np.diff([t_audio for _t_real, t_audio in times]) >= 0), 'audio times should not decrease'
+
             for i, (
-                (tr1, ta1),  # audio times
-                (tr2, ta2),  # real times
-                p1, p2       # audio points
+                (tr1, ta1),  # real start time, audio start time
+                (tr2, ta2),  # real end time, audio end time
+                p1, p2       # audio start and end points
             ) in enumerate(zip(times[:-1], times[1:], points[:-1], points[1:])):
                 if self.verbose:
                     print(f'Sending: id={self.id}, real {tr1:.3f}..{tr2:.3f}, audio {ta1:.3f}..{ta2:.3f}')
