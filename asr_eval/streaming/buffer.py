@@ -8,8 +8,10 @@ class StreamingQueue(Generic[T]):
     """
     Similar to queue.Queue with the following differences:
     - typization
-    - can put error to raise it in the consumer thread
     - supports custom data validation method
+    - if something goes wrong, the procucer thread can put an error to the queue, and it will be raised
+    in the consumer thread on the next get operation (see the example in test_error_propagation() in
+    tests/test_buffer.py)
     """
     def __init__(self, name: str = 'unnamed'):
         self._name = name
