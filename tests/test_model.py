@@ -18,7 +18,7 @@ def test_duplicate_input_ids():
             asr.output_buffer.get()
 
 
-def test_basic():
+def test_basic():  # TODO extend test suite
     asr = DummyBlackBoxASR()
     asr.start_thread()
     
