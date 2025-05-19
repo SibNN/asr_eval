@@ -2,14 +2,15 @@ from collections import defaultdict
 import numpy as np
 import pytest
 
-from asr_eval.streaming.model import PartialTranscription, Signal, DummyBlackBoxASR
+from asr_eval.streaming.model import Signal, DummyASR
+from asr_eval.streaming.transcription import PartialTranscription
 from asr_eval.streaming.sender import RECORDING_ID_TYPE, StreamingAudioSender
 
 
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnhandledThreadExceptionWarning")
 def test_duplicate_input_ids():
     """Erroneously send the same recording ID two times"""
-    asr = DummyBlackBoxASR()
+    asr = DummyASR()
     asr.start_thread()
     for _ in range(2):
         StreamingAudioSender(id=0, audio=np.zeros(16_000), real_time_interval_sec=1, send_to=asr.input_buffer).start_sending()
@@ -19,7 +20,7 @@ def test_duplicate_input_ids():
 
 
 def test_basic():  # TODO extend test suite
-    asr = DummyBlackBoxASR()
+    asr = DummyASR()
     asr.start_thread()
     
     samples = [
@@ -52,6 +53,6 @@ def test_basic():  # TODO extend test suite
         sample['input'].join()
     
     for sample in samples:
-        assert [x.word for x in results[sample['input'].id]] == sample['output']
+        assert [x.text for x in results[sample['input'].id]] == sample['output']
     
     asr.join()

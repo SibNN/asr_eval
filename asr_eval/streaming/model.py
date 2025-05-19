@@ -9,11 +9,7 @@ from typing import Literal, Self, TypeVar, override
 import numpy as np
 
 from .buffer import StreamingQueue
-
-
-@dataclass(kw_only=True)
-class PartialTranscription:
-    word: str  # TODO
+from .transcription import PartialTranscription
 
 
 class Signal(Enum):
@@ -158,7 +154,7 @@ class StreamingBlackBoxASR(ABC):
         ...
 
 
-class DummyBlackBoxASR(StreamingBlackBoxASR):
+class DummyASR(StreamingBlackBoxASR):
     """
     Will transcribe N seconds long audio into "1 2 ... N"
     """
@@ -182,7 +178,7 @@ class DummyBlackBoxASR(StreamingBlackBoxASR):
             new_transcribed_seconds = math.ceil(self._received_seconds[id])
             
             for i in range(self._transcribed_seconds[id], new_transcribed_seconds):
-                self.output_buffer.put((id, PartialTranscription(word=str(i))))
+                self.output_buffer.put((id, PartialTranscription(text=str(i))))
                 
             self._transcribed_seconds[id] = new_transcribed_seconds
             
