@@ -17,7 +17,7 @@ class PartialTranscription:
         PartialTranscription(id=1, text='b2'),
     ]) == 'a b2 c'
     """
-    id: int = field(default_factory=uuid.uuid4)
+    id: int = field(default_factory=lambda: str(uuid.uuid4()))
     text: str
     
     @classmethod
