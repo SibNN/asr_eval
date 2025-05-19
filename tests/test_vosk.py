@@ -7,6 +7,7 @@ import librosa
 import numpy as np
 from vosk import Model, KaldiRecognizer
 
+from asr_eval.streaming.caller import wait_for_transcribing
 from asr_eval.streaming.model import RECORDING_ID_TYPE, Signal
 from asr_eval.streaming.models.vosk import VoskStreaming
 from asr_eval.streaming.sender import StreamingAudioSender
@@ -53,18 +54,9 @@ def test_vosk_wrapper():
 
     sender = StreamingAudioSender(id=0, audio=waveform_bytes, speed_multiplier=5, send_to=asr.input_buffer)
     sender.start_sending()
-
-    results: dict[RECORDING_ID_TYPE, list[PartialTranscription]] = defaultdict(list)
-    finished: dict[RECORDING_ID_TYPE, bool] = {0: False}
-
-    while True:
-        id, output = asr.output_buffer.get()
-        if output is Signal.FINISH:
-            finished[id] = True
-            if all(finished.values()):
-                break
-        else:
-            results[id].append(output)
+    
+    results = wait_for_transcribing(asr, ids=[0])
+    assert PartialTranscription.join(results[0]) == 'one zero zero zero one nah no to i know zero one eight zero three'
 
     sender.join()
     asr.stop_thread()

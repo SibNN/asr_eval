@@ -2,6 +2,7 @@ from collections import defaultdict
 import numpy as np
 import pytest
 
+from asr_eval.streaming.caller import wait_for_transcribing
 from asr_eval.streaming.model import Signal, DummyASR
 from asr_eval.streaming.transcription import PartialTranscription
 from asr_eval.streaming.sender import RECORDING_ID_TYPE, StreamingAudioSender
@@ -36,23 +37,12 @@ def test_basic():  # TODO extend test suite
     
     for sample in samples:
         sample['input'].start_sending()
-
-    results: dict[RECORDING_ID_TYPE, list[PartialTranscription]] = defaultdict(list)
-    finished: dict[RECORDING_ID_TYPE, bool] = {sample['input'].id: False for sample in samples}
-
-    while True:
-        id, output = asr.output_buffer.get()
-        if output is Signal.FINISH:
-            finished[id] = True
-            if all(finished.values()):
-                break
-        else:
-            results[id].append(output)
-            
-    for sample in samples:
-        sample['input'].join()
     
+    results = wait_for_transcribing(asr, ids=[sample['input'].id for sample in samples])
+            
     for sample in samples:
         assert [x.text for x in results[sample['input'].id]] == sample['output']
     
+    for sample in samples:
+        sample['input'].join()
     asr.stop_thread()
