@@ -8,7 +8,7 @@ from typing import Literal, Self, TypeVar, override
 
 import numpy as np
 
-from .buffer import StreamingBuffer
+from .buffer import StreamingQueue
 
 
 @dataclass(kw_only=True)
@@ -27,7 +27,7 @@ AUDIO_CHUNK_TYPE = np.ndarray
 
 CHUNK_TYPE = tuple[RECORDING_ID_TYPE, TypeVar('PAYLOAD') | Literal[Signal.FINISH, Signal.EXIT]]
 
-class StreamingBufferWithChecks(StreamingBuffer[CHUNK_TYPE]):
+class StreamingBufferWithChecks(StreamingQueue[CHUNK_TYPE]):
     """
     A StreamingBuffer to use in StreamingBlackBoxASR, with custom data consistency checks.
     """
@@ -50,7 +50,7 @@ class StreamingBufferWithChecks(StreamingBuffer[CHUNK_TYPE]):
                 self._finished_ids.add(id)
         except BaseException as e:
             # this will raise the error in the receiver thread on .receive()
-            self.set_error_state(e)
+            self.put_error(e)
             # raise the error in the sender thread
             raise e
 
@@ -129,7 +129,7 @@ class StreamingBlackBoxASR(ABC):
         return self
     
     def join(self) -> None:
-        self.input_buffer.send((0, Signal.EXIT))
+        self.input_buffer.put((0, Signal.EXIT))
         self._thread.join()
         self._thread = None
     
@@ -140,9 +140,9 @@ class StreamingBlackBoxASR(ABC):
         except BaseException as e:
             # catch any exception (maybe originating from input buffer being in error state, or not)
             # set the output buffer in the error state
-            self.output_buffer.set_error_state(e)
+            self.output_buffer.put_error(e)
             raise e
-        self.output_buffer.send((0, Signal.EXIT))
+        self.output_buffer.put((0, Signal.EXIT))
     
     @abstractmethod
     def _run(self):
@@ -171,7 +171,7 @@ class DummyBlackBoxASR(StreamingBlackBoxASR):
     @override
     def _run(self):
         while True:
-            id, chunk = self.input_buffer.receive()
+            id, chunk = self.input_buffer.get()
             if chunk is Signal.EXIT:
                 return
             
@@ -182,11 +182,11 @@ class DummyBlackBoxASR(StreamingBlackBoxASR):
             new_transcribed_seconds = math.ceil(self._received_seconds[id])
             
             for i in range(self._transcribed_seconds[id], new_transcribed_seconds):
-                self.output_buffer.send((id, PartialTranscription(word=str(i))))
+                self.output_buffer.put((id, PartialTranscription(word=str(i))))
                 
             self._transcribed_seconds[id] = new_transcribed_seconds
             
             if chunk is Signal.FINISH:
                 del self._received_seconds[id]
                 del self._transcribed_seconds[id]
-                self.output_buffer.send((id, Signal.FINISH))
+                self.output_buffer.put((id, Signal.FINISH))

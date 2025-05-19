@@ -63,13 +63,13 @@ class AbstractStreamingAudioSender(ABC):
             ) in enumerate(zip(times[:-1], times[1:], points[:-1], points[1:])):
                 if self.verbose:
                     print(f'Sending: id={self.id}, real {tr1:.3f}..{tr2:.3f}, audio {ta1:.3f}..{ta2:.3f}')
-                self.send_to.send((self.id, self.audio[p1:p2]))
+                self.send_to.put((self.id, self.audio[p1:p2]))
                 if i != len(times) - 2:  # don't sleep after the last chunk
                     time.sleep(tr2 - tr1)
-            self.send_to.send((self.id, Signal.FINISH))
+            self.send_to.put((self.id, Signal.FINISH))
         except BaseException as e:
             if self.propagate_errors:
-                self.send_to.set_error_state(e)
+                self.send_to.put_error(e)
             raise e
         
 

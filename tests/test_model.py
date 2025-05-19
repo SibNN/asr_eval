@@ -15,7 +15,7 @@ def test_duplicate_input_ids():
         StreamingAudioSender(id=0, audio=np.zeros(16_000), real_time_interval_sec=1, send_to=asr.input_buffer).start_sending()
     with pytest.raises(RuntimeError) as e:
         for _ in range(4):
-            asr.output_buffer.receive()
+            asr.output_buffer.get()
 
 
 def test_basic():
@@ -40,7 +40,7 @@ def test_basic():
     finished: dict[RECORDING_ID_TYPE, bool] = {sample['input'].id: False for sample in samples}
 
     while True:
-        id, output = asr.output_buffer.receive()
+        id, output = asr.output_buffer.get()
         if output is Signal.FINISH:
             finished[id] = True
             if all(finished.values()):
