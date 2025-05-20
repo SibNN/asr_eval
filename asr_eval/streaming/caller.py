@@ -19,12 +19,12 @@ def wait_for_transcribing(
     finished: dict[RECORDING_ID_TYPE, bool] = {id: False for id in ids}
     
     while True:
-        id, output = asr.output_buffer.get()
-        if output is Signal.EXIT:
+        output_chunk = asr.output_buffer.get()
+        if output_chunk.data is Signal.EXIT:
             raise AssertionError('EXIT received until transcribing all the IDs')
-        elif output is Signal.FINISH:
-            finished[id] = True
+        elif output_chunk.data is Signal.FINISH:
+            finished[output_chunk.id] = True
             if all(finished.values()):
                 return results
         else:
-            results[id].append(output)
+            results[output_chunk.id].append(output_chunk.data)

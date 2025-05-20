@@ -6,7 +6,7 @@ from typing import Any, Self, override
 
 import numpy as np
 
-from .model import AUDIO_CHUNK_TYPE, InputBuffer, RECORDING_ID_TYPE, Signal
+from .model import AUDIO_CHUNK_TYPE, InputBuffer, RECORDING_ID_TYPE, InputChunk, Signal
 
 
 @dataclass(kw_only=True)
@@ -64,10 +64,10 @@ class BaseStreamingAudioSender(ABC):
             ) in enumerate(zip(times[:-1], times[1:], points[:-1], points[1:])):
                 if self.verbose:
                     print(f'Sending: id={self.id}, real {tr1:.3f}..{tr2:.3f}, audio {ta1:.3f}..{ta2:.3f}')
-                send_to.put((self.id, self.audio[p1:p2]))
+                send_to.put(InputChunk(id=self.id, data=self.audio[p1:p2]))
                 if i != len(times) - 2:  # don't sleep after the last chunk
                     time.sleep(tr2 - tr1)
-            send_to.put((self.id, Signal.FINISH))
+            send_to.put(InputChunk(id=self.id, data=Signal.FINISH))
         except BaseException as e:
             if self.propagate_errors:
                 send_to.put_error(e)

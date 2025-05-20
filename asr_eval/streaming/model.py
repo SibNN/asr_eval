@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
+from dataclasses import dataclass
 from enum import Enum
 import math
 import threading
@@ -16,14 +17,27 @@ class Signal(Enum):
     EXIT = 0
     FINISH = 1
 
-
 RECORDING_ID_TYPE = int | str
 AUDIO_CHUNK_TYPE = npt.NDArray[Any] | bytes
+    
+@dataclass(kw_only=True)
+class InputChunk:
+    id: RECORDING_ID_TYPE = 0
+    data: AUDIO_CHUNK_TYPE | Literal[Signal.FINISH, Signal.EXIT]
+    
+@dataclass(kw_only=True)
+class OutputChunk:
+    id: RECORDING_ID_TYPE = 0
+    data: PartialTranscription | Literal[Signal.FINISH, Signal.EXIT]
 
-INPUT_CHUNK_TYPE = tuple[RECORDING_ID_TYPE, AUDIO_CHUNK_TYPE | Literal[Signal.FINISH, Signal.EXIT]]
-OUTPUT_CHUNK_TYPE = tuple[RECORDING_ID_TYPE, PartialTranscription | Literal[Signal.FINISH, Signal.EXIT]]
+# INPUT_CHUNK_TYPE = tuple[
+#     RECORDING_ID_TYPE, AUDIO_CHUNK_TYPE | Literal[Signal.FINISH, Signal.EXIT]
+# ]
+# OUTPUT_CHUNK_TYPE = tuple[
+#     RECORDING_ID_TYPE, PartialTranscription | Literal[Signal.FINISH, Signal.EXIT]
+# ]
 
-CHUNK_TYPE = TypeVar('CHUNK_TYPE', INPUT_CHUNK_TYPE, OUTPUT_CHUNK_TYPE)
+CHUNK_TYPE = TypeVar('CHUNK_TYPE', InputChunk, OutputChunk)
 
 class StreamingQueueWithChecks(StreamingQueue[CHUNK_TYPE]):
     """
@@ -37,15 +51,14 @@ class StreamingQueueWithChecks(StreamingQueue[CHUNK_TYPE]):
     @override
     def _validate(self, data: CHUNK_TYPE):
         try:
-            id, chunk = data
-            assert not self._exited, f'Got {id}, {chunk}, but already exited'
-            if chunk is Signal.EXIT:
+            assert not self._exited, f'Got {data.id} but already exited'
+            if data.data is Signal.EXIT:
                 self._exited = True
                 return
             
             assert id not in self._finished_ids, f'Got {id}, {chunk}, but already finished this id'
-            if chunk is Signal.FINISH:
-                self._finished_ids.add(id)
+            if data.data is Signal.FINISH:
+                self._finished_ids.add(data.id)
         except BaseException as e:
             # this will raise the error in the receiver thread on .get()
             self.put_error(e)
@@ -53,8 +66,8 @@ class StreamingQueueWithChecks(StreamingQueue[CHUNK_TYPE]):
             raise e
 
 
-InputBuffer = StreamingQueueWithChecks[INPUT_CHUNK_TYPE]
-OutputBuffer = StreamingQueueWithChecks[OUTPUT_CHUNK_TYPE]
+InputBuffer = StreamingQueueWithChecks[InputChunk]
+OutputBuffer = StreamingQueueWithChecks[OutputChunk]
 
 
 class StreamingBlackBoxASR(ABC):
@@ -122,7 +135,7 @@ class StreamingBlackBoxASR(ABC):
     
     def stop_thread(self) -> None:
         assert self._thread
-        self.input_buffer.put((0, Signal.EXIT))
+        self.input_buffer.put(InputChunk(data=Signal.EXIT))
         self._thread.join()
         self._thread = None
     
@@ -135,7 +148,7 @@ class StreamingBlackBoxASR(ABC):
             # set the output buffer in the error state
             self.output_buffer.put_error(e)
             raise e
-        self.output_buffer.put((0, Signal.EXIT))
+        self.output_buffer.put(OutputChunk(data=Signal.EXIT))
     
     @abstractmethod
     def _run(self):
@@ -164,22 +177,24 @@ class DummyASR(StreamingBlackBoxASR):
     @override
     def _run(self):
         while True:
-            id, chunk = self.input_buffer.get()
-            if chunk is Signal.EXIT:
+            input_chunk = self.input_buffer.get()
+            id = input_chunk.id
+            
+            if input_chunk.data is Signal.EXIT:
                 return
             
             self._received_seconds[id] += (
-                len(chunk) / self._sampling_rate if chunk is not Signal.FINISH else 0
+                len(input_chunk.data) / self._sampling_rate if input_chunk.data is not Signal.FINISH else 0
             )
             
             new_transcribed_seconds = math.ceil(self._received_seconds[id])
             
             for i in range(self._transcribed_seconds[id], new_transcribed_seconds):
-                self.output_buffer.put((id, PartialTranscription(text=str(i))))
+                self.output_buffer.put(OutputChunk(id=id, data=PartialTranscription(text=str(i))))
                 
             self._transcribed_seconds[id] = new_transcribed_seconds
             
-            if chunk is Signal.FINISH:
+            if input_chunk.data is Signal.FINISH:
                 del self._received_seconds[id]
                 del self._transcribed_seconds[id]
-                self.output_buffer.put((id, Signal.FINISH))
+                self.output_buffer.put(OutputChunk(id=id, data=Signal.FINISH))

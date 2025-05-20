@@ -5,7 +5,7 @@ from typing import override
 from vosk import Model, KaldiRecognizer # type: ignore
 
 from ..transcription import LATEST, PartialTranscription
-from ..model import StreamingBlackBoxASR, Signal, RECORDING_ID_TYPE
+from ..model import OutputChunk, StreamingBlackBoxASR, Signal, RECORDING_ID_TYPE
 
 class VoskStreaming(StreamingBlackBoxASR):
     def __init__(self, sampling_rate: int = 16_000):
@@ -20,21 +20,23 @@ class VoskStreaming(StreamingBlackBoxASR):
     @override
     def _run(self):
         while True:
-            id, chunk = self.input_buffer.get()
-            if chunk is Signal.EXIT:
+            input_chunk = self.input_buffer.get()
+            id = input_chunk.id
+            
+            if input_chunk.data is Signal.EXIT:
                 self._recognizers = {}
                 return
-            elif chunk is Signal.FINISH:
-                self.output_buffer.put((id, Signal.FINISH))
+            elif input_chunk.data is Signal.FINISH:
+                self.output_buffer.put(OutputChunk(id=id, data=Signal.FINISH))
                 self._recognizers.pop(id, None)
             else:
-                assert isinstance(chunk, bytes)
+                assert isinstance(input_chunk.data, bytes)
                 rec = self._recognizers[id]
-                if rec.AcceptWaveform(chunk): # type: ignore
+                if rec.AcceptWaveform(input_chunk.data): # type: ignore
                     text = json.loads(rec.Result())['text'] # type: ignore
-                    self.output_buffer.put((id, PartialTranscription(text=text)))
+                    self.output_buffer.put(OutputChunk(id=id, data=PartialTranscription(text=text)))
                 else:
                     partial_text = json.loads(rec.PartialResult())['partial'] # type: ignore
-                    self.output_buffer.put((id, PartialTranscription(id=LATEST, text=partial_text)))
+                    self.output_buffer.put(OutputChunk(id=id, data=PartialTranscription(id=LATEST, text=partial_text)))
                 
                 
