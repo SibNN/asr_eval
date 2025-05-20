@@ -15,7 +15,6 @@ class BaseStreamingAudioSender(ABC):
     Can be used to send int waveform, float waveform or wav bytes
     """
     audio: AUDIO_CHUNK_TYPE
-    send_to: InputBuffer
     id: RECORDING_ID_TYPE = 0
     sampling_rate: int = 16_000
     propagate_errors: bool = True
@@ -35,8 +34,8 @@ class BaseStreamingAudioSender(ABC):
     def audio_length_sec(self) -> float:
         return len(self.audio) / self.sampling_rate
     
-    def start_sending(self) -> Self:
-        self._thread = threading.Thread(target=self._run, daemon=True)
+    def start_sending(self, send_to: InputBuffer) -> Self:
+        self._thread = threading.Thread(target=self._run, kwargs={'send_to': send_to}, daemon=True)
         self._thread.start()
         return self
     
@@ -45,7 +44,7 @@ class BaseStreamingAudioSender(ABC):
         self._thread.join()
         self._thread = None
     
-    def _run(self):
+    def _run(self, send_to: InputBuffer):
         try:
             times = self.get_send_times()
             points = [int(t_audio * self.sampling_rate) for _t_real, t_audio in times]
@@ -65,13 +64,13 @@ class BaseStreamingAudioSender(ABC):
             ) in enumerate(zip(times[:-1], times[1:], points[:-1], points[1:])):
                 if self.verbose:
                     print(f'Sending: id={self.id}, real {tr1:.3f}..{tr2:.3f}, audio {ta1:.3f}..{ta2:.3f}')
-                self.send_to.put((self.id, self.audio[p1:p2]))
+                send_to.put((self.id, self.audio[p1:p2]))
                 if i != len(times) - 2:  # don't sleep after the last chunk
                     time.sleep(tr2 - tr1)
-            self.send_to.put((self.id, Signal.FINISH))
+            send_to.put((self.id, Signal.FINISH))
         except BaseException as e:
             if self.propagate_errors:
-                self.send_to.put_error(e)
+                send_to.put_error(e)
             raise e
         
 

@@ -1,4 +1,5 @@
 import json
+from typing import TypedDict
 import wave
 
 import pytest
@@ -12,7 +13,11 @@ from asr_eval.streaming.models.vosk import VoskStreaming
 from asr_eval.streaming.sender import StreamingAudioSender
 from asr_eval.streaming.transcription import PartialTranscription
 
-def test_vosk_KaldiRecognizer():
+@pytest.mark.parametrize('frames_per_chunk, prediction', [
+    (4000, ['one zero zero zero one', 'nah no to i know', 'zero one eight zero three']),
+    (64000, ['one zero zero zero one', 'nah no to i know zero one eight zero three']),
+])
+def test_vosk_KaldiRecognizer(frames_per_chunk: int, prediction: list[str]):
     """
     Testing vosk.KaldiRecognizer without any wrapper code from the current framework
     """
@@ -28,7 +33,7 @@ def test_vosk_KaldiRecognizer():
     transcription_partial: str | None = None
 
     while True:
-        data = wf.readframes(4000)
+        data = wf.readframes(frames_per_chunk)
         if len(data) == 0:
             break
         if rec.AcceptWaveform(data): # type: ignore
@@ -40,7 +45,7 @@ def test_vosk_KaldiRecognizer():
     if transcription_partial:
         transcription_done.append(transcription_partial)
 
-    assert transcription_done == ['one zero zero zero one', 'nah no to i know', 'zero one eight zero three']
+    assert transcription_done == prediction
 
 
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
@@ -51,12 +56,30 @@ def test_vosk_wrapper():
 
     asr = VoskStreaming()
     asr.start_thread()
-
-    sender = StreamingAudioSender(id=0, audio=waveform_bytes, speed_multiplier=5, send_to=asr.input_buffer)
-    sender.start_sending()
     
-    results = wait_for_transcribing(asr, ids=[0])
-    assert PartialTranscription.join(results[0]) == 'one zero zero zero one nah no to i know zero one eight zero three'
+    class Sample(TypedDict):
+        input: StreamingAudioSender
+        output: str
+    
+    samples: list[Sample] = [
+        {
+            'input': StreamingAudioSender(id=0, audio=waveform_bytes, speed_multiplier=5),
+            'output': 'one zero zero zero one nah no to i know zero one eight zero three',
+        },
+        {
+            'input': StreamingAudioSender(id=1, audio=waveform_bytes, speed_multiplier=100),
+            'output': 'one zero zero one zero zero zero one zero one eight zero three',
+        },
+    ]
 
-    sender.join()
+    for sample in samples:
+        sample['input'].start_sending(send_to=asr.input_buffer)
+    
+    results = wait_for_transcribing(asr, ids=[sample['input'].id for sample in samples])
+            
+    for sample in samples:
+        assert PartialTranscription.join(results[sample['input'].id]) == sample['output']
+
+    for sample in samples:
+        sample['input'].join()
     asr.stop_thread()
