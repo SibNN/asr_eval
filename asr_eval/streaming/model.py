@@ -113,20 +113,27 @@ class StreamingBlackBoxASR(ABC):
     thread finishes.
     
     Each input chunk can be one of:
-    - a tuple (Recording ID, Audio chunk)
-    - a tuple (Recording ID, Signal.FINISH)
-    - a tuple (0, Signal.EXIT)
+    - an InputChunk(id=Recording ID, data=<Audio chunk>)
+    - an InputChunk(id=Recording ID, data=Signal.FINISH)
+    - an InputChunk(id=0, data=Signal.EXIT)
     
     Each output chunk can be one of:
-    - a tuple (Recording ID, PartialTranscription)
-    - a tuple (Recording ID, Signal.FINISH)
-    - a tuple (0, Signal.EXIT)
+    - an OutputChunk(id=Recording ID, data=<PartialTranscription>)
+    - an OutputChunk(id=Recording ID, data=Signal.FINISH)
+    - an OutputChunk(id=0, data=Signal.EXIT)
     
     Details:
-    - (ID, FINISH) input chunk indices that the audio for the ID has been fully sent
-    - (ID, FINISH) output chunk indices that (ID, FINISH) input chunk received and the transcription is done
-    - (0, EXIT) input chunk indicates that all audios have been fully sent
-    - (0, EXIT) output chunk indicates that (0, EXIT) input chunk received, all transcriptions are done
+    - FINISH input chunk indices that the audio for the ID has been fully sent
+    - FINISH output chunk indices that FINISH input chunk received fhr the given ID and the transcription is done
+    - EXIT input chunk indicates that all audios have been fully sent
+    - EXIT output chunk indicates that EXIT input chunk received, all transcriptions are done
+    
+    The input chunks may optionally contain audio timings (for example, StreamingAudioSender adds this
+    information), but they are generally not used. Also, some timestamps are automatically filled:
+    - InputChunk.put_timestamp - the time when the chunk added to the StreamingBlackBoxASR.input_buffer
+    - InputChunk.get_timestamp - the time when the chunk received from the StreamingBlackBoxASR.input_buffer
+    - OutputChunk.put_timestamp - the time when the chunk added to the StreamingBlackBoxASR.output_buffer
+    - OutputChunk.get_timestamp - the time when the chunk received from the StreamingBlackBoxASR.output_buffer
     
     After creating an StreamingBlackBoxASR object, we should start a thread that will process input chunks and
     emit output chunks. After this, new audio chunks can be sent using `.input_buffer.put(...)` (non-blocking),
