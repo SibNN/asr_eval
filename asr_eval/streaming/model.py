@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from enum import Enum
 import math
 import threading
+import time
 from typing import Any, Literal, Self, TypeVar, override
 
 import numpy.typing as npt
@@ -17,36 +18,57 @@ class Signal(Enum):
     EXIT = 0
     FINISH = 1
 
+
 RECORDING_ID_TYPE = int | str
 AUDIO_CHUNK_TYPE = npt.NDArray[Any] | bytes
     
+
 @dataclass(kw_only=True)
 class InputChunk:
     id: RECORDING_ID_TYPE = 0
     data: AUDIO_CHUNK_TYPE | Literal[Signal.FINISH, Signal.EXIT]
     
+    # chunk boundaries in the audio timescale, where 0 is the beginning of the audio
+    start_time: float | None = None
+    end_time: float | None = None
+    
+    # real-world timestamps in seconds (time.time()) filled by ASRStreamingQueue
+    put_timestamp: float | None = None
+    get_timestamp: float | None = None
+ 
+    
 @dataclass(kw_only=True)
 class OutputChunk:
     id: RECORDING_ID_TYPE = 0
     data: PartialTranscription | Literal[Signal.FINISH, Signal.EXIT]
+    
+    # real-world timestamps in seconds (time.time()) filled by ASRStreamingQueue
+    put_timestamp: float | None = None
+    get_timestamp: float | None = None
 
-# INPUT_CHUNK_TYPE = tuple[
-#     RECORDING_ID_TYPE, AUDIO_CHUNK_TYPE | Literal[Signal.FINISH, Signal.EXIT]
-# ]
-# OUTPUT_CHUNK_TYPE = tuple[
-#     RECORDING_ID_TYPE, PartialTranscription | Literal[Signal.FINISH, Signal.EXIT]
-# ]
 
 CHUNK_TYPE = TypeVar('CHUNK_TYPE', InputChunk, OutputChunk)
 
-class StreamingQueueWithChecks(StreamingQueue[CHUNK_TYPE]):
+
+class ASRStreamingQueue(StreamingQueue[CHUNK_TYPE]):
     """
-    A StreamingBuffer to use in StreamingBlackBoxASR, with custom data consistency checks.
+    A StreamingQueue to use in StreamingBlackBoxASR, with custom data consistency checks.
     """
     def __init__(self, name: str = 'unnamed'):
         super().__init__(name=name)
         self._finished_ids: set[RECORDING_ID_TYPE] = set()
         self._exited = False
+    
+    @override
+    def get(self) -> CHUNK_TYPE:
+        data = super().get()
+        data.get_timestamp = time.time()
+        return data
+    
+    @override
+    def put(self, data: CHUNK_TYPE) -> None:
+        data.put_timestamp = time.time()
+        return super().put(data)
     
     @override
     def _validate(self, data: CHUNK_TYPE):
@@ -66,8 +88,8 @@ class StreamingQueueWithChecks(StreamingQueue[CHUNK_TYPE]):
             raise e
 
 
-InputBuffer = StreamingQueueWithChecks[InputChunk]
-OutputBuffer = StreamingQueueWithChecks[OutputChunk]
+InputBuffer = ASRStreamingQueue[InputChunk]
+OutputBuffer = ASRStreamingQueue[OutputChunk]
 
 
 class StreamingBlackBoxASR(ABC):
