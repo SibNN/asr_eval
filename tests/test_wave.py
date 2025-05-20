@@ -3,6 +3,7 @@ import wave
 import pytest
 import librosa
 import numpy as np
+import numpy.typing as npt
 
 """
 Check that both methods give the same waveform:
@@ -17,7 +18,8 @@ def test_wave():
     audio_path = 'tests/testdata/vosk.wav'
     
     # Load with librosa
-    waveform_librosa, rate_librosa = librosa.load(audio_path, sr=None)
+    waveform_librosa: npt.NDArray[np.float64]
+    waveform_librosa, rate_librosa = librosa.load(audio_path, sr=None) # type: ignore
     assert rate_librosa == 16_000
 
     # Load with wave

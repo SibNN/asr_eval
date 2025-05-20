@@ -1,12 +1,11 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from dataclasses import dataclass
 from enum import Enum
 import math
 import threading
-from typing import Literal, Self, TypeVar, override
+from typing import Any, Literal, Self, TypeVar, override
 
-import numpy as np
+import numpy.typing as npt
 
 from .buffer import StreamingQueue
 from .transcription import PartialTranscription
@@ -19,9 +18,12 @@ class Signal(Enum):
 
 
 RECORDING_ID_TYPE = int | str
-AUDIO_CHUNK_TYPE = np.ndarray | bytes
+AUDIO_CHUNK_TYPE = npt.NDArray[Any] | bytes
 
-CHUNK_TYPE = tuple[RECORDING_ID_TYPE, TypeVar('PAYLOAD') | Literal[Signal.FINISH, Signal.EXIT]]
+INPUT_CHUNK_TYPE = tuple[RECORDING_ID_TYPE, AUDIO_CHUNK_TYPE | Literal[Signal.FINISH, Signal.EXIT]]
+OUTPUT_CHUNK_TYPE = tuple[RECORDING_ID_TYPE, PartialTranscription | Literal[Signal.FINISH, Signal.EXIT]]
+
+CHUNK_TYPE = TypeVar('CHUNK_TYPE', bound=INPUT_CHUNK_TYPE | OUTPUT_CHUNK_TYPE)
 
 class StreamingBufferWithChecks(StreamingQueue[CHUNK_TYPE]):
     """
@@ -29,7 +31,7 @@ class StreamingBufferWithChecks(StreamingQueue[CHUNK_TYPE]):
     """
     def __init__(self, name: str = 'unnamed'):
         super().__init__(name=name)
-        self._finished_ids = set()
+        self._finished_ids: set[RECORDING_ID_TYPE] = set()
         self._exited = False
     
     @override
@@ -51,8 +53,8 @@ class StreamingBufferWithChecks(StreamingQueue[CHUNK_TYPE]):
             raise e
 
 
-InputBuffer = StreamingBufferWithChecks[AUDIO_CHUNK_TYPE]
-OutputBuffer = StreamingBufferWithChecks[PartialTranscription]
+InputBuffer = StreamingBufferWithChecks[INPUT_CHUNK_TYPE]
+OutputBuffer = StreamingBufferWithChecks[OUTPUT_CHUNK_TYPE]
 
 
 class StreamingBlackBoxASR(ABC):
@@ -125,13 +127,14 @@ class StreamingBlackBoxASR(ABC):
         return self
     
     def stop_thread(self) -> None:
+        assert self._thread
         self.input_buffer.put((0, Signal.EXIT))
         self._thread.join()
         self._thread = None
     
     def _run_and_send_exit(self):
         try:
-            assert self._thread.ident == threading.get_ident()
+            assert self._thread and self._thread.ident == threading.get_ident()
             self._run()
         except BaseException as e:
             # catch any exception (maybe originating from input buffer being in error state, or not)

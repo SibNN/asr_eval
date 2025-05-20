@@ -1,11 +1,10 @@
-from collections import defaultdict
+from typing import TypedDict
 import numpy as np
 import pytest
 
 from asr_eval.streaming.caller import wait_for_transcribing
-from asr_eval.streaming.model import Signal, DummyASR
-from asr_eval.streaming.transcription import PartialTranscription
-from asr_eval.streaming.sender import RECORDING_ID_TYPE, StreamingAudioSender
+from asr_eval.streaming.model import DummyASR
+from asr_eval.streaming.sender import StreamingAudioSender
 
 
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnhandledThreadExceptionWarning")
@@ -15,7 +14,7 @@ def test_duplicate_input_ids():
     asr.start_thread()
     for _ in range(2):
         StreamingAudioSender(id=0, audio=np.zeros(16_000), real_time_interval_sec=1, send_to=asr.input_buffer).start_sending()
-    with pytest.raises(RuntimeError) as e:
+    with pytest.raises(RuntimeError):
         for _ in range(4):
             asr.output_buffer.get()
 
@@ -24,7 +23,11 @@ def test_basic():  # TODO extend test suite
     asr = DummyASR()
     asr.start_thread()
     
-    samples = [
+    class Sample(TypedDict):
+        input: StreamingAudioSender
+        output: list[str]
+    
+    samples: list[Sample] = [
         {
             'input': StreamingAudioSender(id=0, audio=np.zeros(16_000 * 5), speed_multiplier=27, send_to=asr.input_buffer),
             'output': [str(x) for x in range(5)]

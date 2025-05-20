@@ -1,6 +1,7 @@
 from collections import defaultdict
-from asr_eval.streaming.model import RECORDING_ID_TYPE, Signal, StreamingBlackBoxASR
-from asr_eval.streaming.transcription import PartialTranscription
+
+from .model import RECORDING_ID_TYPE, Signal, StreamingBlackBoxASR
+from .transcription import PartialTranscription
 
 
 def wait_for_transcribing(
@@ -19,7 +20,9 @@ def wait_for_transcribing(
     
     while True:
         id, output = asr.output_buffer.get()
-        if output is Signal.FINISH:
+        if output is Signal.EXIT:
+            raise AssertionError('EXIT received until transcribing all the IDs')
+        elif output is Signal.FINISH:
             finished[id] = True
             if all(finished.values()):
                 return results

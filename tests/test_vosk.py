@@ -1,14 +1,13 @@
 import json
 import wave
-from collections import defaultdict
 
 import pytest
 import librosa
 import numpy as np
-from vosk import Model, KaldiRecognizer
+import numpy.typing as npt
+from vosk import Model, KaldiRecognizer # type: ignore
 
 from asr_eval.streaming.caller import wait_for_transcribing
-from asr_eval.streaming.model import RECORDING_ID_TYPE, Signal
 from asr_eval.streaming.models.vosk import VoskStreaming
 from asr_eval.streaming.sender import StreamingAudioSender
 from asr_eval.streaming.transcription import PartialTranscription
@@ -32,11 +31,11 @@ def test_vosk_KaldiRecognizer():
         data = wf.readframes(4000)
         if len(data) == 0:
             break
-        if rec.AcceptWaveform(data):
-            transcription_done.append(json.loads(rec.Result())['text'])
+        if rec.AcceptWaveform(data): # type: ignore
+            transcription_done.append(json.loads(rec.Result())['text']) # type: ignore
             transcription_partial = None
         else:
-            transcription_partial = json.loads(rec.PartialResult())['partial']
+            transcription_partial = json.loads(rec.PartialResult())['partial'] # type: ignore
 
     if transcription_partial:
         transcription_done.append(transcription_partial)
@@ -46,7 +45,8 @@ def test_vosk_KaldiRecognizer():
 
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_vosk_wrapper():
-    waveform, _ = librosa.load('tests/testdata/vosk.wav', sr=16_000)
+    waveform: npt.NDArray[np.float64]
+    waveform, _ = librosa.load('tests/testdata/vosk.wav', sr=16_000) # type: ignore
     waveform_bytes = np.int16(waveform * 32768).tobytes()
 
     asr = VoskStreaming()

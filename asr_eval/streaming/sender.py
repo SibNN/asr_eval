@@ -1,35 +1,34 @@
 from abc import ABC, abstractmethod
-from dataclasses import InitVar, dataclass
-import math
+from dataclasses import dataclass
 import threading
 import time
-from typing import Self, override
+from typing import Any, Self, override
 
 import numpy as np
 
-from .model import InputBuffer, RECORDING_ID_TYPE, Signal
+from .model import AUDIO_CHUNK_TYPE, InputBuffer, RECORDING_ID_TYPE, Signal
 
 
 @dataclass(kw_only=True)
-class AbstractStreamingAudioSender(ABC):
+class BaseStreamingAudioSender(ABC):
     """
     Can be used to send int waveform, float waveform or wav bytes
     """
-    audio: np.ndarray
+    audio: AUDIO_CHUNK_TYPE
     send_to: InputBuffer
     id: RECORDING_ID_TYPE = 0
     sampling_rate: int = 16_000
     propagate_errors: bool = True
     verbose: bool = False
 
-    _thread: InitVar[threading.Thread | None] = None
+    _thread: threading.Thread | None = None
 
     @abstractmethod
     def get_send_times(self) -> list[tuple[float, float]]:
         '''Get send times, in real time scale and audio time scale'''
         ...
 
-    def __post_init__(self, *_args):
+    def __post_init__(self, *_args: Any):
         assert len(self.audio), 'audio has zero length'
 
     @property
@@ -77,7 +76,7 @@ class AbstractStreamingAudioSender(ABC):
         
 
 @dataclass(kw_only=True)
-class StreamingAudioSender(AbstractStreamingAudioSender):
+class StreamingAudioSender(BaseStreamingAudioSender):
     real_time_interval_sec: float = 1 / 25
     speed_multiplier: float = 1.0
 
