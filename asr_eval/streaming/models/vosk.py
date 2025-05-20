@@ -4,7 +4,7 @@ from typing import override
 
 from vosk import Model, KaldiRecognizer # type: ignore
 
-from ..transcription import PartialTranscription
+from ..transcription import LATEST, PartialTranscription
 from ..model import StreamingBlackBoxASR, Signal, RECORDING_ID_TYPE
 
 class VoskStreaming(StreamingBlackBoxASR):
@@ -35,6 +35,6 @@ class VoskStreaming(StreamingBlackBoxASR):
                     self.output_buffer.put((id, PartialTranscription(text=text)))
                 else:
                     partial_text = json.loads(rec.PartialResult())['partial'] # type: ignore
-                    self.output_buffer.put((id, PartialTranscription(id='latest', text=partial_text)))
+                    self.output_buffer.put((id, PartialTranscription(id=LATEST, text=partial_text)))
                 
                 

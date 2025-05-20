@@ -4,41 +4,48 @@ from dataclasses import dataclass, field
 import uuid
 
 
+LATEST = '__latest__'  # a special symbol to refer to the latest transcription chunk
+
+
 @dataclass(kw_only=True)
 class PartialTranscription:
     """
     A chunk returned by a streaming ASR model, may contain any text and any ID. If the model
     wants to edit the previous chunk, it can yield the same ID with another text, or refer to
-    the last chunk with ID == 'latest'. Example:
+    the last chunk with ID == LATEST. Example:
     
     PartialTranscription.join([
         PartialTranscription(text='a'),
-        PartialTranscription(id='latest', text='a2'),
+        PartialTranscription(id=LATEST, text='a2'),
         PartialTranscription(id=1, text='b'),
         PartialTranscription(id=2, text='c'),
         PartialTranscription(id=1, text='b2 b3'),
     ]) == 'a2 b2 b3 c'
+    
+    The argument final=True in PartialTranscription indicates that this chunk is final and
+    will not be changed later.
     """
     id: int | str = field(default_factory=lambda: str(uuid.uuid4()))
     text: str
+    final: bool = False
     
     @classmethod
     def join(cls, transcriptions: list[PartialTranscription]) -> str:
         parts: dict[int | str, str] = {}
+        final_ids: set[int | str] = set()
         
-        latest_id = None
         for t in transcriptions:
-            if t.id == 'latest':
+            if t.id == LATEST:
                 # edit the lastest chunk
-                if latest_id is None:
-                    # the very first chunk has "latest" ID, assiging an ID
-                    latest_id = '<initial>'
-                parts[latest_id] = t.text
-            elif t.id in parts:
-                # edit one of the previous chunks
-                parts[t.id] = t.text
+                current_id = list(parts)[-1] if len(parts) else '<initial>'
             else:
-                # add a new chunk, set as latest
-                parts[t.id] = t.text
-                latest_id = t.id
+                # edit one of the previous chunks or add a new chunk, set as latest
+                current_id = t.id
+            
+            assert current_id not in final_ids, 'trying to rewrite chunk marked as final'
+            if t.final:
+                final_ids.add(current_id)
+            
+            parts[current_id] = t.text
+            
         return ' '.join(parts.values())
