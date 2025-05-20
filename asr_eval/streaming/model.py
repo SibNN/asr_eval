@@ -130,10 +130,12 @@ class StreamingBlackBoxASR(ABC):
     
     The input chunks may optionally contain audio timings (for example, StreamingAudioSender adds this
     information), but they are generally not used. Also, some timestamps are automatically filled:
-    - InputChunk.put_timestamp - the time when the chunk added to the StreamingBlackBoxASR.input_buffer
-    - InputChunk.get_timestamp - the time when the chunk received from the StreamingBlackBoxASR.input_buffer
-    - OutputChunk.put_timestamp - the time when the chunk added to the StreamingBlackBoxASR.output_buffer
-    - OutputChunk.get_timestamp - the time when the chunk received from the StreamingBlackBoxASR.output_buffer
+    1. InputChunk.put_timestamp - the time when the chunk added to the StreamingBlackBoxASR.input_buffer
+    2. InputChunk.get_timestamp - the time when the chunk received from the StreamingBlackBoxASR.input_buffer
+    3. OutputChunk.put_timestamp - the time when the chunk added to the StreamingBlackBoxASR.output_buffer
+    4. OutputChunk.get_timestamp - the time when the chunk received from the StreamingBlackBoxASR.output_buffer
+    
+    Pts 1, 4 happen in the caller code, and pts 2, 3 happen in the StreamingBlackBoxASR worker thread.
     
     After creating an StreamingBlackBoxASR object, we should start a thread that will process input chunks and
     emit output chunks. After this, new audio chunks can be sent using `.input_buffer.put(...)` (non-blocking),
