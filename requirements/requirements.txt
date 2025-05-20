@@ -1,3 +1,7 @@
 numpy
 librosa
 matplotlib
+datasets
+ipywidgets
+ipykernel
+jiwer

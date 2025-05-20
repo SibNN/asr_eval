@@ -2,20 +2,29 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import threading
 import time
-from typing import Any, Self, override
+from typing import Any, Literal, Self, override
 
 import numpy as np
 
-from .model import AUDIO_CHUNK_TYPE, InputBuffer, RECORDING_ID_TYPE, InputChunk, Signal
+from asr_eval.streaming.buffer import ID_TYPE
+
+from .model import AUDIO_CHUNK_TYPE, InputBuffer, InputChunk, Signal
 
 
 @dataclass(kw_only=True)
 class BaseStreamingAudioSender(ABC):
     """
-    Can be used to send int waveform, float waveform or wav bytes
+    Can be used to send int waveform, float waveform or wav bytes. Call .start_sending()
+    to start sending in a separate thread.
+    
+    Has one of 3 statuses:
+    - "not_started": .start_sending() was not called.
+    - "started": .start_sending() was called, but the thread is not finished. The thread might
+    actually not have started yet, or might have already started.
+    - "finished": the thread is finished.
     """
     audio: AUDIO_CHUNK_TYPE
-    id: RECORDING_ID_TYPE = 0
+    id: ID_TYPE = 0
     sampling_rate: int = 16_000
     propagate_errors: bool = True
     verbose: bool = False
@@ -27,6 +36,14 @@ class BaseStreamingAudioSender(ABC):
         '''Get send times, in real time scale and audio time scale'''
         ...
 
+    def get_status(self) -> Literal['not_started', 'started', 'finished']:
+        if not self._thread:
+            return 'not_started'
+        elif not self._thread._is_stopped(): # type: ignore
+            return 'started'
+        else:
+            return 'finished'
+
     def __post_init__(self, *_args: Any):
         assert len(self.audio), 'audio has zero length'
 
@@ -35,6 +52,7 @@ class BaseStreamingAudioSender(ABC):
         return len(self.audio) / self.sampling_rate
     
     def start_sending(self, send_to: InputBuffer) -> Self:
+        assert not self._thread
         self._thread = threading.Thread(target=self._run, kwargs={'send_to': send_to}, daemon=True)
         self._thread.start()
         return self
@@ -42,7 +60,6 @@ class BaseStreamingAudioSender(ABC):
     def join(self):
         assert self._thread
         self._thread.join()
-        self._thread = None
     
     def _run(self, send_to: InputBuffer):
         try:
@@ -64,15 +81,10 @@ class BaseStreamingAudioSender(ABC):
             ) in enumerate(zip(times[:-1], times[1:], points[:-1], points[1:])):
                 if self.verbose:
                     print(f'Sending: id={self.id}, real {tr1:.3f}..{tr2:.3f}, audio {ta1:.3f}..{ta2:.3f}')
-                send_to.put(InputChunk(
-                    id=self.id,
-                    data=self.audio[p1:p2],
-                    start_time=ta1,
-                    end_time=ta2,
-                ))
+                send_to.put(InputChunk(data=self.audio[p1:p2], start_time=ta1, end_time=ta2), id=self.id)
                 if i != len(times) - 2:  # don't sleep after the last chunk
                     time.sleep(tr2 - tr1)
-            send_to.put(InputChunk(id=self.id, data=Signal.FINISH))
+            send_to.put(InputChunk(data=Signal.FINISH), id=self.id)
         except BaseException as e:
             if self.propagate_errors:
                 send_to.put_error(e)

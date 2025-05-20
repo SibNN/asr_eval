@@ -1,30 +1,48 @@
-from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
+import textwrap
+from asr_eval.streaming.buffer import ID_TYPE
 
-from .model import RECORDING_ID_TYPE, Signal, StreamingBlackBoxASR
+from .model import Signal, StreamingBlackBoxASR
 from .transcription import PartialTranscription
+from .sender import BaseStreamingAudioSender, StreamingAudioSender
 
 
-def wait_for_transcribing(
+def receive_full_transcription(
     asr: StreamingBlackBoxASR,
-    ids: list[RECORDING_ID_TYPE]
-) -> dict[RECORDING_ID_TYPE, list[PartialTranscription]]:
+    id: ID_TYPE,
+    sender: BaseStreamingAudioSender | None = None,
+) -> list[PartialTranscription]:
     '''
-    Blocks and listen for outputs from the StreamingBlackBoxASR until Signal.FINISH received
-    for all the specified ids. Then returns all the received outputs.
-    
-    Note that in general the returned dict may contain other IDs not specified in `ids` argument
-    if StreamingBlackBoxASR outputs these IDs.
+    Blocks and waits until the full transcription (ended with Signal.FINISH) received for the given ID.
+    If sender is provided, runs .start_sending() on it before.
     '''
-    results: dict[RECORDING_ID_TYPE, list[PartialTranscription]] = defaultdict(list)
-    finished: dict[RECORDING_ID_TYPE, bool] = {id: False for id in ids}
-    
+    if sender:
+        assert sender.id == id
+        sender.start_sending(send_to=asr.input_buffer)
+    results: list[PartialTranscription] = []
     while True:
-        output_chunk = asr.output_buffer.get()
-        if output_chunk.data is Signal.EXIT:
-            raise AssertionError('EXIT received until transcribing all the IDs')
-        elif output_chunk.data is Signal.FINISH:
-            finished[output_chunk.id] = True
-            if all(finished.values()):
-                return results
+        output_chunk, _id = asr.output_buffer.get(id=id)
+        if output_chunk.data is Signal.FINISH:
+            return results
         else:
-            results[output_chunk.id].append(output_chunk.data)
+            results.append(output_chunk.data)
+
+def transribe_parallel(
+    asr: StreamingBlackBoxASR,
+    senders: list[StreamingAudioSender],
+    n_threads: int,
+) -> dict[ID_TYPE, list[PartialTranscription]]:
+    '''
+    Transcribes the senders in parallel, no more than `n_threads` senders simultaneously. Sender is
+    considered to be transcribed when Signal.FINISH received for its ID.
+    
+    Call asr.start_thread() before calling this method, and asr.stop_thread() after.
+    '''
+    def process_sender(sender: StreamingAudioSender) -> tuple[ID_TYPE, list[PartialTranscription]]:
+        print(f'Transcribing {sender.id}')
+        transcription = receive_full_transcription(asr=asr, sender=sender, id=sender.id)
+        print(f'Transcribed {sender.id}: {textwrap.shorten(PartialTranscription.join(transcription), width=80)}', flush=True)
+        return sender.id, transcription
+    
+    with ThreadPoolExecutor(max_workers=n_threads) as executor:
+        return dict(executor.map(process_sender, senders))

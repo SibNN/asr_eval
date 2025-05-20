@@ -9,24 +9,25 @@ from typing import Any, Literal, Self, TypeVar, override
 
 import numpy.typing as npt
 
-from .buffer import StreamingQueue
+from .buffer import ID_TYPE, StreamingQueue
 from .transcription import PartialTranscription
 
 
 class Signal(Enum):
     """See StreamingBlackBoxASR docstring for details"""
-    EXIT = 0
-    FINISH = 1
+    FINISH = 0
 
 
-RECORDING_ID_TYPE = int | str
+class Exit(Exception):
+    pass
+
+
 AUDIO_CHUNK_TYPE = npt.NDArray[Any] | bytes
     
 
 @dataclass(kw_only=True)
 class InputChunk:
-    id: RECORDING_ID_TYPE = 0
-    data: AUDIO_CHUNK_TYPE | Literal[Signal.FINISH, Signal.EXIT]
+    data: AUDIO_CHUNK_TYPE | Literal[Signal.FINISH]
     
     # chunk boundaries in the audio timescale, where 0 is the beginning of the audio
     start_time: float | None = None
@@ -39,8 +40,7 @@ class InputChunk:
     
 @dataclass(kw_only=True)
 class OutputChunk:
-    id: RECORDING_ID_TYPE = 0
-    data: PartialTranscription | Literal[Signal.FINISH, Signal.EXIT]
+    data: PartialTranscription | Literal[Signal.FINISH]
     
     # real-world timestamps in seconds (time.time()) filled by ASRStreamingQueue
     put_timestamp: float | None = None
@@ -56,31 +56,26 @@ class ASRStreamingQueue(StreamingQueue[CHUNK_TYPE]):
     """
     def __init__(self, name: str = 'unnamed'):
         super().__init__(name=name)
-        self._finished_ids: set[RECORDING_ID_TYPE] = set()
+        self._finished_ids: set[ID_TYPE] = set()
         self._exited = False
     
     @override
-    def get(self) -> CHUNK_TYPE:
-        data = super().get()
-        data.get_timestamp = time.time()
-        return data
+    def get(self, id: ID_TYPE | None = None, timeout: float | None = None) -> tuple[CHUNK_TYPE, ID_TYPE]:
+        chunk, id = super().get(id=id, timeout=timeout)
+        chunk.get_timestamp = time.time()
+        return chunk, id
     
     @override
-    def put(self, data: CHUNK_TYPE) -> None:
-        self._validate(data)
+    def put(self, data: CHUNK_TYPE, id: ID_TYPE = 0) -> None:
+        self._validate(data=data, id=id)
         data.put_timestamp = time.time()
-        return super().put(data)
+        return super().put(data, id=id)
     
-    def _validate(self, data: CHUNK_TYPE):
+    def _validate(self, data: CHUNK_TYPE, id: ID_TYPE):
         try:
-            assert not self._exited, f'Got {data.id} but already exited'
-            if data.data is Signal.EXIT:
-                self._exited = True
-                return
-            
-            assert id not in self._finished_ids, f'Got {id}, {chunk}, but already finished this id'
+            assert id not in self._finished_ids, f'Got id={id} but already finished this id'
             if data.data is Signal.FINISH:
-                self._finished_ids.add(data.id)
+                self._finished_ids.add(id)
         except BaseException as e:
             # this will raise the error in the receiver thread on .get()
             self.put_error(e)
@@ -108,25 +103,25 @@ class StreamingBlackBoxASR(ABC):
     unique for StreamingBlackBoxASR object and should not be reused, or the exception will be thrown.
     - **Signal.FINISH**: a symbol that signals that a stream for a specific recording ID has ended. This can
     refer to either the input stream (audio chunks) or the output stream (PartialTranscription-s).
-    - **Signal.EXIT**: a symbol that signals that all streams for all recording IDs have ended. This can refer
-    to either the input stream or the output stream. After receiving and emitting EXIT, StreamingBlackBoxASR
-    thread finishes.
+    - **Exit**: an exception that signals that all streams for all recording IDs have ended. This can refer
+    to either the input stream or the output stream. After receiving Exit from the input buffer and sending Exit
+    to the output buffer, StreamingBlackBoxASR thread finishes.
     
     Each input chunk can be one of:
     - an InputChunk(id=Recording ID, data=<Audio chunk>)
     - an InputChunk(id=Recording ID, data=Signal.FINISH)
-    - an InputChunk(id=0, data=Signal.EXIT)
     
     Each output chunk can be one of:
     - an OutputChunk(id=Recording ID, data=<PartialTranscription>)
     - an OutputChunk(id=Recording ID, data=Signal.FINISH)
-    - an OutputChunk(id=0, data=Signal.EXIT)
     
     Details:
     - FINISH input chunk indices that the audio for the ID has been fully sent
     - FINISH output chunk indices that FINISH input chunk received fhr the given ID and the transcription is done
-    - EXIT input chunk indicates that all audios have been fully sent
-    - EXIT output chunk indicates that EXIT input chunk received, all transcriptions are done
+    
+    An Exit exception in the input buffer indicates that all audios have been fully sent
+    An Exit exception in the output buffer indicates that Exit received from the input buffer and the
+    StreamingBlackBoxASR thread exited. This does not mean that all transcriptions are fully done.
     
     The input chunks may optionally contain audio timings (for example, StreamingAudioSender adds this
     information), but they are generally not used. Also, some timestamps are automatically filled:
@@ -150,6 +145,7 @@ class StreamingBlackBoxASR(ABC):
     error state. This will raise the exception when reading from the input buffer in the StreamingBlackBoxASR
     thread, then see pt. 1.
     3) Exceptions in StreamingAudioSender thread will set the input buffer into the error state, then see pt. 2.
+    4) `Exit` is a special exception type indicating that input or output stream has been closed properly.
     """
     def __init__(self, sampling_rate: int = 16_000):
         self._sampling_rate = sampling_rate
@@ -166,7 +162,7 @@ class StreamingBlackBoxASR(ABC):
     
     def stop_thread(self) -> None:
         assert self._thread
-        self.input_buffer.put(InputChunk(data=Signal.EXIT))
+        self.input_buffer.put_error(Exit())
         self._thread.join()
         self._thread = None
     
@@ -174,23 +170,29 @@ class StreamingBlackBoxASR(ABC):
         try:
             assert self._thread and self._thread.ident == threading.get_ident()
             self._run()
+            # if we are here, _run has ended without Exit exception, this is not usual
+            self.output_buffer.put_error(Exit())
         except BaseException as e:
-            # catch any exception (maybe originating from input buffer being in error state, or not)
-            # set the output buffer in the error state
-            self.output_buffer.put_error(e)
-            raise e
-        self.output_buffer.put(OutputChunk(data=Signal.EXIT))
+            if isinstance(e, RuntimeError) and isinstance(e.__cause__, Exit):
+                self.output_buffer.put_error(Exit())
+                # if we are here, _run has ended after receiving Exit from the input stream, this is usual
+            else:
+                # if we are here, _run has ended with a different exception, maybe originating from the
+                # input buffer or the problem in the _run method itself. We propagate the exception to the
+                # output buffer and re-raise
+                self.output_buffer.put_error(e)
+                raise e
     
     @abstractmethod
     def _run(self):
         """
-        This method will be called in a separate thread on `self.start_thread()` and should live
-        until Signal.EXIT has been received. To get the next input chunk, we can use
-        `self.input_buffer.get()` (blocks until the next chunk is available). To emit a new
-        output chunk, we can use `self.output_buffer.put()` (non-blocking).
+        This method will be called in a separate thread on `self.start_thread()` and should live forever
+        (use `self.input_buffer.get()` in the `while True` loop). To get the next input chunk, we can use
+        `self.input_buffer.get()` (blocks until the next chunk is available). To emit a new output chunk,
+        we can use `self.output_buffer.put()` (non-blocking).
         
-        This method should return only after Signal.EXIT chunk is received and return without
-        sending EXIT chunk (this will be done in _run_and_send_exit wrapper).
+        Normally on .stop_thread() `Exit` exception is raised from `self.input_buffer.get()` and
+        should not be handled in _run.
         """
         ...
 
@@ -202,30 +204,26 @@ class DummyASR(StreamingBlackBoxASR):
     
     def __init__(self, sampling_rate: int = 16_000):
         super().__init__(sampling_rate=sampling_rate)
-        self._received_seconds: dict[RECORDING_ID_TYPE, float] = defaultdict(float)
-        self._transcribed_seconds: dict[RECORDING_ID_TYPE, int] = defaultdict(int)
+        self._received_seconds: dict[ID_TYPE, float] = defaultdict(float)
+        self._transcribed_seconds: dict[ID_TYPE, int] = defaultdict(int)
     
     @override
     def _run(self):
         while True:
-            input_chunk = self.input_buffer.get()
-            id = input_chunk.id
-            
-            if input_chunk.data is Signal.EXIT:
-                return
+            chunk, id = self.input_buffer.get()
             
             self._received_seconds[id] += (
-                len(input_chunk.data) / self._sampling_rate if input_chunk.data is not Signal.FINISH else 0
+                len(chunk.data) / self._sampling_rate if chunk.data is not Signal.FINISH else 0
             )
             
             new_transcribed_seconds = math.ceil(self._received_seconds[id])
             
             for i in range(self._transcribed_seconds[id], new_transcribed_seconds):
-                self.output_buffer.put(OutputChunk(id=id, data=PartialTranscription(text=str(i))))
+                self.output_buffer.put(OutputChunk(data=PartialTranscription(text=str(i))), id=id)
                 
             self._transcribed_seconds[id] = new_transcribed_seconds
             
-            if input_chunk.data is Signal.FINISH:
+            if chunk.data is Signal.FINISH:
                 del self._received_seconds[id]
                 del self._transcribed_seconds[id]
-                self.output_buffer.put(OutputChunk(id=id, data=Signal.FINISH))
+                self.output_buffer.put(OutputChunk(data=Signal.FINISH), id=id)
