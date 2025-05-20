@@ -25,7 +25,7 @@ OUTPUT_CHUNK_TYPE = tuple[RECORDING_ID_TYPE, PartialTranscription | Literal[Sign
 
 CHUNK_TYPE = TypeVar('CHUNK_TYPE', INPUT_CHUNK_TYPE, OUTPUT_CHUNK_TYPE)
 
-class StreamingBufferWithChecks(StreamingQueue[CHUNK_TYPE]):
+class StreamingQueueWithChecks(StreamingQueue[CHUNK_TYPE]):
     """
     A StreamingBuffer to use in StreamingBlackBoxASR, with custom data consistency checks.
     """
@@ -47,14 +47,14 @@ class StreamingBufferWithChecks(StreamingQueue[CHUNK_TYPE]):
             if chunk is Signal.FINISH:
                 self._finished_ids.add(id)
         except BaseException as e:
-            # this will raise the error in the receiver thread on .receive()
+            # this will raise the error in the receiver thread on .get()
             self.put_error(e)
             # raise the error in the sender thread
             raise e
 
 
-InputBuffer = StreamingBufferWithChecks[INPUT_CHUNK_TYPE]
-OutputBuffer = StreamingBufferWithChecks[OUTPUT_CHUNK_TYPE]
+InputBuffer = StreamingQueueWithChecks[INPUT_CHUNK_TYPE]
+OutputBuffer = StreamingQueueWithChecks[OUTPUT_CHUNK_TYPE]
 
 
 class StreamingBlackBoxASR(ABC):
@@ -94,16 +94,10 @@ class StreamingBlackBoxASR(ABC):
     - (0, EXIT) output chunk indicates that (0, EXIT) input chunk received, all transcriptions are done
     
     After creating an StreamingBlackBoxASR object, we should start a thread that will process input chunks and
-    emit output chunks. After this, new audio chunks can be sent using `.input_buffer.send(...)` (non-blocking),
-    and the outputs can be received with `.output_buffer.receive(...)` (blocks until output becomes available).
+    emit output chunks. After this, new audio chunks can be sent using `.input_buffer.put(...)` (non-blocking),
+    and the outputs can be received with `.output_buffer.get(...)` (blocks until output becomes available).
     Instead of manual sending, a StreamingAudioSender can be helpful. It will start a thread that sends audio
-    chunks with a delay between each chunk. Example:
-    
-    ```
-    asr = DummyBlackBoxASR(sampling_rate=16_000)
-    asr.start_thread()
-    ...TODO examples in progress
-    ```
+    chunks with a delay between each chunk.
     
     Exception handling:
     1) Any exception raised from the StreamingBlackBoxASR thread will set the output buffer in the error state.
@@ -148,8 +142,8 @@ class StreamingBlackBoxASR(ABC):
         """
         This method will be called in a separate thread on `self.start_thread()` and should live
         until Signal.EXIT has been received. To get the next input chunk, we can use
-        `self.input_buffer.receive()` (blocks until the next chunk is available). To emit a new
-        output chunk, we can use `self.output_buffer.send()` (non-blocking).
+        `self.input_buffer.get()` (blocks until the next chunk is available). To emit a new
+        output chunk, we can use `self.output_buffer.put()` (non-blocking).
         
         This method should return only after Signal.EXIT chunk is received and return without
         sending EXIT chunk (this will be done in _run_and_send_exit wrapper).
