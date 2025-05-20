@@ -23,7 +23,7 @@ AUDIO_CHUNK_TYPE = npt.NDArray[Any] | bytes
 INPUT_CHUNK_TYPE = tuple[RECORDING_ID_TYPE, AUDIO_CHUNK_TYPE | Literal[Signal.FINISH, Signal.EXIT]]
 OUTPUT_CHUNK_TYPE = tuple[RECORDING_ID_TYPE, PartialTranscription | Literal[Signal.FINISH, Signal.EXIT]]
 
-CHUNK_TYPE = TypeVar('CHUNK_TYPE', bound=INPUT_CHUNK_TYPE | OUTPUT_CHUNK_TYPE)
+CHUNK_TYPE = TypeVar('CHUNK_TYPE', INPUT_CHUNK_TYPE, OUTPUT_CHUNK_TYPE)
 
 class StreamingBufferWithChecks(StreamingQueue[CHUNK_TYPE]):
     """
