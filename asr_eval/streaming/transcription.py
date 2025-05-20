@@ -15,11 +15,11 @@ class PartialTranscription:
     the last chunk with ID == LATEST. Example:
     
     PartialTranscription.join([
-        PartialTranscription(text='a'),
-        PartialTranscription(id=LATEST, text='a2'),
-        PartialTranscription(id=1, text='b'),
-        PartialTranscription(id=2, text='c'),
-        PartialTranscription(id=1, text='b2 b3'),
+        PartialTranscription(text='a'),               # append a new chunk with text 'a' without an explicit id to refer
+        PartialTranscription(id=LATEST, text='a2'),   # edit the latest chunk: 'a' -> 'a2'
+        PartialTranscription(id=1, text='b'),         # append a new chunk with text 'b', 2 chunks in total: 'a', 'b'[id=1]
+        PartialTranscription(id=2, text='c'),         # append a new chunk with text 'c', 3 chunks in total: 'a', 'b'[id=1], 'c'[id=2]
+        PartialTranscription(id=1, text='b2 b3'),     # edit the chunk with id=1: 'a', 'b2 b3'[id=1], 'c'[id=2]
     ]) == 'a2 b2 b3 c'
     
     The argument final=True in PartialTranscription indicates that this chunk is final and
