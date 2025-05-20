@@ -8,7 +8,6 @@ class StreamingQueue(Generic[T]):
     """
     Similar to queue.Queue with the following differences:
     - typization
-    - supports custom data validation method
     - if something goes wrong, the procucer thread can put an error to the queue, and it will be raised
     in the consumer thread on the next get operation (see the example in test_error_propagation() in
     tests/test_buffer.py)
@@ -23,7 +22,6 @@ class StreamingQueue(Generic[T]):
     def put(self, data: T) -> None:
         """Add data to buffer (non-blocking, thread-safe)"""
         with self._lock:
-            self._validate(data)
             self._buffer.append(data)
             self._data_available.set()
     
@@ -37,9 +35,6 @@ class StreamingQueue(Generic[T]):
             if not self._buffer:
                 self._data_available.clear()
             return result
-    
-    def _validate(self, data: T):
-        pass  # may be overridden for custom checks
     
     def put_error(self, error: BaseException):
         if self._error:  # already set

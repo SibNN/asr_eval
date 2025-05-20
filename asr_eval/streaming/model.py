@@ -67,10 +67,10 @@ class ASRStreamingQueue(StreamingQueue[CHUNK_TYPE]):
     
     @override
     def put(self, data: CHUNK_TYPE) -> None:
+        self._validate(data)
         data.put_timestamp = time.time()
         return super().put(data)
     
-    @override
     def _validate(self, data: CHUNK_TYPE):
         try:
             assert not self._exited, f'Got {data.id} but already exited'
