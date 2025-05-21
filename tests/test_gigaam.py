@@ -8,6 +8,8 @@ import librosa
 import numpy as np
 import numpy.typing as npt
 
+from asr_eval.models.gigaam import transcribe_with_gigaam_ctc
+
 
 @pytest.fixture
 def model() -> GigaAMASR:
@@ -50,14 +52,5 @@ def test_giggam(model: GigaAMASR, audio_path: str, text: str):
 def test_giggam_manual(model: GigaAMASR, audio_path: str, text: str):
     waveform: npt.NDArray[np.float64]
     waveform, _ = librosa.load(audio_path, sr=16_000) # type: ignore
-    
-    waveform_tensor = torch.tensor(waveform, dtype=model._dtype).unsqueeze(0) # pyright: ignore[reportPrivateUsage]
-    length = torch.tensor([waveform_tensor.shape[1]])
-    
-    encoded, encoded_len = model.forward(waveform_tensor, length)
-    log_probs = model.head(encoder_output=encoded)
-    labels = log_probs.argmax(dim=-1, keepdim=False)
-    skip_mask = labels != model.decoding.blank_id
-    skip_mask[:, 1:] = torch.logical_and(skip_mask[:, 1:], labels[:, 1:] != labels[:, :-1])
-    skip_mask[encoded_len:] = 0
-    assert "".join(model.decoding.tokenizer.decode(labels[0][skip_mask[0]].cpu().tolist())) == text
+    output = transcribe_with_gigaam_ctc(model, waveform)
+    assert output.text == text
