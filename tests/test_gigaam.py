@@ -15,20 +15,14 @@ from asr_eval.models.gigaam import transcribe_with_gigaam_ctc
 def model() -> GigaAMASR:
     return typing.cast(GigaAMASR, gigaam.load_model('ctc', device='cpu'))
 
-@pytest.fixture
-def audio_path() -> str:
-    return 'tests/testdata/podlodka_test_0.wav'
-
-@pytest.fixture
-def text() -> str:
-    return 'и поэтому использовать их в повседневности не получается мы вынуждены поступать зачастую интуитивно'
-
 @pytest.mark.filterwarnings('ignore::FutureWarning:', 'ignore::UserWarning:', 'ignore::DeprecationWarning:')
-def test_prepare_audio_for_gigaam(model: GigaAMASR, audio_path: str):
+def test_prepare_audio_for_gigaam(model: GigaAMASR):
     '''
     Check that we can prepare audio manually instead of GigaAM.prepare_wav(path) and get the same result.
     This is useful because prepare_wav accepts path, but typically we have a numpy waveform instead.
     '''
+    audio_path = 'tests/testdata/podlodka_test_0.wav'
+    
     # load using gigaam
     waveform_torch_from_giaam, length = model.prepare_wav(audio_path)
 
@@ -45,12 +39,15 @@ def test_prepare_audio_for_gigaam(model: GigaAMASR, audio_path: str):
     assert torch.all(length == length_from_librosa)
 
 @pytest.mark.filterwarnings('ignore::FutureWarning:')
-def test_giggam(model: GigaAMASR, audio_path: str, text: str):
-    assert model.transcribe(audio_path) == text
+def test_giggam(model: GigaAMASR):
+    audio_path = 'tests/testdata/podlodka_test_0.wav'
+    
+    # expected gigaam prediction
+    expected_text = 'и поэтому использовать их в повседневности не получается мы вынуждены поступать зачастую интуитивно'
+    
+    assert model.transcribe(audio_path) == expected_text
 
-@pytest.mark.filterwarnings('ignore::FutureWarning:')
-def test_giggam_manual(model: GigaAMASR, audio_path: str, text: str):
     waveform: npt.NDArray[np.float64]
     waveform, _ = librosa.load(audio_path, sr=16_000) # type: ignore
     output = transcribe_with_gigaam_ctc(model, waveform)
-    assert output.text == text
+    assert output.text == expected_text
