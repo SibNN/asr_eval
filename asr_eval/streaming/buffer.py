@@ -19,17 +19,11 @@ class StreamingQueue(Generic[T]):
         self._buffer: list[tuple[T, ID_TYPE]] = []
         self._error: RuntimeError | None = None
         self._condition = threading.Condition()
-        self.history: list[tuple[T, ID_TYPE]] | None = None
-    
-    def keep_history(self):
-        self.history = []
     
     def put(self, data: T, id: ID_TYPE = 0) -> None:
         """Add data to buffer (non-blocking, thread-safe)"""
         with self._condition:
             self._buffer.append((data, id))
-            if self.history is not None:
-                self.history.append((data, id))
             self._condition.notify_all()
     
     def _pop_element_for_id(self, id: ID_TYPE) -> tuple[T, ID_TYPE] | None:

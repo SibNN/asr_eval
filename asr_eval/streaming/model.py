@@ -1,10 +1,12 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
+import copy
 from dataclasses import dataclass
 from enum import Enum
 import math
 import threading
 import time
+import builtins
 from typing import Any, Literal, Self, TypeVar, override
 
 import numpy.typing as npt
@@ -57,18 +59,28 @@ class ASRStreamingQueue(StreamingQueue[CHUNK_TYPE]):
     def __init__(self, name: str = 'unnamed'):
         super().__init__(name=name)
         self._finished_ids: set[ID_TYPE] = set()
-        self._exited = False
+        self.history: list[tuple[CHUNK_TYPE, ID_TYPE]] | None = None
+        self._positions_in_history: dict[int, int] = {}
+    
+    def track_history(self):
+        self.history = []
     
     @override
     def get(self, id: ID_TYPE | None = None, timeout: float | None = None) -> tuple[CHUNK_TYPE, ID_TYPE]:
-        chunk, id = super().get(id=id, timeout=timeout)
-        chunk.get_timestamp = time.time()
-        return chunk, id
+        data, id = super().get(id=id, timeout=timeout)
+        data.get_timestamp = time.time()
+        if self.history is not None and builtins.id(data) in self._positions_in_history:
+            history_idx = self._positions_in_history[builtins.id(data)]
+            del self.history[history_idx][0].data
+        return data, id
     
     @override
     def put(self, data: CHUNK_TYPE, id: ID_TYPE = 0) -> None:
         self._validate(data=data, id=id)
         data.put_timestamp = time.time()
+        if self.history is not None:
+            self.history.append((copy.deepcopy(data), id))
+            self._positions_in_history[builtins.id(data)] = len(self.history) - 1
         return super().put(data, id=id)
     
     def _validate(self, data: CHUNK_TYPE, id: ID_TYPE):
