@@ -1,4 +1,5 @@
 import typing
+from itertools import groupby
 
 import pytest
 import gigaam # pyright: ignore[reportMissingTypeStubs]
@@ -8,7 +9,7 @@ import librosa
 import numpy as np
 import numpy.typing as npt
 
-from asr_eval.models.gigaam import transcribe_with_gigaam_ctc
+from asr_eval.models.gigaam import transcribe_with_gigaam_ctc, decode_each_token
 
 
 @pytest.fixture
@@ -51,3 +52,6 @@ def test_giggam(model: GigaAMASR):
     waveform, _ = librosa.load(audio_path, sr=16_000) # type: ignore
     output = transcribe_with_gigaam_ctc(model, waveform)
     assert output.text == expected_text
+    
+    symbols = decode_each_token(model, output.labels[0])
+    assert ''.join([key for key, _group in groupby(symbols) if key != '_']) == expected_text

@@ -53,3 +53,21 @@ def transcribe_with_gigaam_ctc(
         tokens=tokens,
         text=text,
     )
+
+def decode_each_token(model: GigaAMASR, tokens: list[int] | torch.Tensor) -> list[str]:
+    '''
+    Example:
+    model = gigaam.load_model('ctc', device='cpu')
+    outputs = transcribe_with_gigaam_ctc(model, waveform)
+    ''.join(decode_each_token(model, outputs.labels[0]))
+    >>> '___и по_эттому  иисполльзо_ватьь иих вв по_ввседдне ..... '
+    '''
+    if isinstance(tokens, torch.Tensor):
+        assert tokens.ndim == 1, 'pass a single sample, not a batch'
+        tokens = tokens.cpu().tolist() # type: ignore
+    return [
+        model.decoding.tokenizer.decode([x])
+        if x != model.decoding.blank_id
+        else '_'
+        for x in tokens
+    ]
