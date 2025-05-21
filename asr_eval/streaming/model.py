@@ -13,11 +13,7 @@ import numpy.typing as npt
 
 from .buffer import ID_TYPE, StreamingQueue
 from .transcription import PartialTranscription
-
-
-class Signal(Enum):
-    """See StreamingBlackBoxASR docstring for details"""
-    FINISH = 0
+from .base import Signal
 
 
 class Exit(Exception):
@@ -59,11 +55,11 @@ class ASRStreamingQueue(StreamingQueue[CHUNK_TYPE]):
     def __init__(self, name: str = 'unnamed'):
         super().__init__(name=name)
         self._finished_ids: set[ID_TYPE] = set()
-        self.history: list[tuple[CHUNK_TYPE, ID_TYPE]] | None = None
+        # self.history: list[tuple[CHUNK_TYPE, ID_TYPE]] | None = None
         # self._positions_in_history: dict[int, int] = {}
     
-    def track_history(self):
-        self.history = []
+    # def track_history(self):
+    #     self.history = []
     
     @override
     def get(self, id: ID_TYPE | None = None, timeout: float | None = None) -> tuple[CHUNK_TYPE, ID_TYPE]:
@@ -78,12 +74,12 @@ class ASRStreamingQueue(StreamingQueue[CHUNK_TYPE]):
     def put(self, data: CHUNK_TYPE, id: ID_TYPE = 0) -> None:
         self._validate(data=data, id=id)
         data.put_timestamp = time.time()
-        if self.history is not None:
-            self.history.append((copy.deepcopy(data), id))
-            # self.history.append((data_copy := copy.deepcopy(data), id))
-            # if isinstance(data_copy, AUDIO_CHUNK_TYPE):  # ??
-            #     del data_copy.data
-            # self._positions_in_history[builtins.id(data)] = len(self.history) - 1
+        # if self.history is not None:
+        #     self.history.append((copy.deepcopy(data), id))
+        #     # self.history.append((data_copy := copy.deepcopy(data), id))
+        #     # if isinstance(data_copy, AUDIO_CHUNK_TYPE):  # ??
+        #     #     del data_copy.data
+        #     # self._positions_in_history[builtins.id(data)] = len(self.history) - 1
         return super().put(data, id=id)
     
     def _validate(self, data: CHUNK_TYPE, id: ID_TYPE):

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import threading
 import time
 from typing import Any, Literal, Self, override
@@ -28,7 +28,9 @@ class BaseStreamingAudioSender(ABC):
     sampling_rate: int = 16_000
     propagate_errors: bool = True
     verbose: bool = False
+    track_history: bool = False
 
+    history: list[InputChunk] = field(default_factory=list)
     _thread: threading.Thread | None = None
 
     @abstractmethod
@@ -81,7 +83,10 @@ class BaseStreamingAudioSender(ABC):
             ) in enumerate(zip(times[:-1], times[1:], points[:-1], points[1:])):
                 if self.verbose:
                     print(f'Sending: id={self.id}, real {tr1:.3f}..{tr2:.3f}, audio {ta1:.3f}..{ta2:.3f}')
-                send_to.put(InputChunk(data=self.audio[p1:p2], start_time=ta1, end_time=ta2), id=self.id)
+                send_to.put(chunk := InputChunk(data=self.audio[p1:p2], start_time=ta1, end_time=ta2), id=self.id)
+                if self.track_history:
+                    self.history.append(chunk)
+
                 if i != len(times) - 2:  # don't sleep after the last chunk
                     time.sleep(tr2 - tr1)
             send_to.put(InputChunk(data=Signal.FINISH), id=self.id)
@@ -89,6 +94,10 @@ class BaseStreamingAudioSender(ABC):
             if self.propagate_errors:
                 send_to.put_error(e)
             raise e
+    
+    def remove_waveforms_from_history(self):
+        for chunk in self.history:
+            chunk.data = b''
         
 
 @dataclass(kw_only=True)

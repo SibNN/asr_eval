@@ -2,7 +2,7 @@ from concurrent.futures import ThreadPoolExecutor
 import textwrap
 from asr_eval.streaming.buffer import ID_TYPE
 
-from .model import Signal, StreamingBlackBoxASR
+from .model import OutputChunk, Signal, StreamingBlackBoxASR
 from .transcription import PartialTranscription
 from .sender import BaseStreamingAudioSender, StreamingAudioSender
 
@@ -11,7 +11,7 @@ def receive_full_transcription(
     asr: StreamingBlackBoxASR,
     id: ID_TYPE,
     sender: BaseStreamingAudioSender | None = None,
-) -> list[PartialTranscription]:
+) -> list[OutputChunk]:
     '''
     Blocks and waits until the full transcription (ended with Signal.FINISH) received for the given ID.
     If sender is provided, runs .start_sending() on it before.
@@ -19,30 +19,31 @@ def receive_full_transcription(
     if sender:
         assert sender.id == id
         sender.start_sending(send_to=asr.input_buffer)
-    results: list[PartialTranscription] = []
+    results: list[OutputChunk] = []
     while True:
         output_chunk, _id = asr.output_buffer.get(id=id)
         if output_chunk.data is Signal.FINISH:
             return results
         else:
-            results.append(output_chunk.data)
+            results.append(output_chunk)
 
 def transribe_parallel(
     asr: StreamingBlackBoxASR,
     senders: list[StreamingAudioSender],
     n_threads: int,
-) -> dict[ID_TYPE, list[PartialTranscription]]:
+) -> dict[ID_TYPE, list[OutputChunk]]:
     '''
     Transcribes the senders in parallel, no more than `n_threads` senders simultaneously. Sender is
     considered to be transcribed when Signal.FINISH received for its ID.
     
     Call asr.start_thread() before calling this method, and asr.stop_thread() after.
     '''
-    def process_sender(sender: StreamingAudioSender) -> tuple[ID_TYPE, list[PartialTranscription]]:
+    def process_sender(sender: StreamingAudioSender) -> tuple[ID_TYPE, list[OutputChunk]]:
         print(f'Transcribing {sender.id}')
-        transcription = receive_full_transcription(asr=asr, sender=sender, id=sender.id)
-        print(f'Transcribed {sender.id}: {textwrap.shorten(PartialTranscription.join(transcription), width=80)}', flush=True)
-        return sender.id, transcription
+        chunks = receive_full_transcription(asr=asr, sender=sender, id=sender.id)
+        transcription = PartialTranscription.join([c.data for c in chunks if isinstance(c.data, PartialTranscription)])
+        print(f'Transcribed {sender.id}: {textwrap.shorten(transcription, width=80)}', flush=True)
+        return sender.id, chunks
     
     with ThreadPoolExecutor(max_workers=n_threads) as executor:
         return dict(executor.map(process_sender, senders))

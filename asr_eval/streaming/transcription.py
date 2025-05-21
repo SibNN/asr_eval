@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal
 import uuid
+
+from .base import Signal
 
 
 LATEST = '__latest__'  # a special symbol to refer to the latest transcription chunk
@@ -30,11 +33,13 @@ class PartialTranscription:
     final: bool = False
     
     @classmethod
-    def join(cls, transcriptions: list[PartialTranscription]) -> str:
+    def join(cls, transcriptions: list[PartialTranscription | Literal[Signal.FINISH]]) -> str:
         parts: dict[int | str, str] = {}
         final_ids: set[int | str] = set()
         
         for t in transcriptions:
+            if t is Signal.FINISH:
+                continue
             if t.id == LATEST:
                 # edit the lastest chunk
                 current_id = list(parts)[-1] if len(parts) else '<initial>'
