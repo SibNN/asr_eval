@@ -11,7 +11,6 @@ import numpy.typing as npt
 
 @pytest.fixture
 def model() -> GigaAMASR:
-    """Return answer to ultimate question."""
     return typing.cast(GigaAMASR, gigaam.load_model('ctc', device='cpu'))
 
 @pytest.fixture
