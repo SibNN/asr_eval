@@ -32,7 +32,7 @@ def transcribe_with_gigaam_ctc(
     encoded, encoded_len = model.forward(waveform_tensor, length)
     
     log_probs = typing.cast(torch.Tensor, model.head(encoder_output=encoded))
-    labels: log_probs.argmax(dim=-1, keepdim=False)
+    labels = log_probs.argmax(dim=-1, keepdim=False)
     
     skip_mask = labels != model.decoding.blank_id
     skip_mask[:, 1:] = torch.logical_and(skip_mask[:, 1:], labels[:, 1:] != labels[:, :-1])
