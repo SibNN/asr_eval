@@ -5,8 +5,7 @@ from typing import override
 from vosk import Model, KaldiRecognizer # type: ignore
 
 from ..buffer import ID_TYPE
-from ..transcription import LATEST, PartialTranscription
-from ..model import OutputChunk, StreamingBlackBoxASR, Signal
+from ..model import OutputChunk, StreamingBlackBoxASR, Signal, LATEST, PartialTranscription
 
 class VoskStreaming(StreamingBlackBoxASR):
     def __init__(self, model_name: str = 'vosk-model-small-en-us-0.15', sampling_rate: int = 16_000):

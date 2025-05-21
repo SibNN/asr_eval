@@ -2,8 +2,7 @@ from concurrent.futures import ThreadPoolExecutor
 import textwrap
 from asr_eval.streaming.buffer import ID_TYPE
 
-from .model import OutputChunk, Signal, StreamingBlackBoxASR
-from .transcription import PartialTranscription
+from .model import OutputChunk, Signal, StreamingBlackBoxASR, PartialTranscription
 from .sender import BaseStreamingAudioSender, StreamingAudioSender
 
 

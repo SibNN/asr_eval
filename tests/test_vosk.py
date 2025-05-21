@@ -8,11 +8,10 @@ import numpy as np
 import numpy.typing as npt
 from vosk import Model, KaldiRecognizer # type: ignore
 
-from asr_eval.streaming.base import Signal
+from asr_eval.streaming.model import Signal, PartialTranscription
 from asr_eval.streaming.caller import receive_full_transcription
 from asr_eval.streaming.models.vosk import VoskStreaming
 from asr_eval.streaming.sender import StreamingAudioSender
-from asr_eval.streaming.transcription import PartialTranscription
 
 @pytest.mark.parametrize('frames_per_chunk, prediction', [
     (4000, ['one zero zero zero one', 'nah no to i know', 'zero one eight zero three']),
@@ -78,8 +77,7 @@ def test_vosk_wrapper():
             
     for sample in samples:
         chunks = receive_full_transcription(asr=asr, id=sample['input'].id)
-        transription = PartialTranscription.join([x.data for x in chunks if x.data is not Signal.FINISH])
-        assert transription == sample['output']
+        assert PartialTranscription.join(chunks) == sample['output']
 
     for sample in samples:
         sample['input'].join()

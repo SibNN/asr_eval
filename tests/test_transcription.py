@@ -1,6 +1,6 @@
 import pytest
 
-from asr_eval.streaming.transcription import LATEST, PartialTranscription
+from asr_eval.streaming.model import LATEST, PartialTranscription
 
 
 def test_join_transcriptions():
