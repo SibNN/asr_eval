@@ -59,8 +59,14 @@ def decode_each_token(model: GigaAMASR, tokens: list[int] | torch.Tensor) -> lis
     Example:
     model = gigaam.load_model('ctc', device='cpu')
     outputs = transcribe_with_gigaam_ctc(model, waveform)
-    ''.join(decode_each_token(model, outputs.labels[0]))
-    >>> '___и по_эттому  иисполльзо_ватьь иих вв по_ввседдне ..... '
+    symbols = decode_each_token(model, outputs.labels[0])
+    print(''.join(symbols))
+    >>> '___и по_эттому  иисполльзо_ватьь иих вв по_ввседдне .....
+    text = ''.join([key for key, _group in groupby(symbols) if key != '_'])
+    print(text)
+    >>> 'и поэтому использовать их в повседневности .....
+    assert text == outputs.text
+    >>> True
     '''
     if isinstance(tokens, torch.Tensor):
         assert tokens.ndim == 1, 'pass a single sample, not a batch'
