@@ -71,7 +71,7 @@ class ASRStreamingQueue(StreamingQueue[CHUNK_TYPE]):
         data.get_timestamp = time.time()
         if self.history is not None and builtins.id(data) in self._positions_in_history:
             history_idx = self._positions_in_history[builtins.id(data)]
-            del self.history[history_idx][0].data
+            self.history[history_idx][0].get_timestamp = data.get_timestamp
         return data, id
     
     @override
@@ -79,7 +79,8 @@ class ASRStreamingQueue(StreamingQueue[CHUNK_TYPE]):
         self._validate(data=data, id=id)
         data.put_timestamp = time.time()
         if self.history is not None:
-            self.history.append((copy.deepcopy(data), id))
+            self.history.append((data_copy := copy.deepcopy(data), id))
+            del data_copy.data
             self._positions_in_history[builtins.id(data)] = len(self.history) - 1
         return super().put(data, id=id)
     
