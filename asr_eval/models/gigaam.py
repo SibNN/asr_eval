@@ -2,11 +2,16 @@ from dataclasses import dataclass
 
 import typing
 import warnings
-from gigaam.model import GigaAMASR, LONGFORM_THRESHOLD # pyright: ignore[reportMissingTypeStubs]
+from gigaam.model import GigaAMASR, SAMPLE_RATE, LONGFORM_THRESHOLD # pyright: ignore[reportMissingTypeStubs]
 from gigaam.decoding import CTCGreedyDecoding # pyright: ignore[reportMissingTypeStubs]
 import torch
 import numpy as np
 import numpy.typing as npt
+import IPython.display
+import matplotlib.pyplot as plt
+
+
+FREQ = 25  # GigaAM2 encoder outputs per second
 
 @dataclass
 class GigaamCTCOutputs:
@@ -16,6 +21,37 @@ class GigaamCTCOutputs:
     labels: torch.Tensor
     tokens: list[int]
     text: str
+    
+    def visualize(
+        self,
+        model: GigaAMASR,
+        waveform: npt.NDArray[np.float64],
+        n_seconds: float | None = None,
+        figsize: tuple[float, float] = (15, 2),
+    ):
+        symbols1 = decode_each_token(model, self.labels[0])
+        symbols2 = decode_each_token(model, self.log_probs[:, :, :-1].argmax(dim=-1)[0])
+        
+        if n_seconds is None:
+            n_seconds = len(waveform) / SAMPLE_RATE
+        else:
+            n_seconds = min(n_seconds, len(waveform) / SAMPLE_RATE)
+            
+        waveform = waveform[:int(SAMPLE_RATE * n_seconds)]
+        ticks = np.arange(0, SAMPLE_RATE * n_seconds, SAMPLE_RATE // FREQ)
+        ticklabels = [
+            f'{a}\n{b}' if a == '_' else a
+            for a, b in zip(symbols1[:len(ticks)], symbols2[:len(ticks)])
+        ]
+        
+        plt.figure(figsize=figsize) # type: ignore
+        plt.plot(waveform) # type: ignore
+        plt.xlim(0, n_seconds * SAMPLE_RATE) # type: ignore
+        plt.gca().set_xticks(ticks) # type: ignore
+        plt.gca().set_xticklabels(ticklabels) # type: ignore
+        plt.show() # type: ignore
+        
+        IPython.display.display(IPython.display.Audio(waveform, rate=SAMPLE_RATE)) # type: ignore
 
 def transcribe_with_gigaam_ctc(
     model: GigaAMASR,
@@ -27,7 +63,7 @@ def transcribe_with_gigaam_ctc(
     '''
     assert isinstance(model.decoding, CTCGreedyDecoding)
     
-    if len(waveform) / 16_000 > LONGFORM_THRESHOLD:
+    if len(waveform) / SAMPLE_RATE > LONGFORM_THRESHOLD:
         warnings.warn("too long audio, GigaAMASR.transcribe() would throw an error", RuntimeWarning)
     
     waveform_tensor = torch.tensor(waveform, dtype=model._dtype).unsqueeze(0) # pyright: ignore[reportPrivateUsage]
