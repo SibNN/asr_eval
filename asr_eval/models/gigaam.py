@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 
 import typing
-from gigaam.model import GigaAMASR # pyright: ignore[reportMissingTypeStubs]
+import warnings
+from gigaam.model import GigaAMASR, LONGFORM_THRESHOLD # pyright: ignore[reportMissingTypeStubs]
 from gigaam.decoding import CTCGreedyDecoding # pyright: ignore[reportMissingTypeStubs]
 import torch
 import numpy as np
@@ -25,6 +26,9 @@ def transcribe_with_gigaam_ctc(
     Sampling rate should be equal to gigaam.preprocess.SAMPLE_RATE == 16_000.
     '''
     assert isinstance(model.decoding, CTCGreedyDecoding)
+    
+    if len(waveform) / 16_000 > LONGFORM_THRESHOLD:
+        warnings.warn("too long audio, GigaAMASR.transcribe() would throw an error", RuntimeWarning)
     
     waveform_tensor = torch.tensor(waveform, dtype=model._dtype).unsqueeze(0) # pyright: ignore[reportPrivateUsage]
     length = torch.tensor([waveform_tensor.shape[1]])
