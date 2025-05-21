@@ -79,7 +79,8 @@ class ASRStreamingQueue(StreamingQueue[CHUNK_TYPE]):
         self._validate(data=data, id=id)
         data.put_timestamp = time.time()
         if self.history is not None:
-            self.history.append((data_copy := copy.deepcopy(data), id))
+            self.history.append((copy.deepcopy(data), id))
+            # self.history.append((data_copy := copy.deepcopy(data), id))
             # if isinstance(data_copy, AUDIO_CHUNK_TYPE):  # ??
             #     del data_copy.data
             # self._positions_in_history[builtins.id(data)] = len(self.history) - 1
