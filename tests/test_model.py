@@ -2,6 +2,7 @@ from typing import TypedDict
 import numpy as np
 import pytest
 
+from asr_eval.streaming.base import Signal
 from asr_eval.streaming.caller import receive_full_transcription
 from asr_eval.streaming.model import DummyASR
 from asr_eval.streaming.sender import StreamingAudioSender
@@ -45,7 +46,7 @@ def test_dummy():
     
     for sample in samples:
         transcription = receive_full_transcription(asr=asr, id=sample['input'].id)
-        assert [x.text for x in transcription] == sample['output']
+        assert [x.data.text for x in transcription if x.data is not Signal.FINISH] == sample['output']
     
     for sample in samples:
         sample['input'].join()
