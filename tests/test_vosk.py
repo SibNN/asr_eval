@@ -8,7 +8,7 @@ import numpy as np
 import numpy.typing as npt
 from vosk import Model, KaldiRecognizer # type: ignore
 
-from asr_eval.streaming.model import Signal, PartialTranscription
+from asr_eval.streaming.model import PartialTranscription
 from asr_eval.streaming.caller import receive_full_transcription
 from asr_eval.streaming.models.vosk import VoskStreaming
 from asr_eval.streaming.sender import StreamingAudioSender
@@ -82,3 +82,16 @@ def test_vosk_wrapper():
     for sample in samples:
         sample['input'].join()
     asr.stop_thread()
+
+
+@pytest.mark.filterwarnings("ignore::DeprecationWarning", "ignore::FutureWarning")
+def test_vosk54_wrapper():
+    from asr_eval.models.vosk import VoskV54
+    
+    waveform: npt.NDArray[np.float64]
+    waveform, _ = librosa.load('tests/testdata/podlodka_test_0.wav', sr=16_000) # type: ignore
+
+    model = VoskV54()
+    
+    texts = model.transcribe([waveform])
+    assert texts == ['и поэтому использовать их в повседневности не получается мы вынуждены поступать зачастую интуитивно']
