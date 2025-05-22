@@ -5,6 +5,7 @@ import warnings
 from gigaam.model import GigaAMASR, SAMPLE_RATE, LONGFORM_THRESHOLD # pyright: ignore[reportMissingTypeStubs]
 from gigaam.decoding import CTCGreedyDecoding # pyright: ignore[reportMissingTypeStubs]
 import torch
+from torch.nn.utils.rnn import pad_sequence
 import numpy as np
 import numpy.typing as npt
 import IPython.display
@@ -56,47 +57,61 @@ class GigaamCTCOutputs:
 
 def transcribe_with_gigaam_ctc(
     model: GigaAMASR,
-    waveform: npt.NDArray[np.float64],
-) -> GigaamCTCOutputs:
+    waveforms: list[npt.NDArray[np.float64]],
+) -> list[GigaamCTCOutputs]:
     '''
     Pass through Gigaam encoder, gigaam head, then decode and return all the results.
     Sampling rate should be equal to gigaam.preprocess.SAMPLE_RATE == 16_000.
     '''
     assert isinstance(model.decoding, CTCGreedyDecoding)
     
-    if len(waveform) / SAMPLE_RATE > LONGFORM_THRESHOLD:
-        warnings.warn("too long audio, GigaAMASR.transcribe() would throw an error", RuntimeWarning)
+    for waveform in waveforms:
+        if len(waveform) / SAMPLE_RATE > LONGFORM_THRESHOLD:
+            warnings.warn("too long audio, GigaAMASR.transcribe() would throw an error", RuntimeWarning)
     
-    waveform_tensor = torch.tensor(waveform, dtype=model._dtype).unsqueeze(0) # pyright: ignore[reportPrivateUsage]
-    length = torch.tensor([waveform_tensor.shape[1]])
+    waveform_tensors = [torch.tensor(w, dtype=model._dtype) for w in waveforms] # pyright: ignore[reportPrivateUsage]
+    lengths = torch.tensor([len(w) for w in waveforms])
     
-    encoded, encoded_len = model.forward(waveform_tensor, length)
+    waveform_tensors_padded = pad_sequence(
+        waveform_tensors,
+        batch_first=True,
+        padding_value=0,
+    )
+    
+    encoded, encoded_len = model.forward(waveform_tensors_padded, lengths)
     
     log_probs = typing.cast(torch.Tensor, model.head(encoder_output=encoded))
     labels = log_probs.argmax(dim=-1, keepdim=False)
     
     skip_mask = labels != model.decoding.blank_id
     skip_mask[:, 1:] = torch.logical_and(skip_mask[:, 1:], labels[:, 1:] != labels[:, :-1])
-    skip_mask[encoded_len:] = 0
     
-    tokens: list[int] = labels[0][skip_mask[0]].cpu().tolist() # pyright: ignore[reportUnknownMemberType]
-    text = "".join(model.decoding.tokenizer.decode(tokens))
+    for i in range(len(labels)):
+        skip_mask[i, encoded_len[i]:] = 0
     
-    return GigaamCTCOutputs(
-        encoded=encoded,
-        encoded_len=encoded_len,
-        log_probs=log_probs,
-        labels=labels,
-        tokens=tokens,
-        text=text,
-        decode_each_token=''.join(decode_each_token(model, labels[0])),
-    )
+    results: list[GigaamCTCOutputs] = []
+    
+    for i in range(len(labels)):
+        tokens: list[int] = labels[i][skip_mask[i]].cpu().tolist() # pyright: ignore[reportUnknownMemberType]
+        text = "".join(model.decoding.tokenizer.decode(tokens))
+        
+        results.append(GigaamCTCOutputs(
+            encoded=encoded[i:i+1],
+            encoded_len=encoded_len[i:i+1],
+            log_probs=log_probs[i:i+1],
+            labels=labels[i:i+1],
+            tokens=tokens,
+            text=text,
+            decode_each_token=''.join(decode_each_token(model, labels[i])),
+        ))
+    
+    return results
 
 def decode_each_token(model: GigaAMASR, tokens: list[int] | torch.Tensor) -> list[str]:
     '''
     Example:
     model = gigaam.load_model('ctc', device='cpu')
-    outputs = transcribe_with_gigaam_ctc(model, waveform)
+    outputs, = transcribe_with_gigaam_ctc(model, [waveform])
     symbols = decode_each_token(model, outputs.labels[0])
     print(''.join(symbols))
     >>> '___и по_эттому  иисполльзо_ватьь иих вв по_ввседдне .....

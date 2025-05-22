@@ -41,17 +41,26 @@ def test_prepare_audio_for_gigaam(model: GigaAMASR):
 
 @pytest.mark.filterwarnings('ignore::FutureWarning:')
 def test_giggam(model: GigaAMASR):
-    audio_path = 'tests/testdata/podlodka_test_0.wav'
+    audio_path1 = 'tests/testdata/podlodka_test_0.wav'
+    audio_path2 = 'tests/testdata/vosk.wav'
     
     # expected gigaam prediction
-    expected_text = 'и поэтому использовать их в повседневности не получается мы вынуждены поступать зачастую интуитивно'
+    expected_text1 = 'и поэтому использовать их в повседневности не получается мы вынуждены поступать зачастую интуитивно'
+    expected_text2 = 'вон зироу зироу зироу вон наноу ту вон оу зироу вон эйт сироу три'
     
-    assert model.transcribe(audio_path) == expected_text
+    assert model.transcribe(audio_path1) == expected_text1
+    assert model.transcribe(audio_path2) == expected_text2
 
-    waveform: npt.NDArray[np.float64]
-    waveform, _ = librosa.load(audio_path, sr=16_000) # type: ignore
-    output = transcribe_with_gigaam_ctc(model, waveform)
-    assert output.text == expected_text
+    waveforms: list[npt.NDArray[np.float64]] = [
+        librosa.load(audio_path1, sr=16_000)[0], # type: ignore
+        librosa.load(audio_path2, sr=16_000)[0], # type: ignore
+    ]
+    output1, output2 = transcribe_with_gigaam_ctc(model, waveforms)
+    assert output1.text == expected_text1
+    assert output2.text == expected_text2
     
-    symbols = decode_each_token(model, output.labels[0])
-    assert ''.join([key for key, _group in groupby(symbols) if key != '_']) == expected_text
+    symbols = decode_each_token(model, output1.labels[0])
+    assert ''.join([key for key, _group in groupby(symbols) if key != '_']) == expected_text1
+    
+    symbols = decode_each_token(model, output2.labels[0])
+    assert ''.join([key for key, _group in groupby(symbols) if key != '_']) == expected_text2
