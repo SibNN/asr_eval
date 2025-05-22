@@ -17,7 +17,7 @@ from icefall.utils import AttributeDict # pyright: ignore[reportMissingTypeStubs
 
 class VoskV54:
     def __init__(self, device: str | torch.device = 'cpu'):
-        # adpoted from https://huggingface.co/alphacep/vosk-model-ru/blob/main/decode.py
+        # adopted from https://huggingface.co/alphacep/vosk-model-ru/blob/main/decode.py
         
         revision = 'df6a54a4d8e5d43e82675e4f5dba2d507731a0d1'
 
