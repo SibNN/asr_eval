@@ -1,3 +1,4 @@
+from functools import partial
 from pathlib import Path
 import math
 import sys
@@ -18,36 +19,20 @@ from icefall.utils import AttributeDict # pyright: ignore[reportMissingTypeStubs
 class VoskV54:
     def __init__(self, device: str | torch.device = 'cpu'):
         # adopted from https://huggingface.co/alphacep/vosk-model-ru/blob/main/decode.py
+        # beam search code taken from icefall/egs/librispeech/ASR/pruned_transducer_stateless2/beam_search.py
         
-        revision = 'df6a54a4d8e5d43e82675e4f5dba2d507731a0d1'
+        download_vosk_file = partial(
+            hf_hub_download,
+            repo_id='alphacep/vosk-model-ru',
+            revision='df6a54a4d8e5d43e82675e4f5dba2d507731a0d1'
+        )
 
-        jit_script_path = hf_hub_download(
-            'alphacep/vosk-model-ru',
-            filename='am/jit_script.pt',
-            revision=revision,
-        )
-        bpe_path = hf_hub_download(
-            'alphacep/vosk-model-ru',
-            filename='lang/bpe.model',
-            revision=revision,
-        )
-        lm_path = hf_hub_download(
-            'alphacep/vosk-model-ru',
-            filename='lm/epoch-99.pt',
-            revision=revision,
-        )
-        twogram_fst_path = hf_hub_download(
-            'alphacep/vosk-model-ru',
-            filename='lm/2gram.fst.txt',
-            revision=revision,
-        )
-        code_path = hf_hub_download(
-            'alphacep/vosk-model-ru',
-            filename='decode.py',
-            revision=revision,
-        )
+        jit_script_path = download_vosk_file('am/jit_script.pt')
+        bpe_path = download_vosk_file('lang/bpe.model')
+        lm_path = download_vosk_file('lm/epoch-99.pt')
+        twogram_fst_path = download_vosk_file('lm/2gram.fst.txt')
+        code_path = download_vosk_file('decode.py')
         
-        self.code_dir = str(Path(code_path).parent)
         self.device = torch.device(device)
         
         self.model: torch.nn.Module = torch.jit.load(jit_script_path).to(self.device) # type: ignore
@@ -90,13 +75,14 @@ class VoskV54:
         )
         self.ngram_lm_scale = -0.1
         
-        if self.code_dir not in sys.path:
-            sys.path.append(self.code_dir)
+        code_dir = str(Path(code_path).parent)
+        if code_dir not in sys.path:
+            sys.path.append(code_dir)
 
         from decode import modified_beam_search_LODR # type: ignore
         self.modified_beam_search_LODR: Callable = modified_beam_search_LODR # type: ignore
         
-    @torch.no_grad() # pyright: ignore[reportUntypedFunctionDecorator]
+    @torch.inference_mode()
     def transcribe(self, waveforms: list[npt.NDArray[np.float64]]) -> list[str]:
         waveform_tensors = [torch.tensor(w, dtype=torch.float32).to(self.device) for w in waveforms]
         
