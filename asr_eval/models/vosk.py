@@ -27,11 +27,11 @@ class VoskV54:
             revision='df6a54a4d8e5d43e82675e4f5dba2d507731a0d1'
         )
 
-        jit_script_path = download_vosk_file('am/jit_script.pt')
-        bpe_path = download_vosk_file('lang/bpe.model')
-        lm_path = download_vosk_file('lm/epoch-99.pt')
-        twogram_fst_path = download_vosk_file('lm/2gram.fst.txt')
-        code_path = download_vosk_file('decode.py')
+        jit_script_path = download_vosk_file(filename='am/jit_script.pt')
+        bpe_path = download_vosk_file(filename='lang/bpe.model')
+        lm_path = download_vosk_file(filename='lm/epoch-99.pt')
+        twogram_fst_path = download_vosk_file(filename='lm/2gram.fst.txt')
+        code_path = download_vosk_file(filename='decode.py')
         
         self.device = torch.device(device)
         
