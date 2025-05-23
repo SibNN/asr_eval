@@ -30,8 +30,8 @@ class GigaamCTCOutputs:
         n_seconds: float | None = None,
         figsize: tuple[float, float] = (15, 2),
     ):
-        symbols1 = decode_each_token(model, self.labels[0])
-        symbols2 = decode_each_token(model, self.log_probs[:, :, :-1].argmax(dim=-1)[0])
+        symbols1 = decode_each_token(model, self.labels)
+        symbols2 = decode_each_token(model, self.log_probs[:, :-1].argmax(dim=-1)) # type: ignore
         
         if n_seconds is None:
             n_seconds = len(waveform) / SAMPLE_RATE
@@ -73,7 +73,7 @@ def transcribe_with_gigaam_ctc(
         torch.tensor(w, dtype=model._dtype).to(model._device) # pyright: ignore[reportPrivateUsage]
         for w in waveforms
     ]
-    lengths = torch.tensor([len(w) for w in waveforms]).to(model._device)
+    lengths = torch.tensor([len(w) for w in waveforms]).to(model._device) # pyright: ignore[reportPrivateUsage]
     
     waveform_tensors_padded = pad_sequence(
         waveform_tensors,
