@@ -16,9 +16,9 @@ FREQ = 25  # GigaAM2 encoder outputs per second
 
 @dataclass
 class GigaamCTCOutputs:
-    encoded: torch.Tensor
-    log_probs: torch.Tensor
-    labels: torch.Tensor
+    encoded: npt.NDArray[np.float32 | np.float16]
+    log_probs: npt.NDArray[np.float32 | np.float16]
+    labels: npt.NDArray[np.int64]
     tokens: list[int]
     text: str
     decoded_each_token: str
@@ -54,6 +54,7 @@ class GigaamCTCOutputs:
         
         IPython.display.display(IPython.display.Audio(waveform, rate=SAMPLE_RATE)) # type: ignore
 
+@torch.inference_mode()
 def transcribe_with_gigaam_ctc(
     model: GigaAMASR,
     waveforms: list[npt.NDArray[np.float64]],
@@ -94,18 +95,19 @@ def transcribe_with_gigaam_ctc(
         tokens: list[int] = labels[i][skip_mask[i]].cpu().tolist() # pyright: ignore[reportUnknownMemberType]
         text = "".join(model.decoding.tokenizer.decode(tokens))
         
+        sample_labels: npt.NDArray[np.int64] = labels[i][:encoded_len[i]].cpu().numpy() # type: ignore
         results.append(GigaamCTCOutputs(
-            encoded=encoded[i][:encoded_len[i], :],
-            log_probs=log_probs[i][:encoded_len[i], :],
-            labels=labels[i][:encoded_len[i]],
+            encoded=encoded[i][:encoded_len[i], :].cpu().numpy(), # type: ignore
+            log_probs=log_probs[i][:encoded_len[i], :].cpu().numpy(), # type: ignore
+            labels=sample_labels,
             tokens=tokens,
             text=text,
-            decoded_each_token=''.join(decode_each_token(model, labels[i])),
+            decoded_each_token=''.join(decode_each_token(model, sample_labels)),
         ))
     
     return results
 
-def decode_each_token(model: GigaAMASR, tokens: list[int] | torch.Tensor) -> list[str]:
+def decode_each_token(model: GigaAMASR, tokens: list[int] | npt.NDArray[np.int64]) -> list[str]:
     '''
     Example:
     model = gigaam.load_model('ctc', device='cpu')
@@ -119,9 +121,9 @@ def decode_each_token(model: GigaAMASR, tokens: list[int] | torch.Tensor) -> lis
     assert text == outputs.text
     >>> True
     '''
-    if isinstance(tokens, torch.Tensor):
+    if isinstance(tokens, np.ndarray):
         assert tokens.ndim == 1, 'pass a single sample, not a batch'
-        tokens = tokens.cpu().tolist() # type: ignore
+        tokens = tokens.tolist()
     return [
         model.decoding.tokenizer.decode([x])
         if x != model.decoding.blank_id
