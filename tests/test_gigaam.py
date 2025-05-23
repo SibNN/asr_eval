@@ -14,7 +14,7 @@ from asr_eval.models.gigaam import transcribe_with_gigaam_ctc, decode_each_token
 
 @pytest.fixture
 def model() -> GigaAMASR:
-    return typing.cast(GigaAMASR, gigaam.load_model('ctc', device='cpu'))
+    return typing.cast(GigaAMASR, gigaam.load_model('ctc', device='cuda'))
 
 @pytest.mark.filterwarnings('ignore::FutureWarning:', 'ignore::UserWarning:', 'ignore::DeprecationWarning:')
 def test_prepare_audio_for_gigaam(model: GigaAMASR):
@@ -30,8 +30,12 @@ def test_prepare_audio_for_gigaam(model: GigaAMASR):
     # load using librosa
     waveform: npt.NDArray[np.float64]
     waveform, _ = librosa.load(audio_path, sr=16_000) # type: ignore
-    waveform_torch_from_librosa = torch.tensor(waveform, dtype=model._dtype).unsqueeze(0) # pyright: ignore[reportPrivateUsage]
-    length_from_librosa = torch.tensor([waveform_torch_from_librosa.shape[1]])
+    waveform_torch_from_librosa = (
+        torch.tensor(waveform, dtype=model._dtype).to(model._device).unsqueeze(0) # pyright: ignore[reportPrivateUsage]
+    )
+    length_from_librosa = (
+        torch.tensor([waveform_torch_from_librosa.shape[1]]).to(model._device) # pyright: ignore[reportPrivateUsage]
+    )
 
     assert torch.all(waveform_torch_from_giaam == waveform_torch_from_librosa)
     assert waveform_torch_from_giaam.shape[1] == length[0]
@@ -39,7 +43,7 @@ def test_prepare_audio_for_gigaam(model: GigaAMASR):
     assert length.dtype == length_from_librosa.dtype
     assert torch.all(length == length_from_librosa)
 
-@pytest.mark.filterwarnings('ignore::FutureWarning:')
+@pytest.mark.filterwarnings('ignore::FutureWarning:', 'ignore::UserWarning:')
 def test_giggam(model: GigaAMASR):
     audio_path1 = 'tests/testdata/podlodka_test_0.wav'
     audio_path2 = 'tests/testdata/vosk.wav'

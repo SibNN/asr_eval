@@ -69,8 +69,11 @@ def transcribe_with_gigaam_ctc(
         if len(waveform) / SAMPLE_RATE > LONGFORM_THRESHOLD:
             warnings.warn("too long audio, GigaAMASR.transcribe() would throw an error", RuntimeWarning)
     
-    waveform_tensors = [torch.tensor(w, dtype=model._dtype) for w in waveforms] # pyright: ignore[reportPrivateUsage]
-    lengths = torch.tensor([len(w) for w in waveforms])
+    waveform_tensors = [
+        torch.tensor(w, dtype=model._dtype).to(model._device) # pyright: ignore[reportPrivateUsage]
+        for w in waveforms
+    ]
+    lengths = torch.tensor([len(w) for w in waveforms]).to(model._device)
     
     waveform_tensors_padded = pad_sequence(
         waveform_tensors,
