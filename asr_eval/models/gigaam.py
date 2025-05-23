@@ -21,7 +21,7 @@ class GigaamCTCOutputs:
     labels: torch.Tensor
     tokens: list[int]
     text: str
-    decode_each_token: str
+    decoded_each_token: str
     
     def visualize(
         self,
@@ -100,7 +100,7 @@ def transcribe_with_gigaam_ctc(
             labels=labels[i][:encoded_len[i]],
             tokens=tokens,
             text=text,
-            decode_each_token=''.join(decode_each_token(model, labels[i])),
+            decoded_each_token=''.join(decode_each_token(model, labels[i])),
         ))
     
     return results
