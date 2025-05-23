@@ -14,9 +14,14 @@ from asr_eval.models.gigaam import transcribe_with_gigaam_ctc, decode_each_token
 
 @pytest.fixture
 def model() -> GigaAMASR:
+    return typing.cast(GigaAMASR, gigaam.load_model('ctc', device='cpu'))
+
+@pytest.fixture
+def model_cuda() -> GigaAMASR:
     return typing.cast(GigaAMASR, gigaam.load_model('ctc', device='cuda'))
 
 @pytest.mark.filterwarnings('ignore::FutureWarning:', 'ignore::UserWarning:', 'ignore::DeprecationWarning:')
+@pytest.mark.parametrize('model', ['model', 'model_cuda'], indirect=True)
 def test_prepare_audio_for_gigaam(model: GigaAMASR):
     '''
     Check that we can prepare audio manually instead of GigaAM.prepare_wav(path) and get the same result.
@@ -44,6 +49,7 @@ def test_prepare_audio_for_gigaam(model: GigaAMASR):
     assert torch.all(length == length_from_librosa)
 
 @pytest.mark.filterwarnings('ignore::FutureWarning:', 'ignore::UserWarning:')
+@pytest.mark.parametrize('model', ['model', 'model_cuda'], indirect=True)
 def test_giggam(model: GigaAMASR):
     audio_path1 = 'tests/testdata/podlodka_test_0.wav'
     audio_path2 = 'tests/testdata/vosk.wav'
