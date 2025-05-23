@@ -59,8 +59,8 @@ def test_giggam(model: GigaAMASR):
     assert output1.text == expected_text1
     assert output2.text == expected_text2
     
-    symbols = decode_each_token(model, output1.labels[0])
+    symbols = decode_each_token(model, output1.labels)
     assert ''.join([key for key, _group in groupby(symbols) if key != '_']) == expected_text1
     
-    symbols = decode_each_token(model, output2.labels[0])
+    symbols = decode_each_token(model, output2.labels)
     assert ''.join([key for key, _group in groupby(symbols) if key != '_']) == expected_text2

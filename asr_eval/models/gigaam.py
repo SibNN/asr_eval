@@ -17,7 +17,6 @@ FREQ = 25  # GigaAM2 encoder outputs per second
 @dataclass
 class GigaamCTCOutputs:
     encoded: torch.Tensor
-    encoded_len: torch.Tensor
     log_probs: torch.Tensor
     labels: torch.Tensor
     tokens: list[int]
@@ -96,10 +95,9 @@ def transcribe_with_gigaam_ctc(
         text = "".join(model.decoding.tokenizer.decode(tokens))
         
         results.append(GigaamCTCOutputs(
-            encoded=encoded[i:i+1],
-            encoded_len=encoded_len[i:i+1],
-            log_probs=log_probs[i:i+1],
-            labels=labels[i:i+1],
+            encoded=encoded[i][:encoded_len[i], :],
+            log_probs=log_probs[i][:encoded_len[i], :],
+            labels=labels[i][:encoded_len[i]],
             tokens=tokens,
             text=text,
             decode_each_token=''.join(decode_each_token(model, labels[i])),
@@ -111,8 +109,8 @@ def decode_each_token(model: GigaAMASR, tokens: list[int] | torch.Tensor) -> lis
     '''
     Example:
     model = gigaam.load_model('ctc', device='cpu')
-    outputs, = transcribe_with_gigaam_ctc(model, [waveform])
-    symbols = decode_each_token(model, outputs.labels[0])
+    outputs = transcribe_with_gigaam_ctc(model, [waveform])[0]
+    symbols = decode_each_token(model, outputs.labels)
     print(''.join(symbols))
     >>> '___и по_эттому  иисполльзо_ватьь иих вв по_ввседдне .....
     text = ''.join([key for key, _group in groupby(symbols) if key != '_'])
