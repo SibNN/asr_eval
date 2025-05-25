@@ -39,8 +39,15 @@ def plot_alignments(
     segments: list[Segment],
     trellis: npt.NDArray[np.floating],
     vocab: list[str] | None = None,
+    figsize: tuple[float, float] = (15, 2),
+    path: list[Point] | None = None,
 ):
-    plt.figure(figsize=(10, 3)) # type: ignore
+    if path is not None:
+        trellis = np.copy(trellis)
+        for _, p in enumerate(path):
+            trellis[p.time_index, p.token_seq_index] = np.nan
+        
+    plt.figure(figsize=figsize) # type: ignore
 
     plt.imshow(trellis.T, origin="lower", aspect="auto") # type: ignore
     plt.xticks([]) # type: ignore
@@ -58,10 +65,13 @@ def plot_alignments(
 def plot_trellis_with_path(
     trellis: npt.NDArray[np.floating],
     path: list[Point],
+    figsize: tuple[float, float] = (15, 2),
 ):
     trellis_with_path = np.copy(trellis)
     for _, p in enumerate(path):
         trellis_with_path[p.time_index, p.token_seq_index] = np.nan
+    
+    plt.figure(figsize=figsize) # type: ignore
     plt.imshow(trellis_with_path.T, origin="lower") # type: ignore
     plt.title("The path found by backtracking") # type: ignore
     plt.tight_layout()

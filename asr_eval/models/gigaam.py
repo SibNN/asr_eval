@@ -34,7 +34,7 @@ class GigaamCTCOutputs:
         figsize: tuple[float, float] = (15, 2),
     ):
         symbols1 = decode_each_token(model, self.labels)
-        symbols2 = decode_each_token(model, self.log_probs[:, :-1].argmax(axis=-1)) # type: ignore
+        # symbols2 = decode_each_token(model, self.log_probs[:, :-1].argmax(axis=-1)) # type: ignore
         
         if n_seconds is None:
             n_seconds = len(waveform) / SAMPLE_RATE
@@ -43,16 +43,18 @@ class GigaamCTCOutputs:
             
         waveform = waveform[:int(SAMPLE_RATE * n_seconds)]
         ticks = np.arange(0, SAMPLE_RATE * n_seconds, SAMPLE_RATE // FREQ)
-        ticklabels = [
-            f'{a}\n{b}' if a == '_' else a
-            for a, b in zip(symbols1[:len(ticks)], symbols2[:len(ticks)])
-        ]
+        ticklabels = symbols1
+        # ticklabels = [
+        #     f'{a}\n{b}' if a == '_' else a
+        #     for a, b in zip(symbols1[:len(ticks)], symbols2[:len(ticks)])
+        # ]
         
         plt.figure(figsize=figsize) # type: ignore
         plt.plot(waveform) # type: ignore
         plt.xlim(0, n_seconds * SAMPLE_RATE) # type: ignore
         plt.gca().set_xticks(ticks) # type: ignore
         plt.gca().set_xticklabels(ticklabels) # type: ignore
+        plt.yticks([]) # type: ignore
         plt.show() # type: ignore
         
         IPython.display.display(IPython.display.Audio(waveform, rate=SAMPLE_RATE)) # type: ignore
