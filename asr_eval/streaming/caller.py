@@ -26,7 +26,7 @@ def receive_full_transcription(
         else:
             results.append(output_chunk)
 
-def transribe_parallel(
+def transсribe_parallel(
     asr: StreamingBlackBoxASR,
     senders: list[StreamingAudioSender],
     n_threads: int,
