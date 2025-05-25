@@ -7,7 +7,7 @@ from itertools import groupby
 import numpy as np
 import numpy.typing as npt
 import torch
-import torchaudio.functional as F # pyright: ignore[reportMissingTypeStubs]
+import torchaudio # pyright: ignore[reportMissingTypeStubs]
 
 def ctc_mapping(symbols: list[str], blank: str = '_') -> list[str]:
     '''
@@ -25,7 +25,13 @@ def torch_ctc_forced_alignment(
     true_tokens: list[int] | npt.NDArray[np.integer],
     blank_id: int = 0,
 ) -> tuple[float, list[int]]:
-    alignments, scores = F.forced_align(
+    '''
+    Returns the path with the highest cumulative probability among all paths
+    that match the specified transcription.
+    
+    A wrapper around the pytorch implementation.
+    '''
+    alignments, scores = torchaudio.functional.forced_align(
         torch.tensor(log_probs).unsqueeze(0),
         torch.tensor(true_tokens, dtype=torch.int32, device='cpu').unsqueeze(0),
         blank=blank_id,
@@ -37,6 +43,12 @@ def recursion_ctc_forced_alignment(
     true_tokens: list[int] | npt.NDArray[np.integer],
     blank_id: int = 0,
 ) -> tuple[float, list[int]]:
+    '''
+    Returns the path with the highest cumulative probability among all paths
+    that match the specified transcription.
+    
+    A custom minimal implementation via recursion.
+    '''
     @lru_cache(maxsize=None)
     def fa(
         log_probs_start_idx: int = 0,
