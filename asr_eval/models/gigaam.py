@@ -17,11 +17,14 @@ FREQ = 25  # GigaAM2 encoder outputs per second
 @dataclass
 class GigaamCTCOutputs:
     encoded: npt.NDArray[np.float32 | np.float16]
-    log_probs: npt.NDArray[np.float32 | np.float16]
+    log_probs: npt.NDArray[np.float32 | np.float16]  # exp(log_probs) sums to 1
     labels: npt.NDArray[np.int64]
     tokens: list[int]
     text: str
     decoded_each_token: str
+    
+    def __post_init__(self):
+        assert np.allclose(np.exp(self.log_probs).sum(axis=1), 1)
     
     def visualize(
         self,
@@ -83,6 +86,8 @@ def transcribe_with_gigaam_ctc(
     
     encoded, encoded_len = model.forward(waveform_tensors_padded, lengths)
     
+    # exp(log_probs) sums to 1
+    # GigaamCTCOutputs will check this on __post_init__
     log_probs = typing.cast(torch.Tensor, model.head(encoder_output=encoded))
     labels = log_probs.argmax(dim=-1, keepdim=False)
     
