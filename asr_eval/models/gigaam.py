@@ -29,12 +29,12 @@ class GigaamCTCOutputs:
     def visualize(
         self,
         model: GigaAMASR,
-        waveform: npt.NDArray[np.float64],
+        waveform: npt.NDArray[np.floating],
         n_seconds: float | None = None,
         figsize: tuple[float, float] = (15, 2),
     ):
         symbols1 = decode_each_token(model, self.labels)
-        symbols2 = decode_each_token(model, self.log_probs[:, :-1].argmax(dim=-1)) # type: ignore
+        symbols2 = decode_each_token(model, self.log_probs[:, :-1].argmax(axis=-1)) # type: ignore
         
         if n_seconds is None:
             n_seconds = len(waveform) / SAMPLE_RATE
@@ -60,7 +60,7 @@ class GigaamCTCOutputs:
 @torch.inference_mode()
 def transcribe_with_gigaam_ctc(
     model: GigaAMASR,
-    waveforms: list[npt.NDArray[np.float64]],
+    waveforms: list[npt.NDArray[np.floating]],
 ) -> list[GigaamCTCOutputs]:
     '''
     Pass through Gigaam encoder, gigaam head, then decode and return all the results.

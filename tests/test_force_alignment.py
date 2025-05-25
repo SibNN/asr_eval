@@ -27,5 +27,5 @@ def test_force_alignment():
     for s1, s2 in zip(segments, segments[1:]):
         assert s2.start == s1.end
     
-    plot_alignments(segments,trellis, model.decoding.tokenizer.vocab)
+    plot_alignments(segments, trellis, model.decoding.tokenizer.vocab)
     plot_trellis_with_path(trellis, path)

@@ -33,7 +33,7 @@ def test_prepare_audio_for_gigaam(model: GigaAMASR):
     waveform_torch_from_giaam, length = model.prepare_wav(audio_path)
 
     # load using librosa
-    waveform: npt.NDArray[np.float64]
+    waveform: npt.NDArray[np.floating]
     waveform, _ = librosa.load(audio_path, sr=16_000) # type: ignore
     waveform_torch_from_librosa = (
         torch.tensor(waveform, dtype=model._dtype).to(model._device).unsqueeze(0) # pyright: ignore[reportPrivateUsage]
@@ -61,13 +61,16 @@ def test_giggam(model: GigaAMASR):
     assert model.transcribe(audio_path1) == expected_text1
     assert model.transcribe(audio_path2) == expected_text2
 
-    waveforms: list[npt.NDArray[np.float64]] = [
+    waveforms: list[npt.NDArray[np.floating]] = [
         librosa.load(audio_path1, sr=16_000)[0], # type: ignore
         librosa.load(audio_path2, sr=16_000)[0], # type: ignore
     ]
     output1, output2 = transcribe_with_gigaam_ctc(model, waveforms)
     assert output1.text == expected_text1
     assert output2.text == expected_text2
+    
+    output1.visualize(model, waveforms[0])
+    output2.visualize(model, waveforms[1])
     
     symbols = decode_each_token(model, output1.labels)
     assert ''.join([key for key, _group in groupby(symbols) if key != '_']) == expected_text1

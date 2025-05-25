@@ -50,7 +50,7 @@ def test_vosk_KaldiRecognizer(frames_per_chunk: int, prediction: list[str]):
 
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_vosk_wrapper():
-    waveform: npt.NDArray[np.float64]
+    waveform: npt.NDArray[np.floating]
     waveform, _ = librosa.load('tests/testdata/vosk.wav', sr=16_000) # type: ignore
     waveform_bytes = np.int16(waveform * 32768).tobytes()
 
@@ -88,7 +88,7 @@ def test_vosk_wrapper():
 def test_vosk54_wrapper():
     from asr_eval.models.vosk import VoskV54
     
-    waveform: npt.NDArray[np.float64]
+    waveform: npt.NDArray[np.floating]
     waveform, _ = librosa.load('tests/testdata/podlodka_test_0.wav', sr=16_000) # type: ignore
 
     model = VoskV54()

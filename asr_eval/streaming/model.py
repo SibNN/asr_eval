@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections import defaultdict
-import copy
 from dataclasses import dataclass, field
 from enum import Enum
 import math

@@ -49,7 +49,7 @@ def plot_alignments(
     for i, seg in enumerate(segments):
         plt.annotate( # type: ignore
             vocab[seg.token] if vocab else str(seg.token),
-            (seg.start, i - 0.7), size="small"
+            (seg.start, i - 0.2), size="small"
         )
     
     plt.show() # type: ignore
