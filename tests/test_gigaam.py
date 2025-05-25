@@ -1,5 +1,4 @@
 import typing
-from itertools import groupby
 
 import pytest
 import gigaam # pyright: ignore[reportMissingTypeStubs]
@@ -10,6 +9,7 @@ import numpy as np
 import numpy.typing as npt
 
 from asr_eval.models.gigaam import transcribe_with_gigaam_ctc, decode_each_token
+from asr_eval.ctc_utils import ctc_mapping
 
 
 @pytest.fixture
@@ -73,7 +73,7 @@ def test_giggam(model: GigaAMASR):
     output2.visualize(model, waveforms[1])
     
     symbols = decode_each_token(model, output1.labels)
-    assert ''.join([key for key, _group in groupby(symbols) if key != '_']) == expected_text1
+    assert ''.join(ctc_mapping(symbols)) == expected_text1
     
     symbols = decode_each_token(model, output2.labels)
-    assert ''.join([key for key, _group in groupby(symbols) if key != '_']) == expected_text2
+    assert ''.join(ctc_mapping(symbols)) == expected_text2
