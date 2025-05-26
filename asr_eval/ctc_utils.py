@@ -36,7 +36,7 @@ def torch_ctc_forced_alignment(
         torch.tensor(true_tokens, dtype=torch.int32, device='cpu').unsqueeze(0),
         blank=blank_id,
     )
-    return alignments[0].tolist(), [float(x) for x in scores[0].numpy()],  # type: ignore
+    return alignments[0].tolist(), scores[0].tolist(),  # type: ignore
 
 @dataclass
 class _FA_Path:
