@@ -38,11 +38,6 @@ def torch_ctc_forced_alignment(
     )
     return alignments[0].tolist(), scores[0].tolist(),  # type: ignore
 
-@dataclass
-class _FA_Path:
-    token_ids: list[int]
-    log_p: list[float]
-
 def recursion_ctc_forced_alignment(
     log_probs: npt.NDArray[np.floating],
     tokens: list[int] | npt.NDArray[np.integer],
@@ -57,7 +52,7 @@ def recursion_ctc_forced_alignment(
     assert all(t != blank_id for t in tokens)
     
     @lru_cache(maxsize=None)
-    def fa(
+    def _forced_alignment(
         log_probs_idx: int = 0,
         tokens_idx: int = 0,
         _prev_token_id: int = blank_id
@@ -65,37 +60,36 @@ def recursion_ctc_forced_alignment(
         if log_probs_idx >= len(log_probs):
             return [], [0 if tokens_idx >= len(tokens) else -np.inf]
         
-        # option 1: blank token
-        tail_tokens, tail_p = fa(log_probs_idx + 1, tokens_idx, blank_id)
-        path_1 = _FA_Path(
+        # we will consired several paths and then select one with the highest probability
+        # each path is a list of token ids (possibly including blank_id) and their log probabilities
+        paths: list[tuple[list[int], list[float]]] = []
+        
+        # option 1: blank token is selected for the first frame
+        tail_tokens, tail_p = _forced_alignment(log_probs_idx + 1, tokens_idx, blank_id)
+        paths.append((
             [blank_id] + tail_tokens,
             [log_probs[log_probs_idx, blank_id]] + tail_p,
-        )
-        best_path = path_1
+        ))
         
-        # option 2: prev token that is not blank token
+        # option 2: prev token is selected for the first frame (!= blank token)
         if _prev_token_id != blank_id:
-            tail_tokens, tail_p = fa(log_probs_idx + 1, tokens_idx, _prev_token_id)
-            path_2 = _FA_Path(
+            tail_tokens, tail_p = _forced_alignment(log_probs_idx + 1, tokens_idx, _prev_token_id)
+            paths.append((
                 [_prev_token_id] + tail_tokens,
                 [log_probs[log_probs_idx, _prev_token_id]] + tail_p,
-            )
-            if sum(path_2.log_p) > sum(best_path.log_p):
-                best_path = path_2
+            ))
         
-        # option 3: true_tokens[0] that is not the same as prev token
+        # option 3: true_tokens[0] is selected for the first frame (!= prev token)
         if tokens_idx < len(tokens) and tokens[tokens_idx] != _prev_token_id:
-            tail_tokens, tail_p = fa(log_probs_idx + 1, tokens_idx + 1, tokens[tokens_idx])
-            path_3 = _FA_Path(
+            tail_tokens, tail_p = _forced_alignment(log_probs_idx + 1, tokens_idx + 1, tokens[tokens_idx])
+            paths.append((
                 [tokens[tokens_idx]] + tail_tokens,
                 [log_probs[log_probs_idx, tokens[tokens_idx]]] + tail_p,
-            )
-            if sum(path_3.log_p) > sum(best_path.log_p):
-                best_path = path_3
+            ))
         
-        return best_path.token_ids, best_path.log_p
+        return max(paths, key=lambda path: sum(path[1]))
     
-    result_tokens, result_p = fa(0, 0, blank_id)
+    result_tokens, result_p = _forced_alignment(0, 0, blank_id)
     if sum(result_p) == -np.inf:
         raise RuntimeError('cannot perform a force algnment')
     return result_tokens, result_p[:-1]  # drop the latest 0
