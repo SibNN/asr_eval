@@ -26,8 +26,8 @@ def test_forced_alignment():
     tokens = [model.decoding.tokenizer.vocab.index(x) for x in text]
     output = transcribe_with_gigaam_ctc(model, [waveform])[0]
     
-    p1, tokens1 = recursion_ctc_forced_alignment(output.log_probs, tokens, model.decoding.blank_id)
-    p2, tokens2 = torch_ctc_forced_alignment(output.log_probs, tokens, model.decoding.blank_id)
+    tokens1, p1 = recursion_ctc_forced_alignment(output.log_probs, tokens, model.decoding.blank_id)
+    tokens2, p2 = torch_ctc_forced_alignment(output.log_probs, tokens, model.decoding.blank_id)
     
     assert np.allclose(p1, p2)
     assert tokens1 == tokens2
