@@ -45,10 +45,10 @@ def test_forced_alignment():
     
     # use 0 as blank token
     
-    for fa in [torch_ctc_forced_alignment, recursion_ctc_forced_alignment]:
+    for fa in [torch_ctc_forced_alignment, recursion_ctc_forced_alignment]: # type: ignore
     
         n_tokens = output.log_probs.shape[1]
-        tokens3, p3 = fa(
+        tokens3, p3 = fa( # type: ignore
             np.ascontiguousarray(output.log_probs[:, [n_tokens - 1] + list(range(n_tokens - 1))]),
             [(t + 1 if t != n_tokens - 1 else 0) for t in tokens],
             0,
