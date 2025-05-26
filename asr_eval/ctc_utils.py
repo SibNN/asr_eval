@@ -56,8 +56,8 @@ def recursion_ctc_forced_alignment(
         tokens_pos: int = 0,
         prev_token: int = blank_id,
     ) -> tuple[list[int], list[float]]:
-        # Performs the forced alignment of log_probs[log_probs_idx:] to tokens[tokens_idx:] given that
-        # prev_token_id was selected for the frame log_probs_idx - 1. Will recursively solve via
+        # Performs the forced alignment of log_probs[log_probs_pos:] to tokens[tokens_pos:] given that
+        # prev_token_id was selected for the frame log_probs_pos - 1. Will recursively solve via
         # _forced_alignment(log_probs_pos + 1, ...), considering several options for the first frame
         
         if log_probs_pos >= len(log_probs):
