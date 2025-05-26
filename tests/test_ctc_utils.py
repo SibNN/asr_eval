@@ -54,4 +54,4 @@ def test_forced_alignment():
             0,
         )
         assert np.allclose(p1, p3) # type: ignore
-        assert tokens1 == [(t - 1 if t != 0 else n_tokens - 1) for t in tokens3]
+        assert tokens1 == [(t - 1 if t != 0 else n_tokens - 1) for t in tokens3] # type: ignore
