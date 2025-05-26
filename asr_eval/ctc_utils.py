@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from functools import lru_cache
 from itertools import groupby
 
@@ -53,38 +52,41 @@ def recursion_ctc_forced_alignment(
     
     @lru_cache(maxsize=None)
     def _forced_alignment(
-        log_probs_idx: int = 0,
-        tokens_idx: int = 0,
-        _prev_token_id: int = blank_id
+        log_probs_pos: int = 0,
+        tokens_pos: int = 0,
+        prev_token: int = blank_id,
     ) -> tuple[list[int], list[float]]:
-        if log_probs_idx >= len(log_probs):
-            return [], [0 if tokens_idx >= len(tokens) else -np.inf]
+        # Performs the forced alignment of log_probs[log_probs_idx:] to tokens[tokens_idx:] given that
+        # prev_token_id was selected for the frame log_probs_idx - 1. Will recursively solve via
+        # _forced_alignment(log_probs_pos + 1, ...), considering several options for the first frame
         
-        # we will consired several paths and then select one with the highest probability
+        if log_probs_pos >= len(log_probs):
+            return [], [0 if tokens_pos >= len(tokens) else -np.inf]
+        
         # each path is a list of token ids (possibly including blank_id) and their log probabilities
         paths: list[tuple[list[int], list[float]]] = []
         
         # option 1: blank token is selected for the first frame
-        tail_tokens, tail_p = _forced_alignment(log_probs_idx + 1, tokens_idx, blank_id)
+        tail_tokens, tail_p = _forced_alignment(log_probs_pos + 1, tokens_pos, blank_id)
         paths.append((
             [blank_id] + tail_tokens,
-            [log_probs[log_probs_idx, blank_id]] + tail_p,
+            [log_probs[log_probs_pos, blank_id]] + tail_p,
         ))
         
         # option 2: prev token is selected for the first frame (!= blank token)
-        if _prev_token_id != blank_id:
-            tail_tokens, tail_p = _forced_alignment(log_probs_idx + 1, tokens_idx, _prev_token_id)
+        if prev_token != blank_id:
+            tail_tokens, tail_p = _forced_alignment(log_probs_pos + 1, tokens_pos, prev_token)
             paths.append((
-                [_prev_token_id] + tail_tokens,
-                [log_probs[log_probs_idx, _prev_token_id]] + tail_p,
+                [prev_token] + tail_tokens,
+                [log_probs[log_probs_pos, prev_token]] + tail_p,
             ))
         
         # option 3: true_tokens[0] is selected for the first frame (!= prev token)
-        if tokens_idx < len(tokens) and tokens[tokens_idx] != _prev_token_id:
-            tail_tokens, tail_p = _forced_alignment(log_probs_idx + 1, tokens_idx + 1, tokens[tokens_idx])
+        if tokens_pos < len(tokens) and tokens[tokens_pos] != prev_token:
+            tail_tokens, tail_p = _forced_alignment(log_probs_pos + 1, tokens_pos + 1, tokens[tokens_pos])
             paths.append((
-                [tokens[tokens_idx]] + tail_tokens,
-                [log_probs[log_probs_idx, tokens[tokens_idx]]] + tail_p,
+                [tokens[tokens_pos]] + tail_tokens,
+                [log_probs[log_probs_pos, tokens[tokens_pos]]] + tail_p,
             ))
         
         return max(paths, key=lambda path: sum(path[1]))
