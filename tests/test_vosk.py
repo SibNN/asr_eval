@@ -88,10 +88,13 @@ def test_vosk_wrapper():
 def test_vosk54_wrapper():
     from asr_eval.models.vosk import VoskV54
     
-    waveform: npt.NDArray[np.floating]
+    waveform: npt.NDArray[np.float64]
     waveform, _ = librosa.load('tests/testdata/podlodka_test_0.wav', sr=16_000) # type: ignore
 
     model = VoskV54()
-    
+    texts = model.transcribe([waveform])
+    assert texts == ['и поэтому использовать их в повседневности не получается мы вынуждены поступать зачастую интуитивно']
+
+    model = VoskV54(device='cuda')
     texts = model.transcribe([waveform])
     assert texts == ['и поэтому использовать их в повседневности не получается мы вынуждены поступать зачастую интуитивно']

@@ -1,7 +1,7 @@
 sentencepiece
 torch==2.5.1
-kaldifeat==1.25.5.dev20250307+cpu.torch2.5.1 -f https://csukuangfj.github.io/kaldifeat/cpu.html
-k2==1.24.4.dev20250425+cpu.torch2.5.1 -f https://k2-fsa.github.io/k2/cpu.html
+kaldifeat==1.25.5.dev20250203+cuda12.4.torch2.5.1 -f https://csukuangfj.github.io/kaldifeat/cuda.html
+k2==1.24.4.dev20250208+cuda12.4.torch2.5.1 -f https://k2-fsa.github.io/k2/cuda.html
 git+https://github.com/lhotse-speech/lhotse
 git+https://github.com/k2-fsa/icefall
 huggingface_hub
