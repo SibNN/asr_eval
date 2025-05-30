@@ -5,13 +5,16 @@ import string
 
 from .data import Anything, Token, MultiVariant
 
+# equals nltk.WordPunctTokenizer()._regexp used for nltk.wordpunct_tokenize(text)
+# we cannot use nltk.wordpunct_tokenize because we also need word spans (start, end)
+WORD_REGEXP = re.compile(r'\w+|[^\w\s]+', re.MULTILINE|re.DOTALL|re.UNICODE)
 
 def parse_string(
     text: str,
     pos_shift: int = 0,
 ) -> list[Token]:
     result: list[Token] = []
-    for match in re.finditer(r'\S+', text):
+    for match in re.finditer(WORD_REGEXP, text):
         word = match.group()
         start, end = match.span()
         result.append(Token(
