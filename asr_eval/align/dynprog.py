@@ -3,6 +3,12 @@ import typing
 
 # TODO return something from align(), write tests
 
+# TODO rewrite:
+# 1) matrix with Pred and True axes
+# 2) A custom mapping prev -> next for the True axis
+# 3) store previous n errors (if known) and best prev cell in each cell
+# 4) fill the matrix, then go backwards
+
 # value, uid
 TOKEN = tuple[str, str]
 
