@@ -4,4 +4,4 @@ matplotlib
 datasets
 ipywidgets
 ipykernel
-jiwer
+hydra_zen
