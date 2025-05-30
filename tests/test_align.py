@@ -1,4 +1,7 @@
-from asr_eval.align.recursive import parse_string, parse_multi_variant_string, align, Token
+from asr_eval.align.data import Token
+from asr_eval.align.parsing import parse_string, parse_multi_variant_string
+from asr_eval.align.recursive import align
+
 
 def test_align_recursive():
     true_text = 'a <*> b c {x|y|d} {qaz|} {a|b}'
