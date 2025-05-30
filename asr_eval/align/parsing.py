@@ -20,6 +20,23 @@ def parse_string(
         ))
     return result
 
+
+# We can also parse multivariant strings with pyparsing:
+
+# from pyparsing import CharsNotIn, OneOrMore, Suppress as S, Group, Empty, ZeroOrMore
+
+# WORDS = CharsNotIn('{|}\n')('words')
+# OPTION = Group(WORDS | Empty())('option')
+# MULTI = Group(S('{') + OPTION + OneOrMore(S('|') + OPTION) + S('}'))('multi')
+# MV_STRING = ZeroOrMore(MULTI | WORDS)
+
+# results = MV_STRING.parse_string('{a|b} ! {1|2 3|} x y {3|4}', parse_all=True)
+# print(results.as_list())
+
+# however, this is not obvious for ones who are not familiar with pyparsing
+# and also gives uninformative parsing errors
+
+
 MULTIVARIANT_PATTERN = re.compile(
     r'({[^{}]*?})'            # multi variant
     '|'
@@ -27,7 +44,7 @@ MULTIVARIANT_PATTERN = re.compile(
 )
 
 
-def parse_multi_variant_string(
+def parse_multivariant_string(
     text: str,
 ) -> list[Token | MultiVariant]:
     result: list[Token | MultiVariant] = []

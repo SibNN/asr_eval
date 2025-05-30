@@ -1,12 +1,12 @@
 from asr_eval.align.data import Token
-from asr_eval.align.parsing import parse_string, parse_multi_variant_string
+from asr_eval.align.parsing import parse_string, parse_multivariant_string
 from asr_eval.align.recursive import align
 
 
 def test_align_recursive():
     true_text = 'a <*> b c {x|y|d} {qaz|} {a|b}'
     pred_text = 'a b x y a a'
-    true = parse_multi_variant_string(true_text)
+    true = parse_multivariant_string(true_text)
     pred = parse_string(pred_text)
     matches_list = align(true, pred)
 
