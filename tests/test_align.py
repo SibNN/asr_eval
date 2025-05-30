@@ -1,6 +1,21 @@
+import nltk # pyright: ignore[reportMissingTypeStubs]
+import numpy as np
+
 from asr_eval.align.data import Token
 from asr_eval.align.parsing import parse_string, parse_multivariant_string
 from asr_eval.align.recursive import align
+
+
+def test_edit_distance():
+    rng = np.random.default_rng(0)
+    
+    for _ in range(100):
+        true = [str(x) for x in rng.integers(low=0, high=3, size=rng.integers(low=0, high=15))]
+        pred = [str(x) for x in rng.integers(low=0, high=3, size=rng.integers(low=0, high=15))]
+        assert (
+            align([Token(x) for x in true], [Token(x) for x in pred]).total_n_errs
+            == nltk.edit_distance(true, pred) # pyright: ignore[reportUnknownMemberType]
+        )
 
 
 def test_align_recursive():

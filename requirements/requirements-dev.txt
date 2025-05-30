@@ -1,1 +1,2 @@
 pytest
+nltk    # for testing edit distance
