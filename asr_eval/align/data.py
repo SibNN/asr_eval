@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 
 @dataclass(slots=True)
@@ -38,22 +38,32 @@ class Match:
     @classmethod
     def from_pair(cls, true: list[Token], pred: list[Token]) -> Match:
         assert len(true) > 0 or len(pred) > 0
-        return Match(
+        match = Match(
             true=true,
             pred=pred,
             true_len=len(true),
-            n_errs=(
-                0
-                if [t.value for t in true] == [t.value for t in pred]
-                or (len(true) == 1 and isinstance(true[0].value, Anything))
-                else max(len(true), len(pred))
-            ),
+            n_errs=0,
         )
+        match.n_errs = 0 if match.get_status() == 'correct' else max(len(true), len(pred))
+        return match
     
     def __repr__(self) -> str:
         first = ' '.join([str(x) for x in self.true])
         second = ' '.join([str(x) for x in self.pred])
         return f'({first}, {second})'
+    
+    def get_status(self) -> Literal['correct', 'deletion', 'insertion', 'replacement']:
+        if (
+            [t.value for t in self.true] == [t.value for t in self.pred]
+            or (len(self.true) == 1 and isinstance(self.true[0].value, Anything))
+        ):
+            return 'correct'
+        elif len(self.pred) == 0:
+            return 'deletion'
+        elif len(self.true) == 0:
+            return 'insertion'
+        else:
+            return 'replacement'
 
 
 @dataclass(slots=True)

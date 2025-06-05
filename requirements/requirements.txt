@@ -6,3 +6,4 @@ ipywidgets
 ipykernel
 hydra_zen
 srt
+termcolor
