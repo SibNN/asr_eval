@@ -6,15 +6,16 @@ import gigaam # pyright: ignore[reportMissingTypeStubs]
 from gigaam.model import GigaAMASR # pyright: ignore[reportMissingTypeStubs]
 import numpy as np
 
-from asr_eval.models.gigaam import transcribe_with_gigaam_ctc
-from asr_eval.ctc_utils import ctc_mapping, recursion_ctc_forced_alignment, torch_ctc_forced_alignment
+from asr_eval.models.gigaam import transcribe_with_gigaam_ctc, decode
+from asr_eval.ctc.base import ctc_mapping
+from asr_eval.ctc.forced_alignment import recursion_forced_alignment, forced_alignment
 
 def test_ctc_mapping():
-    assert ctc_mapping(list('____')) == []
-    assert ctc_mapping(list('aaaaa')) == ['a']
+    assert ctc_mapping(list('____'), blank='_') == []
+    assert ctc_mapping(list('aaaaa'), blank='_') == ['a']
     
     x = list('_________дджжой   иссто__ч_ни__ки_________   _иссто_ри__и')
-    assert ctc_mapping(x) == list('джой источники истории')
+    assert ctc_mapping(x, blank='_') == list('джой источники истории')
     
 
 @pytest.mark.filterwarnings('ignore::FutureWarning:', 'ignore::DeprecationWarning:')
@@ -28,24 +29,17 @@ def test_forced_alignment():
     
     # use model.decoding.blank_id as blank token
     
-    tokens1, p1 = recursion_ctc_forced_alignment(output.log_probs, tokens, model.decoding.blank_id)
-    tokens2, p2 = torch_ctc_forced_alignment(output.log_probs, tokens, model.decoding.blank_id)
+    tokens1, p1 = recursion_forced_alignment(output.log_probs, tokens, model.decoding.blank_id)
+    tokens2, p2 = forced_alignment(output.log_probs, tokens, model.decoding.blank_id)
     
     assert np.allclose(p1, p2)
     assert tokens1 == tokens2
     
-    decoded_each_token = [
-        model.decoding.tokenizer.vocab[x]
-        if x != model.decoding.blank_id
-        else '_'
-        for x in tokens1
-    ]
-    
-    assert ''.join(ctc_mapping(decoded_each_token)) == text
+    assert decode(model, ctc_mapping(tokens1, blank=model.decoding.blank_id)) == text
     
     # use 0 as blank token
     
-    for fa in [torch_ctc_forced_alignment, recursion_ctc_forced_alignment]: # type: ignore
+    for fa in [forced_alignment, recursion_forced_alignment]: # type: ignore
     
         n_tokens = output.log_probs.shape[1]
         tokens3, p3 = fa( # type: ignore

@@ -8,8 +8,8 @@ import librosa
 import numpy as np
 import numpy.typing as npt
 
-from asr_eval.models.gigaam import transcribe_with_gigaam_ctc, decode_each_token
-from asr_eval.ctc_utils import ctc_mapping
+from asr_eval.models.gigaam import transcribe_with_gigaam_ctc, decode
+from asr_eval.ctc.base import ctc_mapping
 
 
 @pytest.fixture
@@ -68,12 +68,10 @@ def test_giggam(model: GigaAMASR):
     output1, output2 = transcribe_with_gigaam_ctc(model, waveforms)
     assert output1.text == expected_text1
     assert output2.text == expected_text2
-    
-    output1.visualize(model, waveforms[0])
-    output2.visualize(model, waveforms[1])
-    
-    symbols = decode_each_token(model, output1.labels)
-    assert ''.join(ctc_mapping(symbols)) == expected_text1
-    
-    symbols = decode_each_token(model, output2.labels)
-    assert ''.join(ctc_mapping(symbols)) == expected_text2
+
+    for log_probs, expected_text in [
+        (output1.log_probs, expected_text1),
+        (output2.log_probs, expected_text2),
+    ]:
+        tokens = ctc_mapping(log_probs.argmax(axis=1).tolist(), blank=model.decoding.blank_id)
+        assert decode(model, tokens) == expected_text

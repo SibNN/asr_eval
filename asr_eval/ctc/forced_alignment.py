@@ -1,25 +1,14 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from itertools import groupby
 
 import numpy as np
 import numpy.typing as npt
 import torch
 import torchaudio # pyright: ignore[reportMissingTypeStubs]
 
-def ctc_mapping(symbols: list[str], blank: str = '_') -> list[str]:
-    '''
-    Represent a CTC mapping. First removes duplicates, then removes blank tokens.
-    
-    ```
-    x = list('_________дджжой   иссто__ч_ни__ки_________   _иссто_ри__и')
-    assert ctc_mapping(x) == list('джой источники истории')
-    ```
-    '''
-    return [key for key, _group in groupby(symbols) if key != blank]
 
-def torch_ctc_forced_alignment(
+def forced_alignment(
     log_probs: npt.NDArray[np.floating],
     true_tokens: list[int] | npt.NDArray[np.integer],
     blank_id: int = 0,
@@ -37,7 +26,7 @@ def torch_ctc_forced_alignment(
     )
     return alignments[0].tolist(), scores[0].tolist(),  # type: ignore
 
-def recursion_ctc_forced_alignment(
+def recursion_forced_alignment(
     log_probs: npt.NDArray[np.floating],
     tokens: list[int] | npt.NDArray[np.integer],
     blank_id: int = 0,
