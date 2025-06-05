@@ -31,9 +31,12 @@ for sova_part_dir in sorted(sova_dir.glob('*-of-00500')):
     sova_part: Dataset = load_from_disk(sova_part_dir).cast_column('audio', Audio(sampling_rate=16_000)) # type: ignore
 
     log_probs: list[npt.NDArray[np.float32 | np.float16]] = []
+    texts: list[str] = []
+    
     for batch_idx, batch in enumerate(sova_part.iter(batch_size=batch_size)): # type: ignore
         outputs = transcribe_with_gigaam_ctc(model, [x['array'] for x in batch['audio']]) # type: ignore
         log_probs += [x.log_probs for x in outputs]
+        texts += [x.text for x in outputs]
         print(
             f'[{datetime.datetime.now()}]'
             f' Done {batch_idx}/{math.ceil(len(sova_part) / batch_size)}'
@@ -42,5 +45,8 @@ for sova_part_dir in sorted(sova_dir.glob('*-of-00500')):
         )
         # break
     
-    Dataset.from_dict({'gigaam2_log_probs': log_probs}).save_to_disk(output_part_dir) # type: ignore
+    Dataset.from_dict({
+        'gigaam2_log_probs': log_probs,
+        'gigaam2_texts': texts,
+    }).save_to_disk(output_part_dir) # type: ignore
     # break
