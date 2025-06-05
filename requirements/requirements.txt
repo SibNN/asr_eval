@@ -5,3 +5,4 @@ datasets
 ipywidgets
 ipykernel
 hydra_zen
+srt

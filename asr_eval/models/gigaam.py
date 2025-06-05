@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 import typing
 import warnings
+import re
 
 from gigaam.model import GigaAMASR, SAMPLE_RATE, LONGFORM_THRESHOLD # pyright: ignore[reportMissingTypeStubs]
 from gigaam.decoding import CTCGreedyDecoding # pyright: ignore[reportMissingTypeStubs]
@@ -8,6 +9,9 @@ import torch
 from torch.nn.utils.rnn import pad_sequence
 import numpy as np
 import numpy.typing as npt
+
+from ..ctc.base import ctc_mapping
+from ..ctc.forced_alignment import forced_alignment
 
 
 FREQ = 25  # GigaAM2 encoder outputs per second
@@ -82,3 +86,48 @@ def decode(model: GigaAMASR, tokens: list[int] | npt.NDArray[np.int64]) -> str:
         else '_'
         for x in tokens
     ])
+
+def encode(model: GigaAMASR, text: str) -> list[int]:
+    assert model.decoding.tokenizer.charwise
+    tokens: list[int] = []
+    for char in text:
+        if not char in model.decoding.tokenizer.vocab:
+            raise ValueError(f'Cannot encode char "{char}": does not exist in vocab')
+        tokens.append(model.decoding.tokenizer.vocab.index(char))
+    return tokens
+
+def get_word_timings(
+    model: GigaAMASR,
+    waveform: npt.NDArray[np.floating],
+    text: str | None = None,
+) -> list[tuple[str, float, float]]:
+    '''
+    Outputs a list of words and their timings in seconds:
+
+    ([('и', 0.12, 0.16),
+        ('поэтому', 0.2, 0.56),
+        ('использовать', 0.64, 1.28),
+        ('их', 1.32, 1.44),
+        ('в', 1.48, 1.56),
+        ('повседневности', 1.6, 2.36),
+    '''
+    outputs = transcribe_with_gigaam_ctc(model, [waveform])[0]
+    if text is None:
+        tokens = outputs.log_probs.argmax(axis=1)
+    else:
+        tokens, _probs = forced_alignment(
+            outputs.log_probs,
+            encode(model, text),
+            blank_id=model.decoding.blank_id
+        )
+    letter_per_frame = decode(model, tokens)
+    word_timings = [
+        (
+            ''.join(ctc_mapping(list(match.group()), blank='_')),
+            match.start() / FREQ,
+            match.end() / FREQ,
+        )
+        for match in re.finditer(r'[а-я]([а-я_]*[а-я])?', letter_per_frame)
+    ]
+    return word_timings
+
