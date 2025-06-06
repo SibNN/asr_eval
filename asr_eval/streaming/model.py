@@ -38,11 +38,17 @@ class InputChunk:
     # real-world timestamps in seconds (time.time()) filled by ASRStreamingQueue
     put_timestamp: float | None = None
     get_timestamp: float | None = None
+    
+    # an input chunk counter for the current recording ID, filled by ASRStreamingQueue
+    index: int | None = None
  
     
 @dataclass(kw_only=True)
 class OutputChunk:
     data: PartialTranscription | Literal[Signal.FINISH]
+    
+    # number of processed input chunks, optional
+    n_input_chunks_processed: int | None = None
     
     # real-world timestamps in seconds (time.time()) filled by ASRStreamingQueue
     put_timestamp: float | None = None
@@ -58,6 +64,7 @@ class ASRStreamingQueue(StreamingQueue[CHUNK_TYPE]):
     """
     def __init__(self, name: str = 'unnamed'):
         super().__init__(name=name)
+        self._counts: dict[ID_TYPE, int] = defaultdict(int)
         self._finished_ids: set[ID_TYPE] = set()
         # self.history: list[tuple[CHUNK_TYPE, ID_TYPE]] | None = None
         # self._positions_in_history: dict[int, int] = {}
@@ -78,6 +85,8 @@ class ASRStreamingQueue(StreamingQueue[CHUNK_TYPE]):
     def put(self, data: CHUNK_TYPE, id: ID_TYPE = 0) -> None:
         self._validate(data=data, id=id)
         data.put_timestamp = time.time()
+        data.index = self._counts[id]
+        self._counts[id] += 1
         # if self.history is not None:
         #     self.history.append((copy.deepcopy(data), id))
         #     # self.history.append((data_copy := copy.deepcopy(data), id))
@@ -133,6 +142,12 @@ class StreamingBlackBoxASR(ABC):
     Details:
     - FINISH input chunk indices that the audio for the ID has been fully sent
     - FINISH output chunk indices that FINISH input chunk received fhr the given ID and the transcription is done
+    
+    Optionally, some models may fill `.n_input_chunks_processed` field in `OutputChunk` - a total number of input
+    chunks processed (for the current recording ID) before yielding the current output chunk. This may be useful,
+    because we could send 100 chunks (let it be 10 sec in total), but the model performs slow calculations and has
+    already processed only 20 chunks (2 sec in total). Depending on the testing scenario, we can treat the result
+    as a partial transcription of the first 2 or 10 seconds of the audio signal.
     
     An Exit exception in the input buffer indicates that all audios have been fully sent
     An Exit exception in the output buffer indicates that Exit received from the input buffer and the

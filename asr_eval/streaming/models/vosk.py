@@ -29,9 +29,15 @@ class VoskStreaming(StreamingBlackBoxASR):
                 rec = self._recognizers[id]
                 if rec.AcceptWaveform(chunk.data): # type: ignore
                     text = json.loads(rec.Result())['text'] # type: ignore
-                    self.output_buffer.put(OutputChunk(data=PartialTranscription(text=text)), id=id)
+                    self.output_buffer.put(OutputChunk(
+                        data=PartialTranscription(text=text),
+                        n_input_chunks_processed=chunk.index + 1,
+                    ), id=id)
                 else:
                     partial_text = json.loads(rec.PartialResult())['partial'] # type: ignore
-                    self.output_buffer.put(OutputChunk(data=PartialTranscription(id=LATEST, text=partial_text)), id=id)
+                    self.output_buffer.put(OutputChunk(
+                        data=PartialTranscription(id=LATEST, text=partial_text),
+                        n_input_chunks_processed=chunk.index + 1,
+                    ), id=id)
                 
                 
