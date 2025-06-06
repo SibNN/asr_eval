@@ -68,7 +68,7 @@ def test_vosk_wrapper():
         },
         {
             'input': StreamingAudioSender(id=1, audio=waveform_bytes, speed_multiplier=100),
-            'output': 'one zero zero one zero zero zero one zero one eight zero three',
+            'output': 'one zero zero zero one nah no to i know zero one eight zero three',
         },
     ]
 

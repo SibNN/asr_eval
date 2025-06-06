@@ -12,6 +12,7 @@ class VoskStreaming(StreamingBlackBoxASR):
         super().__init__(sampling_rate=sampling_rate)
         self._model = Model(model_name=model_name)
         self._recognizers: dict[ID_TYPE, KaldiRecognizer] = defaultdict(self._make_kaldi_recognizer)
+        self._starting_new_part: dict[ID_TYPE, bool] = defaultdict(bool)
     
     def _make_kaldi_recognizer(self) -> KaldiRecognizer:
         """Seems like we need to create one for each recording"""
@@ -24,20 +25,28 @@ class VoskStreaming(StreamingBlackBoxASR):
             if chunk.data is Signal.FINISH:
                 self.output_buffer.put(OutputChunk(data=Signal.FINISH), id=id)
                 self._recognizers.pop(id, None)
+                self._starting_new_part.pop(id, None)
             else:
                 assert isinstance(chunk.data, bytes)
                 rec = self._recognizers[id]
-                if rec.AcceptWaveform(chunk.data): # type: ignore
+                is_final = rec.AcceptWaveform(chunk.data) # type: ignore
+                
+                if is_final: # type: ignore
                     text = json.loads(rec.Result())['text'] # type: ignore
-                    self.output_buffer.put(OutputChunk(
-                        data=PartialTranscription(text=text),
-                        n_input_chunks_processed=chunk.index + 1,
-                    ), id=id)
+                    if self._starting_new_part[id]:
+                        data = PartialTranscription(text=text, final=True)
+                    else:
+                        data = PartialTranscription(id=LATEST, text=text, final=True)
+                    self._starting_new_part[id] = True
                 else:
-                    partial_text = json.loads(rec.PartialResult())['partial'] # type: ignore
-                    self.output_buffer.put(OutputChunk(
-                        data=PartialTranscription(id=LATEST, text=partial_text),
-                        n_input_chunks_processed=chunk.index + 1,
-                    ), id=id)
+                    text = json.loads(rec.PartialResult())['partial'] # type: ignore
+                    if self._starting_new_part[id]:
+                        data = PartialTranscription(text=text)
+                    else:
+                        data = PartialTranscription(id=LATEST, text=text)
+                    self._starting_new_part[id] = False
+                self.output_buffer.put(OutputChunk(
+                    data=data, n_input_chunks_processed=chunk.index + 1
+                ), id=id)
                 
                 

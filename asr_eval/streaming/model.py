@@ -304,7 +304,9 @@ class PartialTranscription:
                 # edit one of the previous chunks or add a new chunk, set as latest
                 current_id = t.id
             
-            assert current_id not in final_ids, 'trying to rewrite chunk marked as final'
+            assert current_id not in final_ids, (
+                f'trying to rewrite chunk "{current_id}" marked as final, check your model\'s code'
+            )
             if t.final:
                 final_ids.add(current_id)
             
