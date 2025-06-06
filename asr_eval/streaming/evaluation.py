@@ -1,19 +1,23 @@
 import re
+from typing import Sequence
 
 from gigaam.model import GigaAMASR # pyright: ignore[reportMissingTypeStubs]
 import numpy as np
 import numpy.typing as npt
 
+
 from ..ctc.base import ctc_mapping
 from ..ctc.forced_alignment import forced_alignment
 from ..models.gigaam import transcribe_with_gigaam_ctc, encode, decode, FREQ
+from ..align.data import Token
+from ..align.parsing import split_text_into_tokens
 
 
 def get_word_timings(
     model: GigaAMASR,
     waveform: npt.NDArray[np.floating],
     text: str | None = None,
-) -> list[tuple[str, float, float]]:
+) -> list[tuple[Token, float, float]]:
     '''
     Outputs a list of words and their timings in seconds:
 
@@ -36,17 +40,27 @@ def get_word_timings(
     letter_per_frame = decode(model, tokens)
     word_timings = [
         (
-            ''.join(ctc_mapping(list(match.group()), blank='_')),
+            Token(''.join(ctc_mapping(list(match.group()), blank='_'))),
             match.start() / FREQ,
             match.end() / FREQ,
         )
         for match in re.finditer(r'[а-я]([а-я_]*[а-я])?', letter_per_frame)
     ]
+
+    # fill positions
+    if text is not None:
+        true_tokens_with_positions = split_text_into_tokens(text)
+        for (token_to_return, _start, _end), token_with_pos in zip(
+            word_timings, true_tokens_with_positions, strict=True
+        ):
+            assert token_to_return.value == token_with_pos.value
+            token_to_return.pos = token_with_pos.pos
+
     return word_timings
 
 
 def words_count(
-    word_timings: list[tuple[str, float, float]],
+    word_timings: Sequence[tuple[str | Token, float, float]],
     time: float,
 ) -> tuple[int, bool]:
     '''

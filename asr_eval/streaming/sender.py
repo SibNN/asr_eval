@@ -25,7 +25,7 @@ class BaseStreamingAudioSender(ABC):
     """
     audio: AUDIO_CHUNK_TYPE
     id: ID_TYPE = 0
-    sampling_rate: int = 16_000
+    array_len_per_sec: int = 16_000
     propagate_errors: bool = True
     verbose: bool = False
     track_history: bool = False
@@ -51,7 +51,7 @@ class BaseStreamingAudioSender(ABC):
 
     @property
     def audio_length_sec(self) -> float:
-        return len(self.audio) / self.sampling_rate
+        return len(self.audio) / self.array_len_per_sec
     
     def start_sending(self, send_to: InputBuffer) -> Self:
         assert not self._thread
@@ -66,7 +66,7 @@ class BaseStreamingAudioSender(ABC):
     def _run(self, send_to: InputBuffer):
         try:
             times = self.get_send_times()
-            points = [int(t_audio * self.sampling_rate) for _t_real, t_audio in times]
+            points = [int(t_audio * self.array_len_per_sec) for _t_real, t_audio in times]
             if points[-1] == points[-2]:
                 # cut a possible small ending
                 times = times[:-1]

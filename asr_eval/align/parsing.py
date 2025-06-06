@@ -9,7 +9,7 @@ from .data import Anything, Token, MultiVariant
 # we cannot use nltk.wordpunct_tokenize because we also need word spans (start, end)
 WORD_REGEXP = re.compile(r'\w+|[^\w\s]+', re.MULTILINE|re.DOTALL|re.UNICODE)
 
-def parse_string(
+def split_text_into_tokens(
     text: str,
     pos_shift: int = 0,
 ) -> list[Token]:
@@ -66,11 +66,11 @@ def parse_multivariant_string(
                 )
             result.append(MultiVariant(
                 options=[
-                    parse_string(option.group(1), pos_shift=start + option.start() + 1)
+                    split_text_into_tokens(option.group(1), pos_shift=start + option.start() + 1)
                     for option in re.finditer(r'([^\|]*)\|', text_part[1:-1] + '|')
                 ],
                 pos=(start, end),
             ))
         else:
-            result += parse_string(text_part, pos_shift=start)
+            result += split_text_into_tokens(text_part, pos_shift=start)
     return result
