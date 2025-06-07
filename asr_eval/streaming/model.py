@@ -187,7 +187,7 @@ class StreamingBlackBoxASR(ABC):
         assert self._thread is None
         self.input_buffer = InputBuffer(name='input buffer')
         self.output_buffer = OutputBuffer(name='output buffer')
-        self._thread = threading.Thread(target=self._run_and_send_exit, daemon=True)
+        self._thread = threading.Thread(target=self._run_and_send_exit)
         self._thread.start()
         return self
     
