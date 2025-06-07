@@ -40,7 +40,7 @@ class InputChunk:
     get_timestamp: float | None = None
     
     # an input chunk counter for the current recording ID, filled by ASRStreamingQueue
-    index: int | None = None
+    index: int = -1
  
     
 @dataclass(kw_only=True)
@@ -277,13 +277,9 @@ class TranscriptionChunk:
         TranscriptionChunk(id=2, text='c'),         # append a new chunk with text 'c', 3 chunks in total: 'a', 'b'[id=1], 'c'[id=2]
         TranscriptionChunk(id=1, text='b2 b3'),     # edit the chunk with id=1: 'a', 'b2 b3'[id=1], 'c'[id=2]
     ]) == 'a2 b2 b3 c'
-    
-    The argument final=True in TranscriptionChunk indicates that this chunk is final and
-    will not be changed later.
     """
-    id: int | str = field(default_factory=lambda: str(uuid.uuid4()))
+    ref: int | str = field(default_factory=lambda: str(uuid.uuid4()))
     text: str
-    final: bool = False
     
     @classmethod
     def join(
@@ -291,25 +287,18 @@ class TranscriptionChunk:
         transcriptions: Sequence[TranscriptionChunk | OutputChunk | Literal[Signal.FINISH]],
     ) -> str:
         parts: dict[int | str, str] = {}
-        final_ids: set[int | str] = set()
         
         for t in transcriptions:
             if isinstance(t, OutputChunk):
                 t = t.data
             if t is Signal.FINISH:
                 continue
-            if t.id == LATEST:
+            if t.ref == LATEST:
                 # edit the lastest chunk
                 current_id = list(parts)[-1] if len(parts) else '<initial>'
             else:
                 # edit one of the previous chunks or add a new chunk, set as latest
-                current_id = t.id
-            
-            assert current_id not in final_ids, (
-                f'trying to rewrite chunk "{current_id}" marked as final, check your model\'s code'
-            )
-            if t.final:
-                final_ids.add(current_id)
+                current_id = t.ref
             
             parts[current_id] = t.text
             

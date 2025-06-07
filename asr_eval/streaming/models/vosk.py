@@ -12,7 +12,7 @@ class VoskStreaming(StreamingBlackBoxASR):
         super().__init__(sampling_rate=sampling_rate)
         self._model = Model(model_name=model_name)
         self._recognizers: dict[ID_TYPE, KaldiRecognizer] = defaultdict(self._make_kaldi_recognizer)
-        self._starting_new_part: dict[ID_TYPE, bool] = defaultdict(bool)
+        self._next_chunk_starts_new_part: dict[ID_TYPE, bool] = defaultdict(bool)
     
     def _make_kaldi_recognizer(self) -> KaldiRecognizer:
         """Seems like we need to create one for each recording"""
@@ -25,26 +25,22 @@ class VoskStreaming(StreamingBlackBoxASR):
             if chunk.data is Signal.FINISH:
                 self.output_buffer.put(OutputChunk(data=Signal.FINISH), id=id)
                 self._recognizers.pop(id, None)
-                self._starting_new_part.pop(id, None)
+                self._next_chunk_starts_new_part.pop(id, None)
             else:
                 assert isinstance(chunk.data, bytes)
                 rec = self._recognizers[id]
                 is_final = rec.AcceptWaveform(chunk.data) # type: ignore
-                
-                if is_final: # type: ignore
-                    text = json.loads(rec.Result())['text'] # type: ignore
-                    if self._starting_new_part[id]:
-                        data = TranscriptionChunk(text=text, final=True)
-                    else:
-                        data = TranscriptionChunk(id=LATEST, text=text, final=True)
-                    self._starting_new_part[id] = True
-                else:
-                    text = json.loads(rec.PartialResult())['partial'] # type: ignore
-                    if self._starting_new_part[id]:
-                        data = TranscriptionChunk(text=text)
-                    else:
-                        data = TranscriptionChunk(id=LATEST, text=text)
-                    self._starting_new_part[id] = False
+                text = (
+                    json.loads(rec.Result())['text'] # type: ignore
+                    if is_final
+                    else json.loads(rec.PartialResult())['partial'] # type: ignore
+                )
+                data = (
+                    TranscriptionChunk(text=text)
+                    if self._next_chunk_starts_new_part[id]
+                    else TranscriptionChunk(ref=LATEST, text=text)
+                )
+                self._next_chunk_starts_new_part[id] = is_final
                 self.output_buffer.put(OutputChunk(
                     data=data, n_input_chunks_processed=chunk.index + 1
                 ), id=id)
