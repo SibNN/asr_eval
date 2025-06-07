@@ -42,7 +42,8 @@ class VoskStreaming(StreamingBlackBoxASR):
                 )
                 self._next_chunk_starts_new_part[id] = is_final
                 self.output_buffer.put(OutputChunk(
-                    data=data, n_input_chunks_processed=chunk.index + 1
+                    data=data,
+                    seconds_processed=chunk.end_time,
                 ), id=id)
                 
                 

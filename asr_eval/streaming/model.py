@@ -47,8 +47,8 @@ class InputChunk:
 class OutputChunk:
     data: TranscriptionChunk | Literal[Signal.FINISH]
     
-    # number of processed input chunks, optional
-    n_input_chunks_processed: int | None = None
+    # total audio seconds processed, optional
+    seconds_processed: float | None = None
     
     # real-world timestamps in seconds (time.time()) filled by ASRStreamingQueue
     put_timestamp: float | None = None
