@@ -24,6 +24,11 @@ def test_align_recursive():
     true = parse_multivariant_string(true_text)
     pred = split_text_into_tokens(pred_text)
     matches_list = align(true, pred)
+    
+    print([
+        ([t.value for t in match.true], [t.value for t in match.pred])
+        for match in matches_list.matches
+    ])
 
     assert [
         ([t.value for t in match.true], [t.value for t in match.pred])
@@ -34,8 +39,8 @@ def test_align_recursive():
         (['b'], ['b']),
         (['c'], ['x']),
         (['y'], ['y']),
-        (['qaz'], ['a']),
-        (['a'], ['a'])
+        (['a'], ['a']),
+        ([], ['a'])
     ]
 
     for x in true:

@@ -7,3 +7,4 @@ ipykernel
 hydra_zen
 srt
 termcolor
+nltk

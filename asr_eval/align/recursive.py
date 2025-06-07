@@ -26,6 +26,8 @@ def align(
             for i, option in enumerate(x.options):
                 multivariant_prefixes[x.pos, i] = option
     
+
+    
     @lru_cache(maxsize=None)
     def _align_recursive(
         true_pos: int,
