@@ -10,6 +10,7 @@ import time
 from typing import Any, Literal, Self, Sequence, TypeVar, override
 import uuid
 
+import numpy as np
 import numpy.typing as npt
 
 from .buffer import ID_TYPE, StreamingQueue
@@ -181,6 +182,10 @@ class StreamingBlackBoxASR(ABC):
     def __init__(self, sampling_rate: int = 16_000):
         self._sampling_rate = sampling_rate
         self._thread: threading.Thread | None = None
+        
+        self._rechunking_buffer: dict[ID_TYPE, AUDIO_CHUNK_TYPE] = {}
+        self._rechunking_end_time: dict[ID_TYPE, float | None] = {}
+        self._rechunking_finish_received: dict[ID_TYPE, bool] = {}
     
     def start_thread(self) -> Self:
         """Start the processor in a background thread"""
@@ -226,6 +231,85 @@ class StreamingBlackBoxASR(ABC):
         should not be handled in _run.
         """
         ...
+    
+    def _get_with_rechunking(
+        self,
+        size: int,
+        id: ID_TYPE | None = None,
+    ) -> tuple[ID_TYPE, AUDIO_CHUNK_TYPE | None, bool, float | None]:
+        '''
+        Useful if we want to rechunk input audio chunks to the desired size. Waits and returns:
+        - id
+        - audio chunk of the desired size or less (if finish reached)
+        - flag if Signal.FINISH reached
+        - audio end time in seconds
+        '''
+        while True:
+            # do we have data to return?
+            if id is not None:
+                if (
+                    id in self._rechunking_buffer and len(self._rechunking_buffer[id]) >= size
+                    or self._rechunking_finish_received.get(id, False)
+                ):
+                    break
+            else:
+                # loop over buffer and find id to return
+                for _id, is_finished in self._rechunking_finish_received.items():
+                    if is_finished:
+                        id = _id
+                        break
+                for _id, buffered_chunk in self._rechunking_buffer.items():
+                    if len(buffered_chunk) >= size:
+                        id = _id
+                        break
+                
+                # if id is not None now, we found an id to return
+                if id is not None:
+                    break
+            
+            # recieve next chunk from the input buffer
+            chunk, recieved_id = self.input_buffer.get(id)
+            if chunk.data is Signal.FINISH:
+                self._rechunking_finish_received[recieved_id] = True
+            else:
+                self._rechunking_end_time[recieved_id] = chunk.end_time
+                if recieved_id in self._rechunking_buffer:
+                    if isinstance(chunk.data, bytes):
+                        self._rechunking_buffer[recieved_id] += chunk.data
+                    else:
+                        # numpy array
+                        self._rechunking_buffer[recieved_id] = np.concatenate([
+                            self._rechunking_buffer[recieved_id], chunk.data
+                        ])
+                else:
+                    self._rechunking_buffer[recieved_id] = chunk.data
+              
+        # we will return data from buffer for the given id
+        assert id is not None
+                
+        if not id in self._rechunking_buffer:
+            # no data in buffer, is_finished == True
+            assert self._rechunking_finish_received[id]
+            chunk_to_return = None
+            is_finished = True
+        elif len(self._rechunking_buffer[id]) > size:
+            # more than enough data in buffer, is_finished or not
+            chunk_to_return = self._rechunking_buffer[id][:size]
+            self._rechunking_buffer[id] = self._rechunking_buffer[id][size:]
+            is_finished = False
+        else:
+            # just enough or less data in buffer, is_finished or not
+            chunk_to_return = self._rechunking_buffer[id]
+            is_finished = self._rechunking_finish_received.get(id, False)
+            del self._rechunking_buffer[id]
+            
+        end_time = self._rechunking_end_time.get(id, 0)
+        if is_finished:
+            del self._rechunking_finish_received[id]
+            self._rechunking_end_time.pop(id, None)
+        
+        return id, chunk_to_return, is_finished, end_time
+            
 
 
 class DummyASR(StreamingBlackBoxASR):
