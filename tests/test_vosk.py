@@ -8,7 +8,7 @@ import numpy as np
 import numpy.typing as npt
 from vosk import Model, KaldiRecognizer # type: ignore
 
-from asr_eval.streaming.model import PartialTranscription
+from asr_eval.streaming.model import TranscriptionChunk
 from asr_eval.streaming.caller import receive_full_transcription
 from asr_eval.streaming.models.vosk import VoskStreaming
 from asr_eval.streaming.sender import StreamingAudioSender
@@ -77,7 +77,7 @@ def test_vosk_wrapper():
             
     for sample in samples:
         chunks = receive_full_transcription(asr=asr, id=sample['input'].id)
-        assert PartialTranscription.join(chunks) == sample['output']
+        assert TranscriptionChunk.join(chunks) == sample['output']
 
     for sample in samples:
         sample['input'].join()

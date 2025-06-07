@@ -2,7 +2,7 @@ from concurrent.futures import ThreadPoolExecutor
 import textwrap
 from asr_eval.streaming.buffer import ID_TYPE
 
-from .model import OutputChunk, Signal, StreamingBlackBoxASR, PartialTranscription
+from .model import OutputChunk, Signal, StreamingBlackBoxASR, TranscriptionChunk
 from .sender import BaseStreamingAudioSender, StreamingAudioSender
 
 
@@ -42,7 +42,7 @@ def transсribe_parallel(
     def process_sender(sender: StreamingAudioSender) -> tuple[ID_TYPE, list[OutputChunk]]:
         print(f'Transcribing {sender.id}')
         chunks = receive_full_transcription(asr=asr, sender=sender, id=sender.id)
-        transcription = PartialTranscription.join([c.data for c in chunks if isinstance(c.data, PartialTranscription)])
+        transcription = TranscriptionChunk.join(chunks)
         print(f'Transcribed {sender.id}: {textwrap.shorten(transcription, width=80)}', flush=True)
         return sender.id, chunks
     

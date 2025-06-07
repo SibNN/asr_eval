@@ -45,7 +45,7 @@ class InputChunk:
     
 @dataclass(kw_only=True)
 class OutputChunk:
-    data: PartialTranscription | Literal[Signal.FINISH]
+    data: TranscriptionChunk | Literal[Signal.FINISH]
     
     # number of processed input chunks, optional
     n_input_chunks_processed: int | None = None
@@ -85,7 +85,8 @@ class ASRStreamingQueue(StreamingQueue[CHUNK_TYPE]):
     def put(self, data: CHUNK_TYPE, id: ID_TYPE = 0) -> None:
         self._validate(data=data, id=id)
         data.put_timestamp = time.time()
-        data.index = self._counts[id]
+        if isinstance(data, InputChunk):
+            data.index = self._counts[id]
         self._counts[id] += 1
         # if self.history is not None:
         #     self.history.append((copy.deepcopy(data), id))
@@ -120,13 +121,13 @@ class StreamingBlackBoxASR(ABC):
     a 10 sec mono recording with rate 16_000 can be represented as 10 chunks, each with shape (16_000,).
     Several channels can also be supported for some models. The chunk length is not restricted, models in
     general should be able to work with input chunks of any size.
-    - **PartialTranscription**: a partial transcription that either add new words to the transcription or edit
+    - **TranscriptionChunk**: a partial transcription that either add new words to the transcription or edit
     the previous words. See details in the class docstring.
     - **Recording ID**: a unique int or string identifier for a recording. This is useful if several recordings
     are streamed simultaneously, and we should know which audio recording each chunk belongs to. IDs should be
     unique for StreamingBlackBoxASR object and should not be reused, or the exception will be thrown.
     - **Signal.FINISH**: a symbol that signals that a stream for a specific recording ID has ended. This can
-    refer to either the input stream (audio chunks) or the output stream (PartialTranscription-s).
+    refer to either the input stream (audio chunks) or the output stream (TranscriptionChunk-s).
     - **Exit**: an exception that signals that all streams for all recording IDs have ended. This can refer
     to either the input stream or the output stream. After receiving Exit from the input buffer and sending Exit
     to the output buffer, StreamingBlackBoxASR thread finishes.
@@ -136,7 +137,7 @@ class StreamingBlackBoxASR(ABC):
     - an InputChunk(id=Recording ID, data=Signal.FINISH)
     
     Each output chunk can be one of:
-    - an OutputChunk(id=Recording ID, data=<PartialTranscription>)
+    - an OutputChunk(id=Recording ID, data=<TranscriptionChunk>)
     - an OutputChunk(id=Recording ID, data=Signal.FINISH)
     
     Details:
@@ -249,7 +250,7 @@ class DummyASR(StreamingBlackBoxASR):
             new_transcribed_seconds = math.ceil(self._received_seconds[id])
             
             for i in range(self._transcribed_seconds[id], new_transcribed_seconds):
-                self.output_buffer.put(OutputChunk(data=PartialTranscription(text=str(i))), id=id)
+                self.output_buffer.put(OutputChunk(data=TranscriptionChunk(text=str(i))), id=id)
                 
             self._transcribed_seconds[id] = new_transcribed_seconds
             
@@ -263,21 +264,21 @@ LATEST = '__latest__'  # a special symbol to refer to the latest transcription c
 
 
 @dataclass(kw_only=True)
-class PartialTranscription:
+class TranscriptionChunk:
     """
     A chunk returned by a streaming ASR model, may contain any text and any ID. If the model
     wants to edit the previous chunk, it can yield the same ID with another text, or refer to
     the last chunk with ID == LATEST. Example:
     
-    PartialTranscription.join([
-        PartialTranscription(text='a'),               # append a new chunk with text 'a' without an explicit id to refer
-        PartialTranscription(id=LATEST, text='a2'),   # edit the latest chunk: 'a' -> 'a2'
-        PartialTranscription(id=1, text='b'),         # append a new chunk with text 'b', 2 chunks in total: 'a', 'b'[id=1]
-        PartialTranscription(id=2, text='c'),         # append a new chunk with text 'c', 3 chunks in total: 'a', 'b'[id=1], 'c'[id=2]
-        PartialTranscription(id=1, text='b2 b3'),     # edit the chunk with id=1: 'a', 'b2 b3'[id=1], 'c'[id=2]
+    TranscriptionChunk.join([
+        TranscriptionChunk(text='a'),               # append a new chunk with text 'a' without an explicit id to refer
+        TranscriptionChunk(id=LATEST, text='a2'),   # edit the latest chunk: 'a' -> 'a2'
+        TranscriptionChunk(id=1, text='b'),         # append a new chunk with text 'b', 2 chunks in total: 'a', 'b'[id=1]
+        TranscriptionChunk(id=2, text='c'),         # append a new chunk with text 'c', 3 chunks in total: 'a', 'b'[id=1], 'c'[id=2]
+        TranscriptionChunk(id=1, text='b2 b3'),     # edit the chunk with id=1: 'a', 'b2 b3'[id=1], 'c'[id=2]
     ]) == 'a2 b2 b3 c'
     
-    The argument final=True in PartialTranscription indicates that this chunk is final and
+    The argument final=True in TranscriptionChunk indicates that this chunk is final and
     will not be changed later.
     """
     id: int | str = field(default_factory=lambda: str(uuid.uuid4()))
@@ -287,7 +288,7 @@ class PartialTranscription:
     @classmethod
     def join(
         cls,
-        transcriptions: Sequence[PartialTranscription | OutputChunk | Literal[Signal.FINISH]],
+        transcriptions: Sequence[TranscriptionChunk | OutputChunk | Literal[Signal.FINISH]],
     ) -> str:
         parts: dict[int | str, str] = {}
         final_ids: set[int | str] = set()

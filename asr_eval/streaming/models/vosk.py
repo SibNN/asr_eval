@@ -5,7 +5,7 @@ from typing import override
 from vosk import Model, KaldiRecognizer # type: ignore
 
 from ..buffer import ID_TYPE
-from ..model import OutputChunk, StreamingBlackBoxASR, Signal, LATEST, PartialTranscription
+from ..model import OutputChunk, StreamingBlackBoxASR, Signal, LATEST, TranscriptionChunk
 
 class VoskStreaming(StreamingBlackBoxASR):
     def __init__(self, model_name: str = 'vosk-model-small-en-us-0.15', sampling_rate: int = 16_000):
@@ -34,16 +34,16 @@ class VoskStreaming(StreamingBlackBoxASR):
                 if is_final: # type: ignore
                     text = json.loads(rec.Result())['text'] # type: ignore
                     if self._starting_new_part[id]:
-                        data = PartialTranscription(text=text, final=True)
+                        data = TranscriptionChunk(text=text, final=True)
                     else:
-                        data = PartialTranscription(id=LATEST, text=text, final=True)
+                        data = TranscriptionChunk(id=LATEST, text=text, final=True)
                     self._starting_new_part[id] = True
                 else:
                     text = json.loads(rec.PartialResult())['partial'] # type: ignore
                     if self._starting_new_part[id]:
-                        data = PartialTranscription(text=text)
+                        data = TranscriptionChunk(text=text)
                     else:
-                        data = PartialTranscription(id=LATEST, text=text)
+                        data = TranscriptionChunk(id=LATEST, text=text)
                     self._starting_new_part[id] = False
                 self.output_buffer.put(OutputChunk(
                     data=data, n_input_chunks_processed=chunk.index + 1

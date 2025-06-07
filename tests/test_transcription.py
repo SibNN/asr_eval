@@ -1,45 +1,45 @@
 import pytest
 
-from asr_eval.streaming.model import LATEST, PartialTranscription
+from asr_eval.streaming.model import LATEST, TranscriptionChunk
 
 
 def test_join_transcriptions():
-    assert PartialTranscription.join([
-        PartialTranscription(text='a'),
-        PartialTranscription(id=LATEST, text='a2'),
-        PartialTranscription(id=1, text='b'),
-        PartialTranscription(id=2, text='c'),
-        PartialTranscription(id=1, text='b2 b3'),
+    assert TranscriptionChunk.join([
+        TranscriptionChunk(text='a'),
+        TranscriptionChunk(id=LATEST, text='a2'),
+        TranscriptionChunk(id=1, text='b'),
+        TranscriptionChunk(id=2, text='c'),
+        TranscriptionChunk(id=1, text='b2 b3'),
     ]) == 'a2 b2 b3 c'
     
-    assert PartialTranscription.join([
-        PartialTranscription(text='a'),
-        PartialTranscription(id=1, text='b'),
-        PartialTranscription(id=2, text='c'),
-        PartialTranscription(text='x'),
-        PartialTranscription(id=1, text='b2'),
-        PartialTranscription(id=LATEST, text='!@<>'),
-        PartialTranscription(id=1, text='b2 b3'),
-        PartialTranscription(id=2, text='c2'),
+    assert TranscriptionChunk.join([
+        TranscriptionChunk(text='a'),
+        TranscriptionChunk(id=1, text='b'),
+        TranscriptionChunk(id=2, text='c'),
+        TranscriptionChunk(text='x'),
+        TranscriptionChunk(id=1, text='b2'),
+        TranscriptionChunk(id=LATEST, text='!@<>'),
+        TranscriptionChunk(id=1, text='b2 b3'),
+        TranscriptionChunk(id=2, text='c2'),
     ]) == 'a b2 b3 c2 !@<>'
     
-    assert PartialTranscription.join([
-        PartialTranscription(id=LATEST, text='a'),
-        PartialTranscription(id=LATEST, text='b'),
+    assert TranscriptionChunk.join([
+        TranscriptionChunk(id=LATEST, text='a'),
+        TranscriptionChunk(id=LATEST, text='b'),
     ]) == 'b'
     
     
 def test_final():
     with pytest.raises(AssertionError):
-        PartialTranscription.join([
-            PartialTranscription(id=2, text='a'),
-            PartialTranscription(id=1, text='a', final=True),
-            PartialTranscription(id=2, text='b'),
-            PartialTranscription(id=1, text='a'),
+        TranscriptionChunk.join([
+            TranscriptionChunk(id=2, text='a'),
+            TranscriptionChunk(id=1, text='a', final=True),
+            TranscriptionChunk(id=2, text='b'),
+            TranscriptionChunk(id=1, text='a'),
         ])
     
     with pytest.raises(AssertionError):
-        PartialTranscription.join([
-            PartialTranscription(id=LATEST, text='a', final=True),
-            PartialTranscription(id=LATEST, text='b'),
+        TranscriptionChunk.join([
+            TranscriptionChunk(id=LATEST, text='a', final=True),
+            TranscriptionChunk(id=LATEST, text='b'),
         ])
