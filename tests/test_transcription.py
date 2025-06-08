@@ -1,4 +1,4 @@
-from asr_eval.streaming.model import LATEST, TranscriptionChunk
+from asr_eval.streaming.model import TranscriptionChunk
 
 
 def test_join_transcriptions():

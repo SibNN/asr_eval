@@ -356,9 +356,6 @@ class DummyASR(StreamingBlackBoxASR):
                 self.output_buffer.put(OutputChunk(data=Signal.FINISH), id=id)
 
 
-LATEST = '__latest__'  # a special symbol to refer to the latest transcription chunk
-
-
 def new_uid() -> str:
     return str(uuid.uuid4())
 
