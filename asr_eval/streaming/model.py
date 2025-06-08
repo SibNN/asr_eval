@@ -39,9 +39,6 @@ class InputChunk:
     # real-world timestamps in seconds (time.time()) filled by ASRStreamingQueue
     put_timestamp: float | None = None
     get_timestamp: float | None = None
-    
-    # an input chunk counter for the current recording ID, filled by ASRStreamingQueue
-    index: int = -1
  
     
 @dataclass(kw_only=True)
@@ -86,8 +83,6 @@ class ASRStreamingQueue(StreamingQueue[CHUNK_TYPE]):
     def put(self, data: CHUNK_TYPE, id: ID_TYPE = 0) -> None:
         self._validate(data=data, id=id)
         data.put_timestamp = time.time()
-        if isinstance(data, InputChunk):
-            data.index = self._counts[id]
         self._counts[id] += 1
         # if self.history is not None:
         #     self.history.append((copy.deepcopy(data), id))
