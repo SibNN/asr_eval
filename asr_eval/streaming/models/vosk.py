@@ -66,7 +66,7 @@ class VoskStreaming(StreamingBlackBoxASR):
         else:
             # run with rechunking
             while True:
-                id, data, is_finished, end_time = self._get_with_rechunking(self.chunk_size)
+                id, data, is_finished, end_time = self.input_buffer.get_with_rechunking(self.chunk_size)
                 if data is not None:
                     self._process_chunk(id, data, end_time)
                 if is_finished:
