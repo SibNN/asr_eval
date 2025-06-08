@@ -1,3 +1,4 @@
 {
+    "typeCheckingMode": "strict",
     "reportMissingTypeStubs": false,
 }

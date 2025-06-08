@@ -9,7 +9,7 @@ def ctc_mapping(symbols: list[str], blank: str) -> list[str]: ...
 @overload
 def ctc_mapping(symbols: list[int], blank: int) -> list[int]: ...
 
-def ctc_mapping(symbols, blank):
+def ctc_mapping(symbols, blank): # type: ignore
     '''
     Represent a CTC mapping. First removes duplicates, then removes blank tokens.
     
@@ -18,7 +18,7 @@ def ctc_mapping(symbols, blank):
     assert ctc_mapping(x, blank='_') == list('джой источники истории')
     ```
     '''
-    return [key for key, _group in groupby(symbols) if key != blank]
+    return [key for key, _group in groupby(symbols) if key != blank] # type: ignore
 
 # def visualize(
 #     waveform: npt.NDArray[np.floating],

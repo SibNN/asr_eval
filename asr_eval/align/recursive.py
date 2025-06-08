@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from functools import lru_cache
 
 from .data import Anything, Token, MultiVariant, Match, MatchesList
@@ -59,11 +60,11 @@ def align(
             options: list[MatchesList] = []
             current_match_options = [
                 # option 1: match true[0] with pred[0]
-                (1, 1, Match.from_pair(_true[:1], _pred[:1])), # type: ignore
+                (1, 1, Match.from_pair([_true[0]], [_pred[0]])),
                 # option 2: match pred[0] with nothing
-                (0, 1, Match.from_pair([], _pred[:1])),
+                (0, 1, Match.from_pair([], [_pred[0]])),
                 # option 3: match true[0] with nothing
-                (1, 0, Match.from_pair(_true[:1], [])), # type: ignore
+                (1, 0, Match.from_pair([_true[0]], [])),
             ]
             for i, j, current_match in current_match_options:
                 new_true_pos = true_pos
@@ -71,7 +72,7 @@ def align(
                 new_multivariant_prefix_pos = multivariant_prefix_pos
                 if i == 1:
                     if multivariant_prefix_id is not None:
-                        if len(prefix) > 1: # type: ignore
+                        if len(prefix) > 1:  # pyright: ignore[reportPossiblyUnboundVariable]
                             new_multivariant_prefix_pos += 1
                         else:
                             new_multivariant_prefix_id = None
@@ -88,7 +89,7 @@ def align(
                     _results.prepend(current_match)
                 )
             if isinstance(_true[0].value, Anything):
-                current_match = Match.from_pair(_true[:1], _pred[:1]) # type: ignore
+                current_match = Match.from_pair([_true[0]], [_pred[0]])
                 options.append(
                     # option 4: match Anything with pred[0], but keep Anything in the true tokens
                     _align_recursive(

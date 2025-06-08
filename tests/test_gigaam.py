@@ -1,4 +1,4 @@
-import typing
+from typing import cast
 
 import pytest
 import gigaam
@@ -14,11 +14,11 @@ from asr_eval.ctc.base import ctc_mapping
 
 @pytest.fixture
 def model() -> GigaAMASR:
-    return typing.cast(GigaAMASR, gigaam.load_model('ctc', device='cpu'))
+    return cast(GigaAMASR, gigaam.load_model('ctc', device='cpu'))
 
 @pytest.fixture
 def model_cuda() -> GigaAMASR:
-    return typing.cast(GigaAMASR, gigaam.load_model('ctc', device='cuda'))
+    return cast(GigaAMASR, gigaam.load_model('ctc', device='cuda'))
 
 @pytest.mark.filterwarnings('ignore::FutureWarning:', 'ignore::UserWarning:', 'ignore::DeprecationWarning:')
 @pytest.mark.parametrize('model', ['model', 'model_cuda'], indirect=True)
@@ -73,5 +73,5 @@ def test_giggam(model: GigaAMASR):
         (output1.log_probs, expected_text1),
         (output2.log_probs, expected_text2),
     ]:
-        tokens = ctc_mapping(log_probs.argmax(axis=1).tolist(), blank=model.decoding.blank_id)
+        tokens = ctc_mapping(cast(list[int], log_probs.argmax(axis=1).tolist()), blank=model.decoding.blank_id)
         assert decode(model, tokens) == expected_text
