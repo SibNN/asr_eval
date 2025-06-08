@@ -5,7 +5,7 @@ from functools import lru_cache
 import numpy as np
 import numpy.typing as npt
 import torch
-import torchaudio # pyright: ignore[reportMissingTypeStubs]
+import torchaudio
 
 
 def forced_alignment(

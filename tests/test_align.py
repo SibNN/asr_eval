@@ -1,4 +1,4 @@
-import nltk # pyright: ignore[reportMissingTypeStubs]
+import nltk
 import numpy as np
 
 from asr_eval.align.data import Token

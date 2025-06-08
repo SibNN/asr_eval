@@ -9,11 +9,11 @@ import numpy.typing as npt
 import torch
 from torch.nn.utils.rnn import pad_sequence
 from huggingface_hub import hf_hub_download # type: ignore
-import sentencepiece as spm # pyright: ignore[reportMissingTypeStubs]
-import kaldifeat # pyright: ignore[reportMissingTypeStubs]
-from icefall import NgramLm # pyright: ignore[reportMissingTypeStubs]
-from icefall.lm_wrapper import LmScorer # pyright: ignore[reportMissingTypeStubs]
-from icefall.utils import AttributeDict # pyright: ignore[reportMissingTypeStubs]
+import sentencepiece as spm
+import kaldifeat
+from icefall import NgramLm
+from icefall.lm_wrapper import LmScorer
+from icefall.utils import AttributeDict
 
 
 class VoskV54:

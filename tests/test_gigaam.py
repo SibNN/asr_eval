@@ -1,8 +1,8 @@
 import typing
 
 import pytest
-import gigaam # pyright: ignore[reportMissingTypeStubs]
-from gigaam.model import GigaAMASR # pyright: ignore[reportMissingTypeStubs]
+import gigaam
+from gigaam.model import GigaAMASR
 import torch
 import librosa
 import numpy as np

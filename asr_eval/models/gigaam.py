@@ -2,8 +2,8 @@ from dataclasses import dataclass
 import typing
 import warnings
 
-from gigaam.model import GigaAMASR, SAMPLE_RATE, LONGFORM_THRESHOLD # pyright: ignore[reportMissingTypeStubs]
-from gigaam.decoding import CTCGreedyDecoding # pyright: ignore[reportMissingTypeStubs]
+from gigaam.model import GigaAMASR, SAMPLE_RATE, LONGFORM_THRESHOLD
+from gigaam.decoding import CTCGreedyDecoding
 import torch
 from torch.nn.utils.rnn import pad_sequence
 import numpy as np

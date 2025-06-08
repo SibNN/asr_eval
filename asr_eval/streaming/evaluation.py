@@ -1,7 +1,7 @@
 import re
 from typing import Sequence
 
-from gigaam.model import GigaAMASR # pyright: ignore[reportMissingTypeStubs]
+from gigaam.model import GigaAMASR
 import numpy as np
 import numpy.typing as npt
 

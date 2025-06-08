@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, Literal, cast
 
-import nltk # pyright: ignore[reportMissingTypeStubs]
+import nltk
 
 
 @dataclass(slots=True)

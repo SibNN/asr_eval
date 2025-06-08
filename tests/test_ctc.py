@@ -2,8 +2,8 @@ import typing
 
 import pytest
 import librosa
-import gigaam # pyright: ignore[reportMissingTypeStubs]
-from gigaam.model import GigaAMASR # pyright: ignore[reportMissingTypeStubs]
+import gigaam
+from gigaam.model import GigaAMASR
 import numpy as np
 
 from asr_eval.models.gigaam import transcribe_with_gigaam_ctc, decode

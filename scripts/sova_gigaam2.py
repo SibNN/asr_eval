@@ -6,8 +6,8 @@ import datetime
 
 import torch
 from datasets import load_from_disk, Audio, Dataset # type: ignore
-import gigaam # pyright: ignore[reportMissingTypeStubs]
-from gigaam.model import GigaAMASR # pyright: ignore[reportMissingTypeStubs]
+import gigaam
+from gigaam.model import GigaAMASR
 import numpy as np
 import numpy.typing as npt
 
