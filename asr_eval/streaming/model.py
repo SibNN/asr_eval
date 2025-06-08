@@ -359,22 +359,24 @@ class DummyASR(StreamingBlackBoxASR):
 LATEST = '__latest__'  # a special symbol to refer to the latest transcription chunk
 
 
+def new_uid() -> str:
+    return str(uuid.uuid4())
+
+
 @dataclass(kw_only=True)
 class TranscriptionChunk:
     """
-    A chunk returned by a streaming ASR model, may contain any text and any ID. If the model
-    wants to edit the previous chunk, it can yield the same ID with another text, or refer to
-    the last chunk with ID == LATEST. Example:
+    A chunk returned by a streaming ASR model, may contain any text and any UID. If the model
+    wants to edit the previous chunk, it can yield the same UID with another text. Example:
     
     TranscriptionChunk.join([
-        TranscriptionChunk(text='a'),               # append a new chunk with text 'a' without an explicit id to refer
-        TranscriptionChunk(id=LATEST, text='a2'),   # edit the latest chunk: 'a' -> 'a2'
-        TranscriptionChunk(id=1, text='b'),         # append a new chunk with text 'b', 2 chunks in total: 'a', 'b'[id=1]
-        TranscriptionChunk(id=2, text='c'),         # append a new chunk with text 'c', 3 chunks in total: 'a', 'b'[id=1], 'c'[id=2]
-        TranscriptionChunk(id=1, text='b2 b3'),     # edit the chunk with id=1: 'a', 'b2 b3'[id=1], 'c'[id=2]
-    ]) == 'a2 b2 b3 c'
+        TranscriptionChunk(text='a'),               # append a new chunk with text 'a' without an explicit uid to refer
+        TranscriptionChunk(uid=1, text='b'),         # append a new chunk with text 'b', 2 chunks in total: 'a', 'b'[uid=1]
+        TranscriptionChunk(uid=2, text='c'),         # append a new chunk with text 'c', 3 chunks in total: 'a', 'b'[uid=1], 'c'[uid=2]
+        TranscriptionChunk(uid=1, text='b2 b3'),     # edit the chunk with uid=1: 'a', 'b2 b3'[uid=1], 'c'[uid=2]
+    ]) == 'a b2 b3 c'
     """
-    ref: int | str = field(default_factory=lambda: str(uuid.uuid4()))
+    uid: int | str = field(default_factory=new_uid)
     text: str
     
     @classmethod
@@ -389,13 +391,6 @@ class TranscriptionChunk:
                 t = t.data
             if t is Signal.FINISH:
                 continue
-            if t.ref == LATEST:
-                # edit the lastest chunk
-                current_id = list(parts)[-1] if len(parts) else '<initial>'
-            else:
-                # edit one of the previous chunks or add a new chunk, set as latest
-                current_id = t.ref
-            
-            parts[current_id] = t.text
+            parts[t.uid] = t.text
             
         return ' '.join(parts.values())

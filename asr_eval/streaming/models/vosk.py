@@ -5,7 +5,7 @@ from typing import override
 from vosk import Model, KaldiRecognizer # type: ignore
 
 from ..buffer import ID_TYPE
-from ..model import AUDIO_CHUNK_TYPE, OutputChunk, StreamingBlackBoxASR, Signal, LATEST, TranscriptionChunk
+from ..model import AUDIO_CHUNK_TYPE, OutputChunk, StreamingBlackBoxASR, Signal, TranscriptionChunk, new_uid
 
 class VoskStreaming(StreamingBlackBoxASR):
     def __init__(
@@ -17,7 +17,7 @@ class VoskStreaming(StreamingBlackBoxASR):
         super().__init__(sampling_rate=sampling_rate)
         self._model = Model(model_name=model_name)
         self._recognizers: dict[ID_TYPE, KaldiRecognizer] = defaultdict(self._make_kaldi_recognizer)
-        self._next_chunk_starts_new_part: dict[ID_TYPE, bool] = defaultdict(bool)
+        self._transcription_chunk_ref: dict[ID_TYPE, str] = defaultdict(new_uid)
         self.chunk_size = (
             int(sampling_rate * 2 * chunk_length_sec)  #  * 2 because we receive 2 bytes each frame
             if chunk_length_sec is not None
@@ -31,27 +31,28 @@ class VoskStreaming(StreamingBlackBoxASR):
     def _send_finish(self, id: ID_TYPE):
         self.output_buffer.put(OutputChunk(data=Signal.FINISH), id=id)
         self._recognizers.pop(id, None)
-        self._next_chunk_starts_new_part.pop(id, None)
+        self._transcription_chunk_ref.pop(id, None)
     
     def _process_chunk(self, id: ID_TYPE, data: AUDIO_CHUNK_TYPE, end_time: float | None):
         assert isinstance(data, bytes)
         rec = self._recognizers[id]
-        is_final = rec.AcceptWaveform(data) # type: ignore
-        text = (
-            json.loads(rec.Result())['text'] # type: ignore
-            if is_final
-            else json.loads(rec.PartialResult())['partial'] # type: ignore
-        )
-        output_data = (
-            TranscriptionChunk(text=text)
-            if self._next_chunk_starts_new_part[id]
-            else TranscriptionChunk(ref=LATEST, text=text)
-        )
-        self._next_chunk_starts_new_part[id] = is_final
+        
+        is_final: bool = rec.AcceptWaveform(data) # type: ignore
+        
+        if is_final:
+            # final text part
+            text = json.loads(rec.Result())['text'] # type: ignore
+        else:
+            # non-final text part
+            text = json.loads(rec.PartialResult())['partial'] # type: ignore
+        
         self.output_buffer.put(OutputChunk(
-            data=output_data,
-            seconds_processed=end_time,
+            data=TranscriptionChunk(uid=self._transcription_chunk_ref[id], text=text),
+            seconds_processed=end_time
         ), id=id)
+        
+        if is_final:
+            self._transcription_chunk_ref[id] = new_uid()
     
     @override
     def _run(self):
