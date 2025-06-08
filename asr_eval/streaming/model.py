@@ -221,18 +221,17 @@ class StreamingBlackBoxASR(ABC):
     - FINISH input chunk indices that the audio for the ID has been fully sent
     - FINISH output chunk indices that FINISH input chunk received fhr the given ID and the transcription is done
     
-    Optionally, some models may fill `.n_input_chunks_processed` field in `OutputChunk` - a total number of input
-    chunks processed (for the current recording ID) before yielding the current output chunk. This may be useful,
-    because we could send 100 chunks (let it be 10 sec in total), but the model performs slow calculations and has
-    already processed only 20 chunks (2 sec in total). Depending on the testing scenario, we can treat the result
-    as a partial transcription of the first 2 or 10 seconds of the audio signal.
+    The input chunks may optionally contain audio timings. Some models may fill `.seconds_processed` field in
+    `OutputChunk` - audio seconds processed (for the current recording ID) before yielding the current output chunk.
+    This may be useful, because we could send 100 chunks (let it be 10 sec in total), but the model performs slow
+    calculations and has already processed only 20 chunks (2 sec in total). Depending on the testing scenario
+    we can treat the result as a partial transcription of the first 2 or 10 seconds of the audio signal.
     
     An Exit exception in the input buffer indicates that all audios have been fully sent
     An Exit exception in the output buffer indicates that Exit received from the input buffer and the
     StreamingBlackBoxASR thread exited. This does not mean that all transcriptions are fully done.
     
-    The input chunks may optionally contain audio timings (for example, StreamingAudioSender adds this
-    information), but they are generally not used. Also, some timestamps are automatically filled:
+    Also, some timestamps are automatically filled:
     1. InputChunk.put_timestamp - the time when the chunk added to the StreamingBlackBoxASR.input_buffer
     2. InputChunk.get_timestamp - the time when the chunk received from the StreamingBlackBoxASR.input_buffer
     3. OutputChunk.put_timestamp - the time when the chunk added to the StreamingBlackBoxASR.output_buffer
@@ -254,6 +253,8 @@ class StreamingBlackBoxASR(ABC):
     thread, then see pt. 1.
     3) Exceptions in StreamingAudioSender thread will set the input buffer into the error state, then see pt. 2.
     4) `Exit` is a special exception type indicating that input or output stream has been closed properly.
+    
+    On how to subclass a StreamingBlackBoxASR, see _run method docstring.
     """
     def __init__(self, sampling_rate: int = 16_000):
         self._sampling_rate = sampling_rate
@@ -294,10 +295,18 @@ class StreamingBlackBoxASR(ABC):
     @abstractmethod
     def _run(self):
         """
-        This method will be called in a separate thread on `self.start_thread()` and should live forever
-        (use `self.input_buffer.get()` in the `while True` loop). To get the next input chunk, we can use
-        `self.input_buffer.get()` (blocks until the next chunk is available). To emit a new output chunk,
-        we can use `self.output_buffer.put()` (non-blocking).
+        This method will be called in a separate thread on `self.start_thread()` and should live forever.
+        To get the next input chunk, we can use `self.input_buffer.get()` (blocks until the next chunk
+        is available). To emit a new output chunk, we can use `self.output_buffer.put()` (non-blocking).
+        Usually this is done in a `while True` loop.
+        
+        If you want to join or split input chunks to a desired size, use the following call:
+        `self.input_buffer.get_with_rechunking(size: int, id: ID_TYPE | None = None)`
+        
+        For example, if 16_000 floats/sec are streamed, and an exteral sender sends 100ms chunks, but you
+        want to get 1s chunk for any recording ID, call `self.input_buffer.get_with_rechunking(size=16_000)`.
+        This will block until 10 chunks are accumulated for any ID and return the result (see
+        `InputBuffer.get_with_rechunking` docstring).
         
         Normally on .stop_thread() `Exit` exception is raised from `self.input_buffer.get()` and
         should not be handled in _run.
