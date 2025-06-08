@@ -162,7 +162,7 @@ class InputBuffer(ASRStreamingQueue[InputChunk]):
                     break
             
             # recieve next chunk from the input buffer
-            chunk, recieved_id = self.get(id)
+            chunk, recieved_id = super().get(id)
             if chunk.data is Signal.FINISH:
                 self._rechunking_finish_received[recieved_id] = True
             else:
