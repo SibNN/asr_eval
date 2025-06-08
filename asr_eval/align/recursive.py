@@ -99,7 +99,7 @@ def align(
                     ).prepend(current_match)
                 )
             
-            return min(options, key=lambda x: x.value)
+            return max(options, key=lambda x: x.score)
         else:
             assert multivariant_prefix_id is None
             options = [
@@ -111,7 +111,7 @@ def align(
                 )
                 for i in range(len(_true[0].options))
             ]
-            return min(options, key=lambda x: x.value)
+            return max(options, key=lambda x: x.score)
     
     result = _align_recursive(0, 0, None, 0)
     # print(_align_recursive.cache_info()) # type: ignore

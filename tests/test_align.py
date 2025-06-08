@@ -13,7 +13,7 @@ def test_edit_distance():
         true = [str(x) for x in rng.integers(low=0, high=3, size=rng.integers(low=0, high=15))]
         pred = [str(x) for x in rng.integers(low=0, high=3, size=rng.integers(low=0, high=15))]
         assert (
-            align([Token(x) for x in true], [Token(x) for x in pred]).total_n_errs
+            align([Token(x) for x in true], [Token(x) for x in pred]).score.n_word_errors
             == nltk.edit_distance(true, pred) # pyright: ignore[reportUnknownMemberType]
         )
 
