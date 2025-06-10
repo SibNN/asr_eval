@@ -28,7 +28,7 @@ class BaseStreamingAudioSender(ABC):
     array_len_per_sec: int = 16_000
     propagate_errors: bool = True
     verbose: bool = False
-    track_history: bool = False
+    track_history: bool = True
 
     history: list[InputChunk] = field(default_factory=list)
     _thread: threading.Thread | None = None

@@ -5,6 +5,7 @@ from functools import lru_cache
 from typing import Any, Literal, cast
 
 import nltk
+import numpy as np
 
 
 @dataclass(slots=True)
@@ -20,6 +21,8 @@ class Anything:
 class Token:
     value: str | Anything
     pos: tuple[int, int] = (0, 0)
+    start_time: float = np.nan
+    end_time: float = np.nan
     
     def __repr__(self) -> str:
         return f'Token({self.value}, {self.pos[0]}-{self.pos[1]})'
