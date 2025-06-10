@@ -144,15 +144,13 @@ def partial_alignment_diagram(
                 assert len(match.true) == 1
                 last_end_time = match.true[0].end_time
 
-                status = match.get_status()
                 skip = False
-
-                if status == 'correct':
+                if match.status == 'correct':
                     color = 'green'
-                elif status == 'replacement':
+                elif match.status == 'replacement':
                     color = 'red'
                 else:
-                    assert status == 'deletion'
+                    assert match.status == 'deletion'
                     color = None
                     skip = True
                 

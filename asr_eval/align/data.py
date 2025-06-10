@@ -29,8 +29,7 @@ class Token:
     end_time: float = np.nan
     
     def __repr__(self) -> str:
-        # return f'Token({self.value}, {self.pos[0]}-{self.pos[1]})'
-        return f'Token({self.value})'
+        return str(self.value)
 
 
 @dataclass(slots=True)
@@ -97,56 +96,17 @@ class AlignmentScore:
         return self._compare(cast(AlignmentScore, other)) != '<'
 
 
-@lru_cache(maxsize=None)
-def _edit_distance(true: str, pred: str) -> int:
-    return nltk.edit_distance(true, pred) # type: ignore
-
-
-def _n_cerrs(true: list[Token], pred: list[Token]) -> int:
-    if len(true) == 1 and isinstance(true[0].value, Anything):
-        return 0
-    return _edit_distance(' '.join(str(t.value) for t in true), ' '.join(str(t.value) for t in pred))
-
-
 @dataclass(kw_only=True, slots=True)
 class Match:
     true: list[Token]
     pred: list[Token]
-    true_len: int
+    status: Literal['correct', 'deletion', 'insertion', 'replacement']
     score: AlignmentScore
-    
-    @classmethod
-    def from_pair(cls, true: list[Token], pred: list[Token]) -> Match:
-        assert len(true) > 0 or len(pred) > 0
-        match = Match(
-            true=true,
-            pred=pred,
-            true_len=len(true),
-            score=AlignmentScore(),
-        )
-        is_correct = match.get_status() == 'correct'
-        match.score.n_word_errors = 0 if is_correct else max(len(true), len(pred))
-        match.score.n_correct = match.score.n_word_errors == 0
-        match.score.n_char_errors = _n_cerrs(true, pred)
-        return match
     
     def __repr__(self) -> str:
         first = ' '.join([str(x) for x in self.true])
         second = ' '.join([str(x) for x in self.pred])
         return f'({first}, {second})'
-    
-    def get_status(self) -> Literal['correct', 'deletion', 'insertion', 'replacement']:
-        if (
-            [t.value for t in self.true] == [t.value for t in self.pred]
-            or (len(self.true) == 1 and isinstance(self.true[0].value, Anything))
-        ):
-            return 'correct'
-        elif len(self.pred) == 0:
-            return 'deletion'
-        elif len(self.true) == 0:
-            return 'insertion'
-        else:
-            return 'replacement'
 
 
 @dataclass(slots=True)
@@ -159,13 +119,44 @@ class MatchesList:
     def from_list(cls, matches: list[Match]) -> MatchesList:
         return MatchesList(
             matches=matches,
-            total_true_len=sum(m.true_len for m in matches),
+            total_true_len=sum(len(m.true) for m in matches),
             score=sum([m.score for m in matches], AlignmentScore())
         )
     
     def prepend(self, match: Match) -> MatchesList:
         return MatchesList(
             matches=[match] + self.matches,
-            total_true_len=match.true_len + self.total_true_len,
+            total_true_len=len(match.true) + self.total_true_len,
             score = match.score + self.score
         )
+
+
+@lru_cache(maxsize=None)
+def _edit_distance(true: str, pred: str) -> int:
+    return nltk.edit_distance(true, pred) # type: ignore
+
+
+def match_from_pair(true: list[Token], pred: list[Token]) -> Match:
+    assert len(true) > 0 or len(pred) > 0
+    is_anything = len(true) == 1 and isinstance(true[0].value, Anything)
+    if [t.value for t in true] == [t.value for t in pred] or is_anything:
+        status = 'correct'
+    elif len(pred) == 0:
+        status = 'deletion'
+    elif len(true) == 0:
+        status = 'insertion'
+    else:
+        status = 'replacement'
+    return Match(
+        true=true,
+        pred=pred,
+        status=status,
+        score=AlignmentScore(
+            n_word_errors=0 if status == 'correct' else max(len(true), len(pred)),
+            n_correct=len(true) if status == 'correct' else 0,
+            n_char_errors=_edit_distance(
+                ' '.join(str(t.value) for t in true),
+                ' '.join(str(t.value) for t in pred)
+            ) if not is_anything else 0,
+        ),
+    )

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from .data import Anything, Token, MultiVariant, Match, MatchesList
+from .data import Anything, Token, MultiVariant, Match, MatchesList, match_from_pair
     
 
 def select_shortest_multi_variants(seq: list[Token | MultiVariant]) -> list[Token]:
@@ -49,22 +49,22 @@ def align(
             _matches: list[Match] = []
             for token in _true:
                 if len(shortest := select_shortest_multi_variants([token])):
-                    _matches.append(Match.from_pair(shortest, []))
+                    _matches.append(match_from_pair(shortest, []))
             return MatchesList.from_list(_matches)
         elif len(_pred) > 0 and len(_true) == 0:
             return MatchesList.from_list([
-                Match.from_pair([], [token])
+                match_from_pair([], [token])
                 for token in _pred
             ])
         elif not isinstance(_true[0], MultiVariant):
             options: list[MatchesList] = []
             current_match_options = [
                 # option 1: match true[0] with pred[0]
-                (1, 1, Match.from_pair([_true[0]], [_pred[0]])),
+                (1, 1, match_from_pair([_true[0]], [_pred[0]])),
                 # option 2: match pred[0] with nothing
-                (0, 1, Match.from_pair([], [_pred[0]])),
+                (0, 1, match_from_pair([], [_pred[0]])),
                 # option 3: match true[0] with nothing
-                (1, 0, Match.from_pair([_true[0]], [])),
+                (1, 0, match_from_pair([_true[0]], [])),
             ]
             for i, j, current_match in current_match_options:
                 new_true_pos = true_pos
@@ -89,7 +89,7 @@ def align(
                     _results.prepend(current_match)
                 )
             if isinstance(_true[0].value, Anything):
-                current_match = Match.from_pair([_true[0]], [_pred[0]])
+                current_match = match_from_pair([_true[0]], [_pred[0]])
                 options.append(
                     # option 4: match Anything with pred[0], but keep Anything in the true tokens
                     _align_recursive(
