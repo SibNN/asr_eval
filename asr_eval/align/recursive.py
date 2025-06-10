@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from functools import lru_cache
+from functools import cache
 
 from .data import Anything, Token, MultiVariant, Match, MatchesList, match_from_pair
     
@@ -29,7 +29,7 @@ def align(
     
 
     
-    @lru_cache(maxsize=None)
+    @cache
     def _align_recursive(
         true_pos: int,
         pred_pos: int,

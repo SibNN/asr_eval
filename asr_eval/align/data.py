@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from functools import lru_cache
+from functools import cache
 from typing import Any, Literal, cast
 
 import nltk
@@ -131,7 +131,7 @@ class MatchesList:
         )
 
 
-@lru_cache(maxsize=None)
+@cache
 def _edit_distance(true: str, pred: str) -> int:
     return nltk.edit_distance(true, pred) # type: ignore
 
