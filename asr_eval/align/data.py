@@ -105,7 +105,7 @@ def _edit_distance(true: str, pred: str) -> int:
 def _n_cerrs(true: list[Token], pred: list[Token]) -> int:
     if len(true) == 1 and isinstance(true[0].value, Anything):
         return 0
-    return _edit_distance(''.join(str(t.value) for t in true), ''.join(str(t.value) for t in pred))
+    return _edit_distance(' '.join(str(t.value) for t in true), ' '.join(str(t.value) for t in pred))
 
 
 @dataclass(kw_only=True, slots=True)
