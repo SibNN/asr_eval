@@ -19,7 +19,8 @@ def split_text_into_tokens(
         start, end = match.span()
         result.append(Token(
             value=word if word != '<*>' else Anything(),
-            pos=(start + pos_shift, end + pos_shift),
+            start_pos=start + pos_shift,
+            end_pos=end + pos_shift,
         ))
     return result
 

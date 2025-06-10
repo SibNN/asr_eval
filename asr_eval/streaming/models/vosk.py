@@ -5,7 +5,8 @@ from typing import override
 from vosk import Model, KaldiRecognizer # type: ignore
 
 from ..buffer import ID_TYPE
-from ..model import AUDIO_CHUNK_TYPE, OutputChunk, StreamingBlackBoxASR, Signal, TranscriptionChunk, new_uid
+from ..model import AUDIO_CHUNK_TYPE, OutputChunk, StreamingBlackBoxASR, Signal, TranscriptionChunk
+from ...utils import new_uid
 
 class VoskStreaming(StreamingBlackBoxASR):
     def __init__(

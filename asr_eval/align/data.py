@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Any, Literal, cast
 
 import nltk
 import numpy as np
+
+from ..utils import new_uid
 
 
 @dataclass(slots=True)
@@ -20,12 +22,15 @@ class Anything:
 @dataclass(slots=True)
 class Token:
     value: str | Anything
-    pos: tuple[int, int] = (0, 0)
+    uid: str = field(default_factory=new_uid)
+    start_pos: int = 0
+    end_pos: int = 0
     start_time: float = np.nan
     end_time: float = np.nan
     
     def __repr__(self) -> str:
-        return f'Token({self.value}, {self.pos[0]}-{self.pos[1]})'
+        # return f'Token({self.value}, {self.pos[0]}-{self.pos[1]})'
+        return f'Token({self.value})'
 
 
 @dataclass(slots=True)

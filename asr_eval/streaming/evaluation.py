@@ -97,7 +97,7 @@ def get_partial_alignments(
 
 def partial_alignment_diagram(
     partial_alignments: list[PartialAlignment],
-    true_word_timings: list[Token],
+    true_words_timed: list[Token],
     audio_len: float,
     figsize: tuple[float, float] = (15, 15),
     y_type: Literal['sent', 'processed'] = 'sent',
@@ -109,7 +109,9 @@ def partial_alignment_diagram(
     plt.plot([0, audio_len], [0, 0], color='lightgray') # type: ignore
 
     # word timings
-    for token in true_word_timings:
+    for token in true_words_timed:
+        assert not np.isnan(token.start_time)
+        assert not np.isnan(token.end_time)
         plt.fill_between( # type: ignore
             [token.start_time, token.end_time],
             [0, 0],
@@ -206,7 +208,8 @@ def get_word_timings(
             word_timings, true_tokens_with_positions, strict=True
         ):
             assert token_to_return.value == token_with_pos.value
-            token_to_return.pos = token_with_pos.pos
+            token_to_return.start_pos = token_with_pos.start_pos
+            token_to_return.end_pos = token_with_pos.end_pos
 
     return word_timings
 

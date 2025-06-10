@@ -8,12 +8,12 @@ import math
 import threading
 import time
 from typing import Any, Literal, Self, Sequence, TypeVar, override
-import uuid
 
 import numpy as np
 import numpy.typing as npt
 
 from .buffer import ID_TYPE, StreamingQueue
+from ..utils import new_uid
 
 
 class Signal(Enum):
@@ -344,10 +344,6 @@ class DummyASR(StreamingBlackBoxASR):
                 del self._received_seconds[id]
                 del self._transcribed_seconds[id]
                 self.output_buffer.put(OutputChunk(data=Signal.FINISH), id=id)
-
-
-def new_uid() -> str:
-    return str(uuid.uuid4())
 
 
 @dataclass(kw_only=True)

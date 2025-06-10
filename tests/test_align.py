@@ -45,12 +45,12 @@ def test_align_recursive():
 
     for x in true:
         if isinstance(x, Token):
-            assert true_text[x.pos[0]:x.pos[1]] == x.value
+            assert true_text[x.start_pos:x.end_pos] == x.value
         else:
             for option in x.options:
                 for x2 in option:
-                    assert true_text[x2.pos[0]:x2.pos[1]] == x2.value
+                    assert true_text[x2.start_pos:x2.end_pos] == x2.value
 
     for x in pred:
         assert isinstance(x, Token)
-        assert pred_text[x.pos[0]:x.pos[1]] == x.value
+        assert pred_text[x.start_pos:x.end_pos] == x.value
