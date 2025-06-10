@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from itertools import pairwise
 import threading
 import time
 from typing import Any, Literal, Self, override
@@ -77,10 +78,10 @@ class BaseStreamingAudioSender(ABC):
             assert all(np.diff([t_audio for _t_real, t_audio in times]) >= 0), 'audio times should not decrease'
 
             for i, (
-                (tr1, ta1),  # real start time, audio start time
-                (tr2, ta2),  # real end time, audio end time
-                p1, p2       # audio start and end points
-            ) in enumerate(zip(times[:-1], times[1:], points[:-1], points[1:])):
+                ((tr1, ta1),  # real start time, audio start time
+                (tr2, ta2)),  # real end time, audio end time
+                (p1, p2)       # audio start and end points
+            ) in enumerate(zip(pairwise(times), pairwise(points))):
                 if self.verbose:
                     print(f'Sending: id={self.id}, real {tr1:.3f}..{tr2:.3f}, audio {ta1:.3f}..{ta2:.3f}')
                 send_to.put(chunk := InputChunk(data=self.audio[p1:p2], start_time=ta1, end_time=ta2), id=self.id)
