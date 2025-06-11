@@ -63,7 +63,7 @@ class BaseStreamingAudioSender(ABC):
     
     def start_sending(self, send_to: InputBuffer) -> Self:
         assert not self._thread
-        self._thread = threading.Thread(target=self._run, kwargs={'send_to': send_to}, daemon=True)
+        self._thread = threading.Thread(target=self._run, kwargs={'send_to': send_to})
         self._thread.start()
         return self
     
