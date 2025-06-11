@@ -11,11 +11,12 @@ from asr_eval.streaming.buffer import ID_TYPE
 
 from .model import AUDIO_CHUNK_TYPE, InputBuffer, InputChunk, Signal
 
+
 @dataclass(slots=True)
 class Cutoff:
     t_real: float
     t_audio: float
-    arr_pos: int = 0
+    arr_pos: int
 
 
 @dataclass(kw_only=True)
@@ -73,8 +74,6 @@ class BaseStreamingAudioSender(ABC):
     def _run(self, send_to: InputBuffer):
         try:
             cutoffs = self.get_send_times()
-            for cutoff in cutoffs:
-                cutoff.arr_pos = int(cutoff.t_audio * self.array_len_per_sec)
             if cutoffs[-1].arr_pos == cutoffs[-2].arr_pos:
                 # cut a possible small ending
                 cutoffs = cutoffs[:-1]
@@ -83,23 +82,30 @@ class BaseStreamingAudioSender(ABC):
             assert all(np.diff([c.t_real for c in cutoffs]) >= 0), 'real times should not decrease'
             assert all(np.diff([c.t_audio for c in cutoffs]) >= 0), 'audio times should not decrease'
             
-            for i, (c1, c2) in enumerate(pairwise(cutoffs)):
+            start_time = time.time()
+            
+            if len(cutoffs) and cutoffs[0].t_real > 0:
+                time.sleep(cutoffs[0].t_real)
+            
+            for i, (cutoff1, cutoff2) in enumerate(pairwise(cutoffs)):
                 if self.verbose:
                     print(
-                        f'Sending: id={self.id}, real {c1.t_real:.3f}..{c2.t_real:.3f}'
-                        f', audio {c2.t_audio:.3f}..{c2.t_audio:.3f}'
+                        f'Sending: id={self.id}, real {cutoff1.t_real:.3f}..{cutoff2.t_real:.3f}'
+                        f', audio {cutoff2.t_audio:.3f}..{cutoff2.t_audio:.3f}'
                     )
                 chunk = InputChunk(
-                    data=self.audio[c1.arr_pos:c2.arr_pos],
-                    start_time=c1.t_audio,
-                    end_time=c2.t_audio,
+                    data=self.audio[cutoff1.arr_pos:cutoff2.arr_pos],
+                    start_time=cutoff1.t_audio,
+                    end_time=cutoff2.t_audio,
                 )
                 send_to.put(chunk, id=self.id)
                 if self.track_history:
                     self.history.append(chunk)
 
                 if i != len(cutoffs) - 2:  # don't sleep after the last chunk
-                    time.sleep(c2.t_real - c1.t_real)
+                    time_to_sleep = start_time + cutoff2.t_real - time.time()
+                    if time_to_sleep > 0:
+                        time.sleep(time_to_sleep)
             send_to.put(InputChunk(data=Signal.FINISH), id=self.id)
         except BaseException as e:
             if self.propagate_errors:
@@ -125,6 +131,10 @@ class StreamingAudioSender(BaseStreamingAudioSender):
             step=audio_interval_sec,
         )
         return [
-            Cutoff(t_audio / self.speed_multiplier, t_audio)
+            Cutoff(
+                t_audio / self.speed_multiplier,
+                t_audio,
+                int(t_audio * self.array_len_per_sec)
+            )
             for t_audio in audio_times.tolist()
         ]
