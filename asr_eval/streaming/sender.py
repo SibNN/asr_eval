@@ -45,6 +45,20 @@ class BaseStreamingAudioSender(ABC):
     def get_send_times(self) -> list[Cutoff]:
         '''Get send times, in real time scale and audio time scale'''
         ...
+    
+    def _validate_send_times(self, cutoffs: list[Cutoff]) -> list[Cutoff]:
+        if cutoffs[-1].arr_pos == cutoffs[-2].arr_pos:
+            # cut a possible small ending
+            cutoffs = cutoffs[:-1]
+        
+        assert len(cutoffs)
+        assert cutoffs[0].t_audio == 0 and cutoffs[0].arr_pos == 0
+
+        assert all(np.diff([c.arr_pos for c in cutoffs]) > 0), 'at least one audio chunk has zero size'
+        assert all(np.diff([c.t_real for c in cutoffs]) >= 0), 'real times should not decrease'
+        assert all(np.diff([c.t_audio for c in cutoffs]) >= 0), 'audio times should not decrease'
+        
+        return cutoffs
 
     def get_status(self) -> Literal['not_started', 'started', 'finished']:
         if not self._thread:
@@ -71,40 +85,33 @@ class BaseStreamingAudioSender(ABC):
         assert self._thread
         self._thread.join()
     
+    def _send_chunk(self, send_to: InputBuffer, cutoff1: Cutoff, cutoff2: Cutoff):
+        if self.verbose:
+            print(
+                f'Sending: id={self.id}, real {cutoff1.t_real:.3f}..{cutoff2.t_real:.3f}'
+                f', audio {cutoff2.t_audio:.3f}..{cutoff2.t_audio:.3f}'
+            )
+        chunk = InputChunk(
+            data=self.audio[cutoff1.arr_pos:cutoff2.arr_pos],
+            start_time=cutoff1.t_audio,
+            end_time=cutoff2.t_audio,
+        )
+        send_to.put(chunk, id=self.id)
+        if self.track_history:
+            self.history.append(chunk)
+    
     def _run(self, send_to: InputBuffer):
         try:
-            cutoffs = self.get_send_times()
-            if cutoffs[-1].arr_pos == cutoffs[-2].arr_pos:
-                # cut a possible small ending
-                cutoffs = cutoffs[:-1]
-            
-            assert len(cutoffs)
-            assert cutoffs[0].t_audio == 0 and cutoffs[0].arr_pos == 0
-
-            assert all(np.diff([c.arr_pos for c in cutoffs]) > 0), 'at least one audio chunk has zero size'
-            assert all(np.diff([c.t_real for c in cutoffs]) >= 0), 'real times should not decrease'
-            assert all(np.diff([c.t_audio for c in cutoffs]) >= 0), 'audio times should not decrease'
-            
+            cutoffs = self._validate_send_times(self.get_send_times())
             start_time = time.time()
             
             for i, (cutoff1, cutoff2) in enumerate(pairwise(cutoffs)):
                 if (delay := start_time + cutoff2.t_real - time.time()) > 0:
                     time.sleep(delay)
+                self._send_chunk(send_to, cutoff1, cutoff2)
                 
-                if self.verbose:
-                    print(
-                        f'Sending: id={self.id}, real {cutoff1.t_real:.3f}..{cutoff2.t_real:.3f}'
-                        f', audio {cutoff2.t_audio:.3f}..{cutoff2.t_audio:.3f}'
-                    )
-                chunk = InputChunk(
-                    data=self.audio[cutoff1.arr_pos:cutoff2.arr_pos],
-                    start_time=cutoff1.t_audio,
-                    end_time=cutoff2.t_audio,
-                )
-                send_to.put(chunk, id=self.id)
-                if self.track_history:
-                    self.history.append(chunk)
             send_to.put(InputChunk(data=Signal.FINISH), id=self.id)
+            
         except BaseException as e:
             if self.propagate_errors:
                 send_to.put_error(e)
