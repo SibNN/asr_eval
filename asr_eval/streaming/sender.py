@@ -34,6 +34,7 @@ class BaseStreamingAudioSender(ABC):
     audio: AUDIO_CHUNK_TYPE
     id: ID_TYPE = 0
     array_len_per_sec: int = 16_000
+    mode: Literal['realtime', 'densify-realtime', 'on-demand'] = 'realtime'
     propagate_errors: bool = True
     verbose: bool = False
     track_history: bool = True
@@ -106,8 +107,24 @@ class BaseStreamingAudioSender(ABC):
             start_time = time.time()
             
             for i, (cutoff1, cutoff2) in enumerate(pairwise(cutoffs)):
-                if (delay := start_time + cutoff2.t_real - time.time()) > 0:
-                    time.sleep(delay)
+                current_time = time.time()
+                if (delay := start_time + cutoff2.t_real - current_time) > 0:
+                    match self.mode:
+                        case 'realtime':
+                            time.sleep(delay)
+                        case 'densify-realtime':
+                            with send_to.consumer_waits:
+                                was_wakeup = send_to.consumer_waits.wait(timeout=delay)
+                                if self.verbose:
+                                    print(
+                                        f'waited for {time.time() - current_time:.3f} of {delay:.3f} sec'
+                                        + (' (woken up early by consumer)' if was_wakeup else ' (full delay)')
+                                    )
+                        case 'on-demand':
+                            with send_to.consumer_waits:
+                                send_to.consumer_waits.wait()
+                    
+                    # TODO modes: realtime, dense-realtime, dense
                 self._send_chunk(send_to, cutoff1, cutoff2)
                 
             send_to.put(InputChunk(data=Signal.FINISH), id=self.id)

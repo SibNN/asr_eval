@@ -19,6 +19,7 @@ class StreamingQueue(Generic[T]):
         self._buffer: list[tuple[T, ID_TYPE]] = []
         self._error: RuntimeError | None = None
         self._condition = threading.Condition()
+        self.consumer_waits = threading.Condition()
     
     def put(self, data: T, id: ID_TYPE = 0) -> None:
         """Add data to buffer (non-blocking, thread-safe)"""
@@ -48,6 +49,11 @@ class StreamingQueue(Generic[T]):
                         return self._buffer.pop(0)
                 # if we are here, we need to wait for the next .notify_all()
                 # .wait() releases the lock, waits and then re-acquires the lock
+                if id is None:
+                    # We use _consumer_waits condition to allow a sender to be notified that
+                    # the consumer starts waiting for any ID
+                    with self.consumer_waits:
+                        self.consumer_waits.notify_all()
                 was_timeout = not self._condition.wait(timeout=timeout)
                 if was_timeout:
                     raise TimeoutError()
