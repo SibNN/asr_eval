@@ -77,6 +77,9 @@ class BaseStreamingAudioSender(ABC):
             if cutoffs[-1].arr_pos == cutoffs[-2].arr_pos:
                 # cut a possible small ending
                 cutoffs = cutoffs[:-1]
+            
+            assert len(cutoffs)
+            assert cutoffs[0].t_audio == 0 and cutoffs[0].arr_pos == 0
 
             assert all(np.diff([c.arr_pos for c in cutoffs]) > 0), 'at least one audio chunk has zero size'
             assert all(np.diff([c.t_real for c in cutoffs]) >= 0), 'real times should not decrease'
@@ -84,10 +87,10 @@ class BaseStreamingAudioSender(ABC):
             
             start_time = time.time()
             
-            if len(cutoffs) and cutoffs[0].t_real > 0:
-                time.sleep(cutoffs[0].t_real)
-            
             for i, (cutoff1, cutoff2) in enumerate(pairwise(cutoffs)):
+                if (delay := start_time + cutoff2.t_real - time.time()) > 0:
+                    time.sleep(delay)
+                
                 if self.verbose:
                     print(
                         f'Sending: id={self.id}, real {cutoff1.t_real:.3f}..{cutoff2.t_real:.3f}'
@@ -101,11 +104,6 @@ class BaseStreamingAudioSender(ABC):
                 send_to.put(chunk, id=self.id)
                 if self.track_history:
                     self.history.append(chunk)
-
-                if i != len(cutoffs) - 2:  # don't sleep after the last chunk
-                    time_to_sleep = start_time + cutoff2.t_real - time.time()
-                    if time_to_sleep > 0:
-                        time.sleep(time_to_sleep)
             send_to.put(InputChunk(data=Signal.FINISH), id=self.id)
         except BaseException as e:
             if self.propagate_errors:
