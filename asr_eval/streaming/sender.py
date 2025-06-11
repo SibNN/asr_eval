@@ -11,6 +11,12 @@ from asr_eval.streaming.buffer import ID_TYPE
 
 from .model import AUDIO_CHUNK_TYPE, InputBuffer, InputChunk, Signal
 
+@dataclass(slots=True)
+class Cutoff:
+    t_real: float
+    t_audio: float
+    arr_pos: int = 0
+
 
 @dataclass(kw_only=True)
 class BaseStreamingAudioSender(ABC):
@@ -35,7 +41,7 @@ class BaseStreamingAudioSender(ABC):
     _thread: threading.Thread | None = None
 
     @abstractmethod
-    def get_send_times(self) -> list[tuple[float, float]]:
+    def get_send_times(self) -> list[Cutoff]:
         '''Get send times, in real time scale and audio time scale'''
         ...
 
@@ -66,30 +72,34 @@ class BaseStreamingAudioSender(ABC):
     
     def _run(self, send_to: InputBuffer):
         try:
-            times = self.get_send_times()
-            points = [int(t_audio * self.array_len_per_sec) for _t_real, t_audio in times]
-            if points[-1] == points[-2]:
+            cutoffs = self.get_send_times()
+            for cutoff in cutoffs:
+                cutoff.arr_pos = int(cutoff.t_audio * self.array_len_per_sec)
+            if cutoffs[-1].arr_pos == cutoffs[-2].arr_pos:
                 # cut a possible small ending
-                times = times[:-1]
-                points = points[:-1]
+                cutoffs = cutoffs[:-1]
 
-            assert all(np.diff(points) > 0), 'at least one audio chunk has zero size'
-            assert all(np.diff([t_real for t_real, _t_audio in times]) >= 0), 'real times should not decrease'
-            assert all(np.diff([t_audio for _t_real, t_audio in times]) >= 0), 'audio times should not decrease'
-
-            for i, (
-                ((tr1, ta1),  # real start time, audio start time
-                (tr2, ta2)),  # real end time, audio end time
-                (p1, p2)       # audio start and end points
-            ) in enumerate(zip(pairwise(times), pairwise(points))):
+            assert all(np.diff([c.arr_pos for c in cutoffs]) > 0), 'at least one audio chunk has zero size'
+            assert all(np.diff([c.t_real for c in cutoffs]) >= 0), 'real times should not decrease'
+            assert all(np.diff([c.t_audio for c in cutoffs]) >= 0), 'audio times should not decrease'
+            
+            for i, (c1, c2) in enumerate(pairwise(cutoffs)):
                 if self.verbose:
-                    print(f'Sending: id={self.id}, real {tr1:.3f}..{tr2:.3f}, audio {ta1:.3f}..{ta2:.3f}')
-                send_to.put(chunk := InputChunk(data=self.audio[p1:p2], start_time=ta1, end_time=ta2), id=self.id)
+                    print(
+                        f'Sending: id={self.id}, real {c1.t_real:.3f}..{c2.t_real:.3f}'
+                        f', audio {c2.t_audio:.3f}..{c2.t_audio:.3f}'
+                    )
+                chunk = InputChunk(
+                    data=self.audio[c1.arr_pos:c2.arr_pos],
+                    start_time=c1.t_audio,
+                    end_time=c2.t_audio,
+                )
+                send_to.put(chunk, id=self.id)
                 if self.track_history:
                     self.history.append(chunk)
 
-                if i != len(times) - 2:  # don't sleep after the last chunk
-                    time.sleep(tr2 - tr1)
+                if i != len(cutoffs) - 2:  # don't sleep after the last chunk
+                    time.sleep(c2.t_real - c1.t_real)
             send_to.put(InputChunk(data=Signal.FINISH), id=self.id)
         except BaseException as e:
             if self.propagate_errors:
@@ -107,12 +117,14 @@ class StreamingAudioSender(BaseStreamingAudioSender):
     speed_multiplier: float = 1.0
 
     @override
-    def get_send_times(self) -> list[tuple[float, float]]:
+    def get_send_times(self) -> list[Cutoff]:
         audio_interval_sec = self.real_time_interval_sec * self.speed_multiplier
         audio_times = np.arange(
             start=0,
             stop=self.audio_length_sec + audio_interval_sec - 1e-6,
             step=audio_interval_sec,
         )
-        real_times = audio_times / self.speed_multiplier
-        return list(zip(real_times.tolist(), audio_times.tolist()))
+        return [
+            Cutoff(t_audio / self.speed_multiplier, t_audio)
+            for t_audio in audio_times.tolist()
+        ]
