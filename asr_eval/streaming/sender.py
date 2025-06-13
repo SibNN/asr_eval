@@ -34,12 +34,13 @@ class BaseStreamingAudioSender(ABC):
     audio: AUDIO_CHUNK_TYPE
     id: ID_TYPE = 0
     array_len_per_sec: int = 16_000
-    mode: Literal['realtime', 'densify-realtime', 'on-demand'] = 'realtime'
+    densify: bool = False
     propagate_errors: bool = True
     verbose: bool = False
     track_history: bool = True
 
     history: list[InputChunk] = field(default_factory=list)
+    densify_history: list[tuple[float, float, float]] = field(default_factory=list)
     _thread: threading.Thread | None = None
 
     @abstractmethod
@@ -107,24 +108,21 @@ class BaseStreamingAudioSender(ABC):
             start_time = time.time()
             
             for i, (cutoff1, cutoff2) in enumerate(pairwise(cutoffs)):
-                current_time = time.time()
-                if (delay := start_time + cutoff2.t_real - current_time) > 0:
-                    match self.mode:
-                        case 'realtime':
-                            time.sleep(delay)
-                        case 'densify-realtime':
-                            with send_to.consumer_waits:
-                                was_wakeup = send_to.consumer_waits.wait(timeout=delay)
-                                if self.verbose:
-                                    print(
-                                        f'waited for {time.time() - current_time:.3f} of {delay:.3f} sec'
-                                        + (' (woken up early by consumer)' if was_wakeup else ' (full delay)')
-                                    )
-                        case 'on-demand':
-                            with send_to.consumer_waits:
-                                send_to.consumer_waits.wait()
+                wait_start_time = time.time()
+                if (delay := start_time + cutoff2.t_real - wait_start_time) > 0:
+                    if self.densify:
+                        with send_to.consumer_waits:
+                            was_wakeup = send_to.consumer_waits.wait(timeout=delay)
+                            if was_wakeup:
+                                self.densify_history.append((wait_start_time, delay, time.time()))
+                            if self.verbose:
+                                print(
+                                    f'waited for {time.time() - wait_start_time:.3f} of {delay:.3f} sec'
+                                    + (' (woken up early by consumer)' if was_wakeup else ' (full delay)')
+                                )
+                    else:
+                        time.sleep(delay)
                     
-                    # TODO modes: realtime, dense-realtime, dense
                 self._send_chunk(send_to, cutoff1, cutoff2)
                 
             send_to.put(InputChunk(data=Signal.FINISH), id=self.id)
