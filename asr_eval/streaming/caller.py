@@ -21,12 +21,11 @@ def receive_full_transcription(
     results: list[OutputChunk] = []
     while True:
         output_chunk, _id = asr.output_buffer.get(id=id)
+        results.append(output_chunk)
         if output_chunk.data is Signal.FINISH:
             if sender:
                 sender.remove_waveforms_from_history()
             return results
-        else:
-            results.append(output_chunk)
 
 def transсribe_parallel(
     asr: StreamingBlackBoxASR,

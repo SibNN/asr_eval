@@ -1,21 +1,25 @@
 import re
-from typing import Literal, Sequence
+from typing import Literal, Sequence, cast
 from dataclasses import dataclass
 from functools import partial
 import multiprocessing as mp
+
+
 
 from gigaam.model import GigaAMASR
 import numpy as np
 import numpy.typing as npt
 import matplotlib.pyplot as plt
 
-from .model import InputChunk, OutputChunk, TranscriptionChunk
+from .model import InputChunk, OutputChunk, TranscriptionChunk, Signal
+from .sender import DelayInfo
 from ..ctc.base import ctc_mapping
 from ..ctc.forced_alignment import forced_alignment
 from ..models.gigaam import transcribe_with_gigaam_ctc, encode, decode, FREQ
 from ..align.data import MatchesList, Token
 from ..align.parsing import split_text_into_tokens
 from ..align.recursive import align
+from ..utils import draw_horizontal_interval
 
 
 @dataclass
@@ -233,3 +237,69 @@ def words_count(
             break
     
     return count, in_word
+
+
+def visualize_history(
+    input_chunks: list[InputChunk],
+    input_timings: list[DelayInfo],
+    output_chunks: list[OutputChunk] | None = None,
+):
+    plt.figure(figsize=(6, 6)) # type: ignore
+    
+    plot_t_shift = min(delay_info.wait_start_time for delay_info in input_timings)
+    
+    plot_y_pos = 0
+    for delay_info, input_chunk in zip(input_timings, input_chunks, strict=True):
+        draw_horizontal_interval(
+            x1=delay_info.wait_start_time - plot_t_shift,
+            x2=delay_info.wait_start_time - plot_t_shift + delay_info.intended_delay,
+            y=plot_y_pos,
+            color='r',
+            lw=0.4,
+        )
+        draw_horizontal_interval(
+            x1=delay_info.wait_start_time - plot_t_shift,
+            x2=delay_info.wait_end_time - plot_t_shift,
+            y=plot_y_pos,
+            color='g',
+            lw=0.4,
+        )
+        plt.scatter( # type: ignore
+            [cast(float, input_chunk.get_timestamp) - plot_t_shift],
+            [plot_y_pos],
+            s=5,
+            c='blue',
+        )
+        plt.plot( # type: ignore
+            [delay_info.wait_start_time - plot_t_shift, cast(float, input_chunk.get_timestamp) - plot_t_shift],
+            [plot_y_pos, plot_y_pos],
+            lw=1,
+            c='blue',
+            zorder=-1,
+        )
+        
+        plot_y_pos += 1
+
+    plot_y_pos = 0
+    if output_chunks is not None:
+        for output_chunk in output_chunks:
+            x = cast(float, output_chunk.put_timestamp) - plot_t_shift
+            plt.axvline( # type: ignore
+                x,
+                c='orange',
+                alpha=1 if output_chunk.data is Signal.FINISH else 0.5,
+                ls='dashed' if output_chunk.data is Signal.FINISH else 'solid',
+                zorder=-1,
+            )
+            # if output_chunk.seconds_processed is not None:
+            #     plt.annotate( # type: ignore
+            #         '',
+            #         xytext=(x, plot_y_pos),
+            #         xy=(output_chunk.seconds_processed, plot_y_pos),
+            #         arrowprops={'arrowstyle': '->', 'color': 'orange'}
+            #     )
+        
+            #     plot_y_pos += 1
+        
+    # extend_lims(plt.gca(), dxmin=-0.1, dxmax=0.1, dymin=-1, dymax=1)
+    plt.show() # type: ignore
