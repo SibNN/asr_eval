@@ -1,5 +1,5 @@
 import re
-from typing import Literal, Sequence, cast
+from typing import Sequence, cast
 from dataclasses import dataclass
 from functools import partial
 import multiprocessing as mp
@@ -8,9 +8,8 @@ import copy
 from gigaam.model import GigaAMASR
 import numpy as np
 import numpy.typing as npt
-import matplotlib.pyplot as plt
 
-from .model import InputChunk, OutputChunk, TranscriptionChunk, Signal, check_consistency
+from .model import InputChunk, OutputChunk, TranscriptionChunk, check_consistency
 from .sender import Cutoff
 from ..ctc.base import ctc_mapping
 from ..ctc.forced_alignment import forced_alignment
@@ -22,6 +21,13 @@ from ..align.recursive import align
 
 @dataclass
 class PartialAlignment:
+    """
+    An optimal alignment between:
+    - A part of spoken text up to `audio_seconds_processed`
+    - A provieded partial transcription from the model
+    
+    Obtaining PartialAlignment requires word timings for the true transcription.
+    """
     alignment: MatchesList
     audio_seconds_sent: float
     audio_seconds_processed: float | None = None
@@ -34,6 +40,7 @@ def _calculate_partial_alignment(
     true_word_timings: list[Token],
     output_chunk_idx: int,
 ) -> PartialAlignment:
+    """A helper function to paralellize get_partial_alignments() using multiprocessing."""
     output_chunk = output_history[output_chunk_idx]
     text = TranscriptionChunk.join(output_history[:output_chunk_idx + 1])
 
@@ -78,6 +85,20 @@ def get_partial_alignments(
     true_word_timings: list[Token],
     processes: int = 1,
 ) -> list[PartialAlignment]:
+    """
+    Accepts:
+    - A full history of input and output chunks from StreamASR (belonging to the same recording ID)
+    - A true transcription as a list of Token with `.start_time` and `.end_time` filled
+    
+    For each output chunk calculates a PartialAlignment. To do this, obtains a partial true
+    transcription based on `output_chunk.seconds_processed` and aligns with the predicted transcription
+    (all the previous output chunks joined). If the time is inside a word, that is `token.start_time
+    < output_chunk.seconds_processed < token.end_time`, considers two partial true transcription - with
+    and without this word - and selects one with the best alignment score.
+    
+    Can be paralellized using multiprocessing if `processes > 1` (we cannot use multithreading here
+    because of GIL, considering that the alignment function is written on pure Python).
+    """
     # check that timings are not None and do not decrease
     assert np.all(np.diff([(x.put_timestamp or np.nan) for x in input_history])[1:] >= 0)
     assert np.all(np.diff([(x.start_time or np.nan) for x in input_history])[1:] >= 0)
@@ -97,91 +118,25 @@ def get_partial_alignments(
         ]
         
 
-def partial_alignment_diagram(
-    partial_alignments: list[PartialAlignment],
-    true_words_timed: list[Token],
-    audio_len: float,
-    figsize: tuple[float, float] = (15, 15),
-    y_type: Literal['sent', 'processed'] = 'sent',
-):
-    plt.figure(figsize=figsize) # type: ignore
-
-    # main lines
-    plt.plot([0, audio_len], [0, audio_len], color='lightgray') # type: ignore
-    plt.plot([0, audio_len], [0, 0], color='lightgray') # type: ignore
-
-    # word timings
-    for token in true_words_timed:
-        assert not np.isnan(token.start_time)
-        assert not np.isnan(token.end_time)
-        plt.fill_between( # type: ignore
-            [token.start_time, token.end_time],
-            [0, 0],
-            [audio_len, audio_len],
-            color='#eeeeee',
-            zorder=-1
-        )
-        plt.text( # type: ignore
-            (token.start_time + token.end_time) / 2,
-            0,
-            ' ' + str(token.value),
-            fontsize=10,
-            rotation=90,
-            ha='center',
-            va='bottom',
-        )
-
-    # partial alignments
-    last_end_time = 0
-    for partial_alignment in partial_alignments:
-        y_pos = (
-            partial_alignment.audio_seconds_sent
-            if y_type == 'sent'
-            else partial_alignment.audio_seconds_processed
-        )
-        for match in partial_alignment.alignment.matches:
-            if len(match.true) == 0:
-                plt.scatter([last_end_time], [y_pos], color='black', s=10, zorder=2) # type: ignore
-            else:
-                assert len(match.true) == 1
-                last_end_time = match.true[0].end_time
-
-                skip = False
-                if match.status == 'correct':
-                    color = 'green'
-                elif match.status == 'replacement':
-                    color = 'red'
-                else:
-                    assert match.status == 'deletion'
-                    color = None
-                    skip = True
-                
-                if not skip:
-                    for token in match.true:
-                        plt.plot([token.start_time, token.end_time], [y_pos, y_pos], color=color) # type: ignore
-        if partial_alignment.audio_seconds_processed is not None:
-            plt.scatter( # type: ignore
-                [partial_alignment.audio_seconds_processed], [y_pos], # type: ignore
-                s=20, zorder=2, color='gray', marker='|'
-            )
-
-    plt.show() # type: ignore
-
-
 def get_word_timings(
     model: GigaAMASR,
     waveform: npt.NDArray[np.floating],
     text: str | None = None,
 ) -> list[Token]:
     '''
-    Outputs a list of words and their timings in seconds:
+    
+    Using GigaAM CTC model, performs either a forced alignment or an argmax prediction, and returns
+    a list of words and their timings in seconds:
 
-    ([('и', 0.12, 0.16),
-        ('поэтому', 0.2, 0.56),
-        ('использовать', 0.64, 1.28),
-        ('их', 1.32, 1.44),
-        ('в', 1.48, 1.56),
-        ('повседневности', 1.6, 2.36),
+    [
+        (Token('и'), 0.12, 0.16),
+        (Token('поэтому'), 0.2, 0.56),
+        (Token('использовать'), 0.64, 1.28),
+        (Token('их'), 1.32, 1.44),
+        (Token('в'), 1.48, 1.56),
+        (Token('повседневности'), 1.6, 2.36),
+        ...
+    ]
     '''
     outputs = transcribe_with_gigaam_ctc(model, [waveform])[0]
     if text is None:
@@ -220,7 +175,7 @@ def words_count(
     time: float,
 ) -> tuple[int, bool]:
     '''
-    Returns a tuple of:
+    Given a list of Token with `.start_time` and `.end_time` filled, returns a tuple of:
     1. Number of full words in the time span [0, time]
     2. `in_word` flag: is the given time inside a word?
     '''
@@ -243,6 +198,14 @@ def remap_time(
     input_chunks: list[InputChunk],
     output_chunks: list[OutputChunk]
 ) -> tuple[list[InputChunk], list[OutputChunk]]:
+    """
+    Accept the result of a transcription of a single recoding, obtained using
+    `BaseStreamingAudioSender.send_all_without_delays()`.
+    
+    Makes a deep copy of input and output chunks. Then modifies put and get timestamps
+    in both input and output chunks  to simulate the result of `.start_sending()` instead of
+    `.send_all_without_delays()`.
+    """
     fl = partial(cast, float)
     
     check_consistency(input_chunks, output_chunks)
@@ -279,39 +242,3 @@ def remap_time(
     check_consistency(input_chunks, output_chunks)
     
     return input_chunks, output_chunks
-
-
-def visualize_history(
-    input_chunks: list[InputChunk],
-    output_chunks: list[OutputChunk] | None = None,
-):
-    fl = partial(cast, float)
-    
-    plt.figure(figsize=(6, 6)) # type: ignore
-        
-    plot_t_shift = cast(float, input_chunks[0].put_timestamp)
-
-    plot_y_pos = 0
-    for input_chunk in input_chunks:
-        plt.scatter( # type: ignore
-            [fl(input_chunk.get_timestamp) - plot_t_shift, fl(input_chunk.put_timestamp) - plot_t_shift],
-            [plot_y_pos, plot_y_pos],
-            c=['b', 'g'],
-            s=30,
-            marker='|',
-        )
-        plot_y_pos += 1
-
-    if output_chunks is not None:
-        plot_y_pos = 0
-        for output_chunk in output_chunks:
-            plt.axvline( # type: ignore
-                fl(output_chunk.put_timestamp) - plot_t_shift,
-                c='orange',
-                alpha=1 if output_chunk.data is Signal.FINISH else 0.5,
-                ls='dashed' if output_chunk.data is Signal.FINISH else 'solid',
-                zorder=-1,
-            )
-        
-    # extend_lims(plt.gca(), dxmin=-0.1, dxmax=0.1, dymin=-1, dymax=1)
-    plt.show() # type: ignore
