@@ -206,7 +206,7 @@ class OutputBuffer(ASRStreamingQueue[OutputChunk]):
     pass
 
 
-class StreamingBlackBoxASR(ABC):
+class StreamingASR(ABC):
     """
     An abstract class that accepts a stream of input chunks and emits a stream of output chunks.
     
@@ -331,7 +331,7 @@ class StreamingBlackBoxASR(ABC):
         ...
 
 
-class DummyASR(StreamingBlackBoxASR):
+class DummyASR(StreamingASR):
     """
     Will transcribe N seconds long audio into "1 2 ... N"
     """

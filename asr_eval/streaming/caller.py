@@ -2,12 +2,12 @@ from concurrent.futures import ThreadPoolExecutor
 import textwrap
 from asr_eval.streaming.buffer import ID_TYPE
 
-from .model import OutputChunk, Signal, StreamingBlackBoxASR, TranscriptionChunk
+from .model import OutputChunk, Signal, StreamingASR, TranscriptionChunk
 from .sender import BaseStreamingAudioSender, StreamingAudioSender
 
 
 def receive_full_transcription(
-    asr: StreamingBlackBoxASR,
+    asr: StreamingASR,
     id: ID_TYPE,
     sender: BaseStreamingAudioSender | None = None,
     send_all_without_delays: bool = False,
@@ -32,7 +32,7 @@ def receive_full_transcription(
             return results
 
 def transсribe_parallel(
-    asr: StreamingBlackBoxASR,
+    asr: StreamingASR,
     senders: list[StreamingAudioSender],
     n_threads: int,
     send_all_without_delays: bool = False,
