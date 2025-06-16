@@ -157,7 +157,8 @@ def partial_alignment_diagram(
                     skip = True
                 
                 if not skip:
-                    plt.plot([start, end], [y_pos, y_pos], color=color) # type: ignore
+                    for token in match.true:
+                        plt.plot([token.start_time, token.end_time], [y_pos, y_pos], color=color) # type: ignore
         if partial_alignment.audio_seconds_processed is not None:
             plt.scatter( # type: ignore
                 [partial_alignment.audio_seconds_processed], [y_pos], # type: ignore
