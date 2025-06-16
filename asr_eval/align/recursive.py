@@ -2,10 +2,53 @@ from __future__ import annotations
 
 from functools import cache
 
-from .data import Anything, Token, MultiVariant, Match, MatchesList, match_from_pair
+import nltk
+
+from .data import Anything, Token, MultiVariant, Match, MatchesList, AlignmentScore
+
+
+@cache
+def _char_edit_distance(true: str, pred: str) -> int:
+    return nltk.edit_distance(true, pred) # type: ignore
+
+
+def match_from_pair(true: list[Token], pred: list[Token]) -> Match:
+    """
+    Constructs `Match` object and fill `status` and `score` fields.
+    
+    This function does not solve an optimal alighment problem. If both word sequences are the same,
+    or the first is `[Anything()]`, then match is considered 'correct', otherwise incorrect. In
+    incorrect match, if both texts are not empty, it is considered 'replacement', otherwise
+    'deletion' or 'insertion'.
+    
+    This is a helper function that `align()` uses to find an optimal alignment.
+    """
+    assert len(true) > 0 or len(pred) > 0
+    is_anything = len(true) == 1 and isinstance(true[0].value, Anything)
+    if [t.value for t in true] == [t.value for t in pred] or is_anything:
+        status = 'correct'
+    elif len(pred) == 0:
+        status = 'deletion'
+    elif len(true) == 0:
+        status = 'insertion'
+    else:
+        status = 'replacement'
+    return Match(
+        true=true,
+        pred=pred,
+        status=status,
+        score=AlignmentScore(
+            n_word_errors=0 if status == 'correct' else max(len(true), len(pred)),
+            n_correct=len(true) if status == 'correct' else 0,
+            n_char_errors=_char_edit_distance(
+                ' '.join(str(t.value) for t in true),
+                ' '.join(str(t.value) for t in pred)
+            ) if not is_anything else 0,
+        ),
+    )
     
 
-def select_shortest_multi_variants(seq: list[Token | MultiVariant]) -> list[Token]:
+def _select_shortest_multi_variants(seq: list[Token | MultiVariant]) -> list[Token]:
     result: list[Token] = []
     for x in seq:
         if isinstance(x, MultiVariant):
@@ -19,6 +62,15 @@ def align(
     true: list[Token | MultiVariant],
     pred: list[Token],
 ) -> MatchesList:
+    """
+    Recursively solves an optimal alignment task.
+    
+    Evaluates alignments using AlignmentScore that first compares word errors, then character errors
+    and number of corret matches. This means that across many alignments with minimal word error count,
+    will select one with minimal character error count and maximum number of corret matches. This
+    helps to improve alignments. This is especially important for streaming recognition, because to
+    evaluate latency we need to obtain an alignment, not only WER or CER value.
+    """
     assert all(isinstance(x, Token) for x in pred), 'prediction cannot be multivariant'
         
     multivariant_prefixes: dict[tuple[tuple[int, int], int], list[Token]] = {}
@@ -26,8 +78,6 @@ def align(
         if isinstance(x, MultiVariant):
             for i, option in enumerate(x.options):
                 multivariant_prefixes[x.pos, i] = option
-    
-
     
     @cache
     def _align_recursive(
@@ -48,7 +98,7 @@ def align(
         elif len(_pred) == 0 and len(_true) > 0:
             _matches: list[Match] = []
             for token in _true:
-                if len(shortest := select_shortest_multi_variants([token])):
+                if len(shortest := _select_shortest_multi_variants([token])):
                     _matches.append(match_from_pair(shortest, []))
             return MatchesList.from_list(_matches)
         elif len(_pred) > 0 and len(_true) == 0:

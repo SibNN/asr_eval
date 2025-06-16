@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from functools import cache
 from typing import Any, Literal, cast
 
-import nltk
 import numpy as np
 
 from ..utils import new_uid
@@ -12,6 +10,9 @@ from ..utils import new_uid
 
 @dataclass(slots=True)
 class Anything:
+    """
+    Represents <*> in a multivariant transcription: a symbol that matches every word sequence or nothing.
+    """
     def __eq__(self, other: Any) -> bool:
         return True
     
@@ -21,6 +22,17 @@ class Anything:
 
 @dataclass(slots=True)
 class Token:
+    """
+    Either a word, or `Anything` in a transcription. Additional fields:
+    
+    - `uid`: a unique id for the current token (is filled automatically if not specified). Useful in
+    string alignments, because there can be multiple equal words in both texts, and without unique IDs
+    the alignment will be ambiguous. We could use positions instead of unqiue IDs, but positions are
+    also ambiguous in a multivariant transcription.
+    - `start_pos` and `end_pos`: position in the original text: start (inclusive) and end (exclusive)
+    characters. May be useful for displaying an alignment.
+    - `start_time` and `end_time`: start and end time in seconds, if known.
+    """
     value: str | Anything
     uid: str = field(default_factory=new_uid)
     start_pos: int = 0
@@ -34,12 +46,26 @@ class Token:
 
 @dataclass(slots=True)
 class MultiVariant:
+    """
+    A multivariant block in a transcription. Keeps a list of variants, each variant is a list of Token.
+    
+    `pos` represents a position in the original text, including braces {}.
+    """
     options: list[list[Token]]
     pos: tuple[int, int] = (0, 0)
 
 
 @dataclass(slots=True)
 class AlignmentScore:
+    """
+    A score to compare for one or more consecutive Match. Comparision algorithm:
+    1. First, if one match has less word errors than other, it is better.
+    2. Else if one match has less character errors than other, it is better.
+    3. Else if one match has more correct matches, it is better.
+    3. Otherwise, scores are the same.
+    
+    This class is used in the align() function that searches for the alignment with the best score.
+    """
     n_word_errors: int = 0
     n_correct: int = 0
     n_char_errors: int = 0
@@ -98,6 +124,16 @@ class AlignmentScore:
 
 @dataclass(kw_only=True, slots=True)
 class Match:
+    """
+    An element of a string alignment: a match between zero or more words in two texts.
+    - `true` array contains tokens from the first text
+    - `pred` array contains tokens from the second text (both arrays cannot be empty simultaneously)
+    - `status` is one of 'correct', 'deletion', 'insertion', 'replacement
+    - `score` is the corresponding AlignmentScore
+    
+    Note that this class does not calculate or validate `status` or `score`, it only stores them.
+    Use `match_from_pair()` to construct `Match` object and fill these fields.
+    """
     true: list[Token]
     pred: list[Token]
     status: Literal['correct', 'deletion', 'insertion', 'replacement']
@@ -111,6 +147,16 @@ class Match:
 
 @dataclass(slots=True)
 class MatchesList:
+    """
+    An string alignment: a list of matches, such that:
+    - A sum of `[m.true for m in self.matches]` give the full first text as a list of tokens
+    - A sum of `[m.pred for m in self.matches]` give the full second text as a list of tokens
+    
+    If true text is multivariant, `[m.true for m in self.matches]` contains only a single
+    variant for each multivariant block.
+    
+    `total_true_len` and `score` are filled automatically in the `MatchesList.from_list()`
+    """
     matches: list[Match]
     total_true_len: int
     score: AlignmentScore
@@ -129,34 +175,3 @@ class MatchesList:
             total_true_len=len(match.true) + self.total_true_len,
             score = match.score + self.score
         )
-
-
-@cache
-def _edit_distance(true: str, pred: str) -> int:
-    return nltk.edit_distance(true, pred) # type: ignore
-
-
-def match_from_pair(true: list[Token], pred: list[Token]) -> Match:
-    assert len(true) > 0 or len(pred) > 0
-    is_anything = len(true) == 1 and isinstance(true[0].value, Anything)
-    if [t.value for t in true] == [t.value for t in pred] or is_anything:
-        status = 'correct'
-    elif len(pred) == 0:
-        status = 'deletion'
-    elif len(true) == 0:
-        status = 'insertion'
-    else:
-        status = 'replacement'
-    return Match(
-        true=true,
-        pred=pred,
-        status=status,
-        score=AlignmentScore(
-            n_word_errors=0 if status == 'correct' else max(len(true), len(pred)),
-            n_correct=len(true) if status == 'correct' else 0,
-            n_char_errors=_edit_distance(
-                ' '.join(str(t.value) for t in true),
-                ' '.join(str(t.value) for t in pred)
-            ) if not is_anything else 0,
-        ),
-    )
