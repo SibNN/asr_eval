@@ -18,32 +18,60 @@ from ..utils import new_uid
 
 
 class Signal(Enum):
-    """See StreamingBlackBoxASR docstring for details"""
+    """Signals to control StreamingASR thread. See StreamingASR docstring for details."""
     FINISH = 0
 
 
 class Exit(Exception):
+    """A signal to terminate StreamingASR thread. See StreamingASR docstring for details."""
     pass
 
 
+# Audio stream that is chunkable using slices.
 AUDIO_CHUNK_TYPE = npt.NDArray[Any] | bytes
     
 
 @dataclass(kw_only=True)
 class InputChunk:
+    """
+    An input chunk for StreamingASR. Input chunks can be sent by BaseStreamingAudioSender or
+    manually and received by StreamingASR via ASRStreamingQueue.
+    
+    See StreamingASR docstring for usage details.
+    
+    `data` is either a slice of audio, or a Signal.FINISH.
+    
+    `start_time` and `end_time` are chunk boundaries (in seconds) in the audio timescale, where
+    0 means the beginning of the audio. For two consecutive chunks, .end_time for the first should
+    be .start_time for the second.
+    
+    `put_timestamp` is filled automatically when the chunk is added to the ASRStreamingQueue input buffer.
+    `get_timestamp` is filled automatically when the StreamingASR thread takes the chunk from the buffer.
+    """
     data: AUDIO_CHUNK_TYPE | Literal[Signal.FINISH]
     
-    # chunk boundaries in the audio timescale, where 0 is the beginning of the audio
     start_time: float | None = None
     end_time: float | None = None
     
-    # real-world timestamps in seconds (time.time()) filled by ASRStreamingQueue
     put_timestamp: float | None = None
     get_timestamp: float | None = None
  
     
 @dataclass(kw_only=True)
 class OutputChunk:
+    """
+    An output chunk for StreamingASR. Output chunks are sent by StreamingASR and received manually or
+    by `receive_full_transcription()`.
+    
+    See StreamingASR and `receive_full_transcription` docstring for usage details.
+    
+    `data` is either a part of transcription, or a Signal.FINISH.
+    
+    `seconds_processed` is a total audio seconds processed before yielding the current chunk.
+    
+    `put_timestamp` is filled automatically when the chunk is added to the ASRStreamingQueue output buffer.
+    `get_timestamp` is filled automatically when the chunk is taken from the buffer.
+    """
     data: TranscriptionChunk | Literal[Signal.FINISH]
     
     # total audio seconds processed, optional
@@ -55,6 +83,14 @@ class OutputChunk:
     
     
 def check_consistency(input_chunks: list[InputChunk], output_chunks: list[OutputChunk]):
+    """
+    Asserts that:
+    1. For each input and output chunk put_timestamp <= get_timestamp.
+    2. For each output chunk `seconds_processed` is not larger than audio seconds taken from the input
+    buffer by the time the output is put into the buffer.
+    
+    Fails indicate errors in the chunk processing pipeline (sender, buffer or model).
+    """
     fl = partial(cast, float)
     for input_chunk in input_chunks:
         assert fl(input_chunk.put_timestamp) <= fl(input_chunk.get_timestamp)
@@ -75,7 +111,10 @@ CHUNK_TYPE = TypeVar('CHUNK_TYPE', InputChunk, OutputChunk)
 
 class ASRStreamingQueue(StreamingQueue[CHUNK_TYPE]):
     """
-    A StreamingQueue to use in StreamingBlackBoxASR, with custom data consistency checks.
+    A StreamingQueue to use in StreamingASR. It fills `put_timestamp`, `get_timestamp` and asserts
+    that if Signal.FINISH was received, no more chunks are expected for this recording ID.
+    
+    See StreamingASR docstring for details.
     """
     def __init__(self, name: str = 'unnamed'):
         super().__init__(name=name)
@@ -108,6 +147,13 @@ class ASRStreamingQueue(StreamingQueue[CHUNK_TYPE]):
 
 
 class InputBuffer(ASRStreamingQueue[InputChunk]):
+    """
+    An input buffer for StreamingASR. Input chunks are added to the buffer by `.put()` and
+    received in StreamingASR thread by `.get()` or `.get_with_rechunking()`.
+    
+    If `.get_with_rechunking()` was called at least once, a rechunking mode is enabled and
+    `.get()` cannot be called anymore.
+    """
     def __init__(self, name: str = 'unnamed'):
         super().__init__(name=name)
         self._rechunking_mode_on: bool = False
@@ -129,11 +175,24 @@ class InputBuffer(ASRStreamingQueue[InputChunk]):
         id: ID_TYPE | None = None,
     ) -> tuple[ID_TYPE, AUDIO_CHUNK_TYPE | None, bool, float | None]:
         '''
-        Useful if we want to rechunk input audio chunks to the desired size. Waits and returns:
-        - id
-        - audio chunk of the desired size or less (if finish reached)
-        - flag if Signal.FINISH reached
-        - audio end time in seconds
+        Internally calles `.get()` as many times as needed and concatenates and/or slices the results
+        to obtain the desired array size.
+        
+        For example, let each input chunk contain 1000 audio frames, and we requested size=2400. The `.get()`
+        will be called 3 times, and the last chunks will be split into two parts, of size 400 and 600. An array
+        of size 2400 will be returned, and 600 remaining elements will be kept in the rechunking buffer. If
+        then we request size=100, the array of size 100 will be returned without new `get()`s, and buffer
+        will keep 500 remaining elements, and so on.
+        
+        The retuned array can be smaller than requested if Signal.FINISH reached for the ID.
+        
+        Returns a tuple:
+        1. id (equals the `id` argument if was specified, or the first available id otherwise).
+        2. audio chunk of the desired size or less (if finish reached).
+        3. flag if Signal.FINISH reached.
+        4. the audio end time of the last recived chunk (even if its part is still in the rechunking buffer).
+        
+        TODO maybe set the audio end time more correctly?
         '''
         self._rechunking_mode_on = True
         while True:
@@ -203,6 +262,10 @@ class InputBuffer(ASRStreamingQueue[InputChunk]):
         return id, chunk_to_return, is_finished, end_time
 
 class OutputBuffer(ASRStreamingQueue[OutputChunk]):
+    """
+    An output buffer for StreamingASR. Output chunks are added to the buffer by `.put()` in
+    StreamingASR thread  and received by `.get()`.
+    """
     pass
 
 
@@ -210,7 +273,8 @@ class StreamingASR(ABC):
     """
     An abstract class that accepts a stream of input chunks and emits a stream of output chunks.
     
-    Definitions:
+    **Definitions:**
+    
     - **Audio chunk**: a part of a waveform. Sampling rate is defined in the class constructor. For example,
     a 10 sec mono recording with rate 16_000 can be represented as 10 chunks, each with shape (16_000,).
     Several channels can also be supported for some models. The chunk length is not restricted, models in
@@ -219,24 +283,24 @@ class StreamingASR(ABC):
     the previous words. See details in the class docstring.
     - **Recording ID**: a unique int or string identifier for a recording. This is useful if several recordings
     are streamed simultaneously, and we should know which audio recording each chunk belongs to. IDs should be
-    unique for StreamingBlackBoxASR object and should not be reused, or the exception will be thrown.
+    unique for StreamingASR object and should not be reused, or the exception will be thrown.
     - **Signal.FINISH**: a symbol that signals that a stream for a specific recording ID has ended. This can
     refer to either the input stream (audio chunks) or the output stream (TranscriptionChunk-s).
     - **Exit**: an exception that signals that all streams for all recording IDs have ended. This can refer
     to either the input stream or the output stream. After receiving Exit from the input buffer and sending Exit
-    to the output buffer, StreamingBlackBoxASR thread finishes.
+    to the output buffer, StreamingASR thread finishes.
+    
+    **Data model:**
     
     Each input chunk can be one of:
-    - an InputChunk(id=Recording ID, data=<Audio chunk>)
-    - an InputChunk(id=Recording ID, data=Signal.FINISH)
+    1. An InputChunk(id=Recording ID, data=<Audio chunk>).
+    2. An InputChunk(id=Recording ID, data=Signal.FINISH) - indicates that the audio for the ID has been
+    fully sent.
     
     Each output chunk can be one of:
-    - an OutputChunk(id=Recording ID, data=<TranscriptionChunk>)
-    - an OutputChunk(id=Recording ID, data=Signal.FINISH)
-    
-    Details:
-    - FINISH input chunk indices that the audio for the ID has been fully sent
-    - FINISH output chunk indices that FINISH input chunk received fhr the given ID and the transcription is done
+    1. An OutputChunk(id=Recording ID, data=<TranscriptionChunk>).
+    2. An OutputChunk(id=Recording ID, data=Signal.FINISH) - indicates that FINISH input chunk received fhr the
+    given ID and the transcription is done.
     
     The input chunks may optionally contain audio timings. Some models may fill `.seconds_processed` field in
     `OutputChunk` - audio seconds processed (for the current recording ID) before yielding the current output chunk.
@@ -244,41 +308,48 @@ class StreamingASR(ABC):
     calculations and has already processed only 20 chunks (2 sec in total). Depending on the testing scenario
     we can treat the result as a partial transcription of the first 2 or 10 seconds of the audio signal.
     
-    An Exit exception in the input buffer indicates that all audios have been fully sent
-    An Exit exception in the output buffer indicates that Exit received from the input buffer and the
-    StreamingBlackBoxASR thread exited. This does not mean that all transcriptions are fully done.
+    **Sending and receiving:**
     
-    Also, some timestamps are automatically filled:
-    1. InputChunk.put_timestamp - the time when the chunk added to the StreamingBlackBoxASR.input_buffer
-    2. InputChunk.get_timestamp - the time when the chunk received from the StreamingBlackBoxASR.input_buffer
-    3. OutputChunk.put_timestamp - the time when the chunk added to the StreamingBlackBoxASR.output_buffer
-    4. OutputChunk.get_timestamp - the time when the chunk received from the StreamingBlackBoxASR.output_buffer
-    
-    Pts 1, 4 happen in the caller code, and pts 2, 3 happen in the StreamingBlackBoxASR worker thread.
-    
-    After creating an StreamingBlackBoxASR object, we should start a thread that will process input chunks and
+    After creating an StreamingASR object, we should start a thread that will process input chunks and
     emit output chunks. After this, new audio chunks can be sent using `.input_buffer.put(...)` (non-blocking),
     and the outputs can be received with `.output_buffer.get(...)` (blocks until output becomes available).
     Instead of manual sending, a StreamingAudioSender can be helpful. It will start a thread that sends audio
     chunks with a delay between each chunk.
     
-    Exception handling:
-    1) Any exception raised from the StreamingBlackBoxASR thread will set the output buffer in the error state.
+    Input and output buffers automatically fill the follwing fields:
+    1. InputChunk.put_timestamp - the time when the chunk added to the StreamingASR.input_buffer
+    2. InputChunk.get_timestamp - the time when the chunk received from the StreamingASR.input_buffer
+    3. OutputChunk.put_timestamp - the time when the chunk added to the StreamingASR.output_buffer
+    4. OutputChunk.get_timestamp - the time when the chunk received from the StreamingASR.output_buffer
+    
+    Pts 1, 4 happen in the caller code, and pts 2, 3 happen in the StreamingASR worker thread.
+    
+    **Terminating a StreamingASR thread:**
+    
+    An Exit exception in the input buffer indicates that all audios have been fully sent
+    An Exit exception in the output buffer indicates that Exit received from the input buffer and the
+    StreamingASR thread exited. This does not mean that all transcriptions are fully done.
+    
+    **Exception handling:**
+    
+    1) Any exception raised from the StreamingASR thread will set the output buffer in the error state.
     This will raise the exception when reading from the output buffer.
     2) Trying to write invalid data into the input buffer (including reusing previous IDs) may set it into the
-    error state. This will raise the exception when reading from the input buffer in the StreamingBlackBoxASR
+    error state. This will raise the exception when reading from the input buffer in the StreamingASR
     thread, then see pt. 1.
     3) Exceptions in StreamingAudioSender thread will set the input buffer into the error state, then see pt. 2.
     4) `Exit` is a special exception type indicating that input or output stream has been closed properly.
     
-    On how to subclass a StreamingBlackBoxASR, see _run method docstring.
+    **Implementing models:**
+    
+    To subclass a StreamingASR, one should implement `_run()` method (see its docstring).
     """
     def __init__(self, sampling_rate: int = 16_000):
         self._sampling_rate = sampling_rate
         self._thread: threading.Thread | None = None
     
     def start_thread(self) -> Self:
-        """Start the processor in a background thread"""
+        """Start _run() in a background thread"""
         assert self._thread is None
         self.input_buffer = InputBuffer(name='input buffer')
         self.output_buffer = OutputBuffer(name='output buffer')
@@ -370,10 +441,17 @@ class TranscriptionChunk:
     wants to edit the previous chunk, it can yield the same UID with another text. Example:
     
     TranscriptionChunk.join([
-        TranscriptionChunk(text='a'),               # append a new chunk with text 'a' without an explicit uid to refer
-        TranscriptionChunk(uid=1, text='b'),         # append a new chunk with text 'b', 2 chunks in total: 'a', 'b'[uid=1]
-        TranscriptionChunk(uid=2, text='c'),         # append a new chunk with text 'c', 3 chunks in total: 'a', 'b'[uid=1], 'c'[uid=2]
-        TranscriptionChunk(uid=1, text='b2 b3'),     # edit the chunk with uid=1: 'a', 'b2 b3'[uid=1], 'c'[uid=2]
+        # append a new chunk with text 'a' without an explicit uid to refer
+        TranscriptionChunk(text='a'),
+        
+        # append a new chunk with text 'b', 2 chunks in total: 'a', 'b'[uid=1]
+        TranscriptionChunk(uid=1, text='b'),
+        
+        # append a new chunk with text 'c', 3 chunks in total: 'a', 'b'[uid=1], 'c'[uid=2]
+        TranscriptionChunk(uid=2, text='c'),
+        
+        # edit the chunk with uid=1: 'a', 'b2 b3'[uid=1], 'c'[uid=2]
+        TranscriptionChunk(uid=1, text='b2 b3'),
     ]) == 'a b2 b3 c'
     """
     uid: int | str = field(default_factory=new_uid)
