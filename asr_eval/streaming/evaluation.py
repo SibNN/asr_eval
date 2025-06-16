@@ -122,6 +122,7 @@ def get_word_timings(
     model: GigaAMASR,
     waveform: npt.NDArray[np.floating],
     text: str | None = None,
+    normalize: bool = True,
 ) -> list[Token]:
     '''
     
@@ -142,6 +143,10 @@ def get_word_timings(
     if text is None:
         tokens = outputs.log_probs.argmax(axis=1)
     else:
+        if normalize:
+            text = text.lower().replace('ё', 'е').replace('-', ' ')
+            for char in ('.', ',', '!', '?', ';', ':', '"', '(', ')'):
+                text = text.replace(char, '')
         tokens, _probs = forced_alignment(
             outputs.log_probs,
             encode(model, text),
