@@ -2,8 +2,8 @@ from datetime import timedelta
 import uuid
 
 import srt
-import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
+# import matplotlib.pyplot as plt
+# from matplotlib.patches import Rectangle
 
 
 def new_uid() -> str:
@@ -60,23 +60,23 @@ def utterances_to_srt(utterances: list[tuple[str, float, float]]) -> str:
 #     ax.set_xlim(cur_xmin, cur_xmax)
 #     ax.set_ylim(cur_ymin, cur_ymax)
 
-def draw_horizontal_interval(
-    x1: float,
-    x2: float,
-    y: float,
-    color: str = 'C0',
-    lw: float = 0.2,
-    ax: plt.Axes | None = None # pyright: ignore[reportPrivateImportUsage]
-):
-    ax = ax or plt.gca()
-    ax.add_patch(Rectangle(
-        (x1, y - lw / 2),
-        (x2 - x1),
-        lw,
-        linewidth=1,
-        color=color,
-    ))
-    # extend_lims(xmin=x1, xmax=x2, ymin=y - lw / 2, ymax=y + lw / 2, ax=ax)
+# def draw_horizontal_interval(
+#     x1: float,
+#     x2: float,
+#     y: float,
+#     color: str = 'C0',
+#     lw: float = 0.2,
+#     ax: plt.Axes | None = None # pyright: ignore[reportPrivateImportUsage]
+# ):
+#     ax = ax or plt.gca()
+#     ax.add_patch(Rectangle(
+#         (x1, y - lw / 2),
+#         (x2 - x1),
+#         lw,
+#         linewidth=1,
+#         color=color,
+#     ))
+#     # extend_lims(xmin=x1, xmax=x2, ymin=y - lw / 2, ymax=y + lw / 2, ax=ax)
 
 # def draw_circle(
 #     x: float,

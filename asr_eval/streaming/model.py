@@ -4,10 +4,11 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
+from functools import partial
 import math
 import threading
 import time
-from typing import Any, Literal, Self, Sequence, TypeVar, override
+from typing import Any, Literal, Self, Sequence, TypeVar, cast, override
 
 import numpy as np
 import numpy.typing as npt
@@ -51,6 +52,22 @@ class OutputChunk:
     # real-world timestamps in seconds (time.time()) filled by ASRStreamingQueue
     put_timestamp: float | None = None
     get_timestamp: float | None = None
+    
+    
+def check_consistency(input_chunks: list[InputChunk], output_chunks: list[OutputChunk]):
+    fl = partial(cast, float)
+    for input_chunk in input_chunks:
+        assert fl(input_chunk.put_timestamp) <= fl(input_chunk.get_timestamp)
+    for input_chunk in output_chunks:
+        assert fl(input_chunk.put_timestamp) <= fl(input_chunk.get_timestamp)
+    for output_chunk in output_chunks:
+        if output_chunk.data is not Signal.FINISH:
+            seconds_consumed = max([
+                fl(c.end_time)
+                for c in input_chunks
+                if fl(c.get_timestamp) < fl(output_chunk.put_timestamp)
+            ])
+            assert seconds_consumed >= fl(output_chunk.seconds_processed)
 
 
 CHUNK_TYPE = TypeVar('CHUNK_TYPE', InputChunk, OutputChunk)

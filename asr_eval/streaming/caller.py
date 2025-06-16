@@ -10,6 +10,7 @@ def receive_full_transcription(
     asr: StreamingBlackBoxASR,
     id: ID_TYPE,
     sender: BaseStreamingAudioSender | None = None,
+    send_all_without_delays: bool = False,
 ) -> list[OutputChunk]:
     '''
     Blocks and waits until the full transcription (ended with Signal.FINISH) received for the given ID.
@@ -17,7 +18,10 @@ def receive_full_transcription(
     '''
     if sender:
         assert sender.id == id
-        sender.start_sending(send_to=asr.input_buffer)
+        if send_all_without_delays:
+            sender.send_all_without_delays(send_to=asr.input_buffer)
+        else:
+            sender.start_sending(send_to=asr.input_buffer)
     results: list[OutputChunk] = []
     while True:
         output_chunk, _id = asr.output_buffer.get(id=id)
@@ -31,6 +35,7 @@ def transсribe_parallel(
     asr: StreamingBlackBoxASR,
     senders: list[StreamingAudioSender],
     n_threads: int,
+    send_all_without_delays: bool = False,
 ) -> dict[ID_TYPE, list[OutputChunk]]:
     '''
     Transcribes the senders in parallel, no more than `n_threads` senders simultaneously. Sender is
@@ -40,7 +45,12 @@ def transсribe_parallel(
     '''
     def process_sender(sender: StreamingAudioSender) -> tuple[ID_TYPE, list[OutputChunk]]:
         print(f'Transcribing {sender.id}')
-        chunks = receive_full_transcription(asr=asr, sender=sender, id=sender.id)
+        chunks = receive_full_transcription(
+            asr=asr,
+            sender=sender,
+            id=sender.id,
+            send_all_without_delays=send_all_without_delays,
+        )
         transcription = TranscriptionChunk.join(chunks)
         print(f'Transcribed {sender.id}: {textwrap.shorten(transcription, width=80)}', flush=True)
         return sender.id, chunks

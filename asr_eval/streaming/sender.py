@@ -49,19 +49,20 @@ class BaseStreamingAudioSender(ABC):
     history: list[InputChunk] = field(default_factory=list)
     timings_history: list[DelayInfo] = field(default_factory=list)
     _thread: threading.Thread | None = None
+    _sent_without_delays: bool = False
 
     @abstractmethod
-    def get_send_times(self) -> list[Cutoff]:
+    def _get_send_times(self) -> list[Cutoff]:
         '''Get send times, in real time scale and audio time scale'''
         ...
     
-    def _validate_send_times(self, cutoffs: list[Cutoff]) -> list[Cutoff]:
+    def get_send_times(self) -> list[Cutoff]:
+        cutoffs = [Cutoff(0, 0, 0)] + self._get_send_times()
         if cutoffs[-1].arr_pos == cutoffs[-2].arr_pos:
             # cut a possible small ending
             cutoffs = cutoffs[:-1]
         
-        assert len(cutoffs)
-        assert cutoffs[0].t_audio == 0 and cutoffs[0].arr_pos == 0
+        assert len(cutoffs) >= 2
 
         assert all(np.diff([c.arr_pos for c in cutoffs]) > 0), 'at least one audio chunk has zero size'
         assert all(np.diff([c.t_real for c in cutoffs]) >= 0), 'real times should not decrease'
@@ -70,7 +71,9 @@ class BaseStreamingAudioSender(ABC):
         return cutoffs
 
     def get_status(self) -> Literal['not_started', 'started', 'finished']:
-        if not self._thread:
+        if self._sent_without_delays:
+            return 'finished'
+        elif not self._thread:
             return 'not_started'
         elif not self._thread._is_stopped: # type: ignore
             return 'started'
@@ -85,7 +88,7 @@ class BaseStreamingAudioSender(ABC):
         return len(self.audio) / self.array_len_per_sec
     
     def start_sending(self, send_to: InputBuffer) -> Self:
-        assert not self._thread
+        assert self.get_status() == 'not_started'
         self._thread = threading.Thread(target=self._run, kwargs={'send_to': send_to})
         self._thread.start()
         return self
@@ -111,12 +114,12 @@ class BaseStreamingAudioSender(ABC):
     
     def _run(self, send_to: InputBuffer):
         try:
-            cutoffs = self._validate_send_times(self.get_send_times())
+            cutoffs = self.get_send_times()
             
             start_time = time.time()
             densify_total_saved_time = 0.
             
-            for i, (cutoff1, cutoff2) in enumerate(pairwise(cutoffs)):
+            for cutoff1, cutoff2 in pairwise(cutoffs):
                 wait_start_time = time.time()
                 if (delay := start_time - densify_total_saved_time + cutoff2.t_real - wait_start_time) > 0:
                     if self.densify:
@@ -143,6 +146,20 @@ class BaseStreamingAudioSender(ABC):
             if self.propagate_errors:
                 send_to.put_error(e)
             raise e
+    
+    def send_all_without_delays(self, send_to: InputBuffer) -> Self:
+        assert self.get_status() == 'not_started'
+        try:
+            cutoffs = self.get_send_times()
+            for cutoff1, cutoff2 in pairwise(cutoffs):
+                self._send_chunk(send_to, cutoff1, cutoff2)
+            send_to.put(InputChunk(data=Signal.FINISH), id=self.id)
+        except BaseException as e:
+            if self.propagate_errors:
+                send_to.put_error(e)
+            raise e
+        self._sent_without_delays = True
+        return self
     
     def remove_waveforms_from_history(self):
         for chunk in self.history:
@@ -178,13 +195,13 @@ class StreamingAudioSender(BaseStreamingAudioSender):
     speed_multiplier: float = 1.0
 
     @override
-    def get_send_times(self) -> list[Cutoff]:
+    def _get_send_times(self) -> list[Cutoff]:
         audio_interval_sec = self.real_time_interval_sec * self.speed_multiplier
         audio_times = np.arange(
             start=0,
             stop=self.audio_length_sec + audio_interval_sec - 1e-6,
             step=audio_interval_sec,
-        )
+        )[1:]
         return [
             Cutoff(
                 t_audio / self.speed_multiplier,
