@@ -1,22 +1,47 @@
-import re
+from __future__ import annotations
+
 from typing import Sequence, cast
 from dataclasses import dataclass
 from functools import partial
 import multiprocessing as mp
 import copy
 
-from gigaam.model import GigaAMASR
 import numpy as np
-import numpy.typing as npt
+
+from asr_eval.streaming.buffer import ID_TYPE
+from asr_eval.streaming.timings import words_count
 
 from .model import InputChunk, OutputChunk, TranscriptionChunk, check_consistency
-from .sender import Cutoff
-from ..ctc.base import ctc_mapping
-from ..ctc.forced_alignment import forced_alignment
-from ..models.gigaam import transcribe_with_gigaam_ctc, encode, decode, FREQ
+from .sender import BaseStreamingAudioSender, Cutoff
 from ..align.data import MatchesList, Token
 from ..align.parsing import split_text_into_tokens
 from ..align.recursive import align
+
+
+@dataclass
+class RecordingStreamingEvaluation:
+    """
+    Keeps data related to obtaining and evaluating streaming prediction for some model and
+    `asr_eval.data.Recording`.
+    
+    `id` - a unique ID to send into StreamingASR (is required for StreamingASR to work).
+    `sender` - a sender that will send input chunks and store them as `.history`
+    `output_chunks` - output chunks obtained from StreamingASR
+    
+    `input_chunks_remapped` - the result of `remap_time` on input chunks, if used
+    `output_chunks_remapped` - the result of `remap_time` on output chunks, if used
+    
+    `partial_alignments` - partial alignments obtained from input and output chunks
+    """
+    id: ID_TYPE | None = None
+    sender: BaseStreamingAudioSender | None = None
+    
+    output_chunks: list[OutputChunk] | None = None
+    
+    input_chunks_remapped: list[InputChunk] | None = None
+    output_chunks_remapped: list[OutputChunk] | None = None
+    
+    partial_alignments: list[PartialAlignment] | None = None
 
 
 @dataclass
@@ -117,87 +142,7 @@ def get_partial_alignments(
             for i in range(len(output_history))
         ]
         
-
-def get_word_timings(
-    model: GigaAMASR,
-    waveform: npt.NDArray[np.floating],
-    text: str | None = None,
-    normalize: bool = True,
-) -> list[Token]:
-    '''
-    
-    Using GigaAM CTC model, performs either a forced alignment or an argmax prediction, and returns
-    a list of words and their timings in seconds:
-
-    [
-        (Token('и'), 0.12, 0.16),
-        (Token('поэтому'), 0.2, 0.56),
-        (Token('использовать'), 0.64, 1.28),
-        (Token('их'), 1.32, 1.44),
-        (Token('в'), 1.48, 1.56),
-        (Token('повседневности'), 1.6, 2.36),
-        ...
-    ]
-    '''
-    outputs = transcribe_with_gigaam_ctc(model, [waveform])[0]
-    if text is None:
-        tokens = outputs.log_probs.argmax(axis=1)
-    else:
-        if normalize:
-            text = text.lower().replace('ё', 'е').replace('-', ' ')
-            for char in ('.', ',', '!', '?', ';', ':', '"', '(', ')'):
-                text = text.replace(char, '')
-        tokens, _probs = forced_alignment(
-            outputs.log_probs,
-            encode(model, text),
-            blank_id=model.decoding.blank_id
-        )
-    letter_per_frame = decode(model, tokens)
-    word_timings = [
-        Token(
-            value=''.join(ctc_mapping(list(match.group()), blank='_')),
-            start_time=match.start() / FREQ,
-            end_time=match.end() / FREQ,
-        )
-        for match in re.finditer(r'[а-я]([а-я_]*[а-я])?', letter_per_frame)
-    ]
-
-    # fill positions
-    if text is not None:
-        true_tokens_with_positions = split_text_into_tokens(text)
-        for token_to_return, token_with_pos in zip(
-            word_timings, true_tokens_with_positions, strict=True
-        ):
-            assert token_to_return.value == token_with_pos.value
-            token_to_return.start_pos = token_with_pos.start_pos
-            token_to_return.end_pos = token_with_pos.end_pos
-
-    return word_timings
-
-
-def words_count(
-    word_timings: Sequence[Token],
-    time: float,
-) -> tuple[int, bool]:
-    '''
-    Given a list of Token with `.start_time` and `.end_time` filled, returns a tuple of:
-    1. Number of full words in the time span [0, time]
-    2. `in_word` flag: is the given time inside a word?
-    '''
-    count = 0
-    in_word = False
-
-    for token in word_timings:
-        if token.end_time <= time:
-            count += 1
-        else:
-            if token.start_time < time:
-                in_word = True
-            break
-    
-    return count, in_word
-
-
+        
 def remap_time(
     cutoffs: list[Cutoff],
     input_chunks: list[InputChunk],

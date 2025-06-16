@@ -83,11 +83,16 @@ def decode(model: GigaAMASR, tokens: list[int] | npt.NDArray[np.int64]) -> str:
         for x in tokens
     ])
 
+
+class EncodeError(ValueError):
+    pass
+
+
 def encode(model: GigaAMASR, text: str) -> list[int]:
     assert model.decoding.tokenizer.charwise
     tokens: list[int] = []
     for char in text:
         if not char in model.decoding.tokenizer.vocab:
-            raise ValueError(f'Cannot encode char "{char}": does not exist in vocab')
+            raise EncodeError(f'Cannot encode char "{char}": does not exist in vocab')
         tokens.append(model.decoding.tokenizer.vocab.index(char))
     return tokens

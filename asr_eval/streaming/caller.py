@@ -1,5 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
-import textwrap
+from textwrap import shorten
 from asr_eval.streaming.buffer import ID_TYPE
 
 from .model import OutputChunk, Signal, StreamingASR, TranscriptionChunk
@@ -17,6 +17,7 @@ def receive_full_transcription(
     If sender is provided, runs .start_sending() on it before.
     '''
     if sender:
+        print(f'Transcribing {sender.id}', flush=True)
         assert sender.id == id
         if send_all_without_delays:
             sender.send_all_without_delays(send_to=asr.input_buffer)
@@ -29,7 +30,9 @@ def receive_full_transcription(
         if output_chunk.data is Signal.FINISH:
             if sender:
                 sender.remove_waveforms_from_history()
+            print(f'Transcribed {id}: {shorten(TranscriptionChunk.join(results), width=80)}', flush=True)
             return results
+
 
 def transсribe_parallel(
     asr: StreamingASR,
@@ -44,15 +47,12 @@ def transсribe_parallel(
     Call asr.start_thread() before calling this method, and asr.stop_thread() after.
     '''
     def process_sender(sender: StreamingAudioSender) -> tuple[ID_TYPE, list[OutputChunk]]:
-        print(f'Transcribing {sender.id}')
         chunks = receive_full_transcription(
             asr=asr,
             sender=sender,
             id=sender.id,
             send_all_without_delays=send_all_without_delays,
         )
-        transcription = TranscriptionChunk.join(chunks)
-        print(f'Transcribed {sender.id}: {textwrap.shorten(transcription, width=80)}', flush=True)
         return sender.id, chunks
     
     with ThreadPoolExecutor(max_workers=n_threads) as executor:
