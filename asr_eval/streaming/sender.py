@@ -14,35 +14,66 @@ from .model import AUDIO_CHUNK_TYPE, InputBuffer, InputChunk, Signal
 
 @dataclass(slots=True)
 class Cutoff:
+    """
+    Let we have an audio `waveform` and two consecutive cutoffs `[c1, c2]`:
+    
+    `[Cutoff(tr1, ta1, pos1), Cutoff(tr2, ta2, pos2)]`.
+    
+    This means that:
+    1. `waveform[:c1.arr_pos]` gives an audio with length `c1.t_audio`.
+    2. `waveform[:c2.arr_pos]` gives an audio with length `c2.t_audio`.
+    1. `waveform[c1.arr_pos:c2.arr_pos]` should be sent at the time `c2.t_real`.
+    
+    The differences between `t_real` and `t_audio`:
+    1. `t_real` is a real world time measured from the epoch (like time.time()), and `t_audio`
+    is relative: equals 0 at the beginning of the audio.
+    2. When iterating over cutoffs, `t_real` may grow faster or slower than `t_audio` which
+    indicates slowed down or sped up audio stream accordingly.
+    """
     t_real: float
     t_audio: float
     arr_pos: int
 
-@dataclass(slots=True)
-class DelayInfo:
-    was_wakeup: bool
-    wait_start_time: float
-    intended_delay: float
-    wait_end_time: float
+
+# @dataclass(slots=True)
+# class DelayInfo:
+#     was_wakeup: bool
+#     wait_start_time: float
+#     intended_delay: float
+#     wait_end_time: float
 
 
 @dataclass(kw_only=True)
 class BaseStreamingAudioSender(ABC):
     """
-    Can be used to send int waveform, float waveform or wav bytes. Call .start_sending()
-    to start sending in a separate thread.
+    Can be used to send audio stream to StreamingASR.
     
-    Has one of 3 statuses:
-    - "not_started": .start_sending() was not called.
-    - "started": .start_sending() was called, but the thread is not finished. The thread might
-    actually not have started yet, or might have already started.
-    - "finished": the thread is finished.
+    Constructor fields:
+    `audio`: audio stream (int waveform, float waveform or wav bytes)
+    `id`: a unique recording ID (StreamingASR require a unique ID for each recording)
+    `array_len_per_sec`: array length per second in audio time scale
+    `verbose`: print on each chunk sent
+    `track_history`: keep a history of sent chunks in `.history` field (since each input chunk
+    keeps a large array, one can use `.remove_waveforms_from_history()` after receiving full
+    transcription to clear these arrays inplace)
+    
+    Subclasses should implement `_get_send_times()` that provide a list of cutoffs: mappings
+    between audio times and real times to send. In a default implementation `StreamingAudioSender`
+    both audio and real times grown monotonically.
+    
+    Has two ways of use:
+    1. Call `.start_sending()` to start sending in a separate thread.
+    2. Call `.send_all_without_delays()` to send all chunks immediately.
+    
+    Possible `.get_status()` values:
+    - "not_started": `.start_sending()` or `.send_all_without_delays()` was not called yet.
+    - "started": `.start_sending()` was called, but the thread is not finished yet.
+    - "finished": either `.start_sending()` or `.send_all_without_delays()` finished.
     """
     audio: AUDIO_CHUNK_TYPE
     id: ID_TYPE = 0
     array_len_per_sec: int = 16_000
     # densify: bool = False
-    propagate_errors: bool = True
     verbose: bool = False
     track_history: bool = True
 
@@ -144,8 +175,7 @@ class BaseStreamingAudioSender(ABC):
             send_to.put(InputChunk(data=Signal.FINISH), id=self.id)
             
         except BaseException as e:
-            if self.propagate_errors:
-                send_to.put_error(e)
+            send_to.put_error(e)
             raise e
     
     def send_all_without_delays(self, send_to: InputBuffer) -> Self:
@@ -156,8 +186,7 @@ class BaseStreamingAudioSender(ABC):
                 self._send_chunk(send_to, cutoff1, cutoff2)
             send_to.put(InputChunk(data=Signal.FINISH), id=self.id)
         except BaseException as e:
-            if self.propagate_errors:
-                send_to.put_error(e)
+            send_to.put_error(e)
             raise e
         self._sent_without_delays = True
         return self
@@ -192,6 +221,10 @@ class BaseStreamingAudioSender(ABC):
 
 @dataclass(kw_only=True)
 class StreamingAudioSender(BaseStreamingAudioSender):
+    """
+    A default implementation of BaseStreamingAudioSender where both audio and real send times
+    grow monotonically. See BaseStreamingAudioSender docstring.
+    """
     real_time_interval_sec: float = 1 / 25
     speed_multiplier: float = 1.0
 
