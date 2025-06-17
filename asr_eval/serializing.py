@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import copy
+from enum import Enum
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from abc import ABC, abstractmethod
 from dataclasses import fields, _is_dataclass_instance, _ATOMIC_TYPES # type: ignore
 
@@ -35,7 +36,7 @@ def save_to_json(obj: Any, path: str | Path, indent: int = 4):
     path = Path(path)
     try:
         path.parent.mkdir(exist_ok=True, parents=True)
-        path.write_text(json.dumps(serialize_object(obj), indent=indent))
+        path.write_text(json.dumps(serialize_object(obj), indent=indent, ensure_ascii=False))
     except KeyboardInterrupt as e:
         path.unlink(missing_ok=True)
         raise e
@@ -51,7 +52,7 @@ def load_from_json(path: str | Path) -> Any:
 
 def serialize_object(obj: Any) -> Any:
     """
-    Serializes an hierarchical structure of dataclasses/lists/dicts to a json-compatible dict.
+    Serializes an hierarchical structure of dataclasses/lists/dicts/enums to a json-compatible dict.
     
     This includes converting dataclasses into dicts (omitting fields where the value is None and
     the default value is also None). The class full name is written to the additional `_target_`
@@ -77,6 +78,11 @@ def serialize_object(obj: Any) -> Any:
         result_dict = {'_target_': DefaultBuilds()._get_obj_path(obj.__class__)} # pyright: ignore[reportPrivateUsage]
         result_dict['*args'] = [str(obj)]
         return result_dict
+    elif isinstance(obj, Enum):
+        return {
+            '_enum_': DefaultBuilds()._get_obj_path(obj.__class__), # pyright: ignore[reportPrivateUsage]
+            '_name_': obj.name,
+        }
     elif type(obj) in _ATOMIC_TYPES:
         return obj
     elif type(obj) == list:
@@ -108,6 +114,9 @@ def deserialize_object(serialized: Any, ignore_errors: bool = False) -> Any:
         elif type(serialized) == list:
             return [deserialize_object(x) for x in serialized] # type: ignore
         elif type(serialized) == dict:
+            if '_enum_' in serialized:
+                enum_cls = get_obj(path=cast(str, serialized['_enum_']))
+                return getattr(enum_cls, cast(str, serialized['_name_']))
             target = serialized.pop('_target_', None) # type: ignore
             content = {k: deserialize_object(v) for k, v in serialized.items()} # type: ignore
             if target is not None:
