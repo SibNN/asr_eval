@@ -28,8 +28,6 @@ def receive_full_transcription(
         output_chunk, _id = asr.output_buffer.get(id=id)
         results.append(output_chunk)
         if output_chunk.data is Signal.FINISH:
-            if sender:
-                sender.remove_waveforms_from_history()
             print(f'Transcribed {id}: {shorten(TranscriptionChunk.join(results), width=80)}', flush=True)
             return results
 

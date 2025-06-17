@@ -18,9 +18,9 @@ class Recording:
     """
     An audio sample to test ASR systems. May refer to a huggingface dataset sample.
     """
-    waveform: npt.NDArray[np.floating]
     transcription: str
     transcription_words: list[Token | MultiVariant]
+    waveform: npt.NDArray[np.floating] | None = None
     
     hf_dataset_name: str | None = None
     hf_dataset_split: str | None = None

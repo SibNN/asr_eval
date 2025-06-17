@@ -26,20 +26,19 @@ class RecordingStreamingEvaluation:
     
     `id` - a unique ID to send into StreamingASR (is required for StreamingASR to work).
     `sender` - a sender that will send input chunks and store them as `.history`
-    `output_chunks` - output chunks obtained from StreamingASR
+    `cutoffs` - a cutoffs obtained by `sender.get_send_times()`
     
-    `input_chunks_remapped` - the result of `remap_time` on input chunks, if used
-    `output_chunks_remapped` - the result of `remap_time` on output chunks, if used
+    `input_chunks` - input chunks obtained from StreamingASR
+    `output_chunks` - output chunks obtained from StreamingASR
     
     `partial_alignments` - partial alignments obtained from input and output chunks
     """
     id: ID_TYPE | None = None
     sender: BaseStreamingAudioSender | None = None
+    cutoffs: list[Cutoff] | None = None
     
+    input_chunks: list[InputChunk] | None = None
     output_chunks: list[OutputChunk] | None = None
-    
-    input_chunks_remapped: list[InputChunk] | None = None
-    output_chunks_remapped: list[OutputChunk] | None = None
     
     partial_alignments: list[PartialAlignment] | None = None
 

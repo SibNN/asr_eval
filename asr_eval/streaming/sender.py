@@ -53,9 +53,7 @@ class BaseStreamingAudioSender(ABC):
     `id`: a unique recording ID (StreamingASR require a unique ID for each recording)
     `array_len_per_sec`: array length per second in audio time scale
     `verbose`: print on each chunk sent
-    `track_history`: keep a history of sent chunks in `.history` field (since each input chunk
-    keeps a large array, one can use `.remove_waveforms_from_history()` after receiving full
-    transcription to clear these arrays inplace)
+    `track_history`: keep a history of sent chunks in `.history` field
     
     Subclasses should implement `_get_send_times()` that provide a list of cutoffs: mappings
     between audio times and real times to send. In a default implementation `StreamingAudioSender`
@@ -77,7 +75,7 @@ class BaseStreamingAudioSender(ABC):
     verbose: bool = False
     track_history: bool = True
 
-    history: list[InputChunk] = field(default_factory=list)
+    history: list[InputChunk] = field(default_factory=list) # type: ignore
     # timings_history: list[DelayInfo] = field(default_factory=list)
     _thread: threading.Thread | None = None
     _sent_without_delays: bool = False
@@ -110,9 +108,6 @@ class BaseStreamingAudioSender(ABC):
             return 'started'
         else:
             return 'finished'
-
-    def __post_init__(self, *_args: Any):
-        assert len(self.audio), 'audio has zero length'
 
     @property
     def audio_length_sec(self) -> float:
@@ -190,10 +185,6 @@ class BaseStreamingAudioSender(ABC):
             raise e
         self._sent_without_delays = True
         return self
-    
-    def remove_waveforms_from_history(self):
-        for chunk in self.history:
-            chunk.data = b''
     
     # def undensify(self, time: float) -> float:
     #     addition = 0.

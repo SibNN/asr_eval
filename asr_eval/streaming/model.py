@@ -28,7 +28,7 @@ class Exit(Exception):
 
 
 # Audio stream that is chunkable using slices.
-AUDIO_CHUNK_TYPE = npt.NDArray[Any] | bytes
+AUDIO_CHUNK_TYPE = npt.NDArray[Any] | bytes | str
     
 
 @dataclass(kw_only=True)
@@ -225,8 +225,8 @@ class InputBuffer(ASRStreamingQueue[InputChunk]):
             else:
                 self._rechunking_end_time[recieved_id] = chunk.end_time
                 if recieved_id in self._rechunking_buffer:
-                    if isinstance(chunk.data, bytes):
-                        self._rechunking_buffer[recieved_id] += chunk.data
+                    if isinstance(chunk.data, (bytes, str)):
+                        self._rechunking_buffer[recieved_id] += chunk.data # type: ignore
                     else:
                         # numpy array
                         self._rechunking_buffer[recieved_id] = np.concatenate([
