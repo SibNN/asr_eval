@@ -4,17 +4,16 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from functools import partial
 import math
 import threading
 import time
-from typing import Any, Literal, Self, Sequence, TypeVar, cast, override
+from typing import Any, Literal, Self, Sequence, TypeVar, override
 
 import numpy as np
 import numpy.typing as npt
 
 from .buffer import ID_TYPE, StreamingQueue
-from ..utils import new_uid
+from ..utils import new_uid, N
 
 
 class Signal(Enum):
@@ -91,19 +90,18 @@ def check_consistency(input_chunks: list[InputChunk], output_chunks: list[Output
     
     Fails indicate errors in the chunk processing pipeline (sender, buffer or model).
     """
-    fl = partial(cast, float)
     for input_chunk in input_chunks:
-        assert fl(input_chunk.put_timestamp) <= fl(input_chunk.get_timestamp)
+        assert N(input_chunk.put_timestamp) <= N(input_chunk.get_timestamp)
     for input_chunk in output_chunks:
-        assert fl(input_chunk.put_timestamp) <= fl(input_chunk.get_timestamp)
+        assert N(input_chunk.put_timestamp) <= N(input_chunk.get_timestamp)
     for output_chunk in output_chunks:
         if output_chunk.data is not Signal.FINISH:
             seconds_consumed = max([
-                fl(c.end_time)
+                N(c.end_time)
                 for c in input_chunks
-                if fl(c.get_timestamp) < fl(output_chunk.put_timestamp)
+                if N(c.get_timestamp) < N(output_chunk.put_timestamp)
             ])
-            assert seconds_consumed >= fl(output_chunk.seconds_processed)
+            assert seconds_consumed >= N(output_chunk.seconds_processed)
 
 
 CHUNK_TYPE = TypeVar('CHUNK_TYPE', InputChunk, OutputChunk)
@@ -278,7 +276,8 @@ class StreamingASR(ABC):
     - **Audio chunk**: a part of a waveform. Sampling rate is defined in the class constructor. For example,
     a 10 sec mono recording with rate 16_000 can be represented as 10 chunks, each with shape (16_000,).
     Several channels can also be supported for some models. The chunk length is not restricted, models in
-    general should be able to work with input chunks of any size.
+    general should be able to work with input chunks of any size. NOTE: each StreamingASR implementation has
+    `.audio_type` field that is one of {float, int, bytes}, and `.sampling_rate` field.
     - **TranscriptionChunk**: a partial transcription that either add new words to the transcription or edit
     the previous words. See details in the class docstring.
     - **Recording ID**: a unique int or string identifier for a recording. This is useful if several recordings
@@ -342,10 +341,10 @@ class StreamingASR(ABC):
     
     **Implementing models:**
     
-    To subclass a StreamingASR, one should implement `_run()` method (see its docstring).
+    To subclass a StreamingASR, one should implement `._run()` and `.audio_type()` methods (see docstrings).
     """
     def __init__(self, sampling_rate: int = 16_000):
-        self._sampling_rate = sampling_rate
+        self.sampling_rate = sampling_rate
         self._thread: threading.Thread | None = None
     
     def start_thread(self) -> Self:
@@ -400,6 +399,13 @@ class StreamingASR(ABC):
         should not be handled in _run.
         """
         ...
+    
+    @property
+    @abstractmethod
+    def audio_type(self) -> Literal['float', 'int', 'bytes']:
+        """Returns a tuple: the first is one of {float, int, bytes}, the second is sampling rate"""
+        ...
+
 
 
 class DummyASR(StreamingASR):
@@ -418,7 +424,7 @@ class DummyASR(StreamingASR):
             chunk, id = self.input_buffer.get()
             
             self._received_seconds[id] += (
-                len(chunk.data) / self._sampling_rate if chunk.data is not Signal.FINISH else 0
+                len(chunk.data) / self.sampling_rate if chunk.data is not Signal.FINISH else 0
             )
             
             new_transcribed_seconds = math.ceil(self._received_seconds[id])
@@ -432,6 +438,11 @@ class DummyASR(StreamingASR):
                 del self._received_seconds[id]
                 del self._transcribed_seconds[id]
                 self.output_buffer.put(OutputChunk(data=Signal.FINISH), id=id)
+    
+    @property
+    @override
+    def audio_type(self) -> Literal['float', 'int', 'bytes']:
+        return 'float'
 
 
 @dataclass(kw_only=True)

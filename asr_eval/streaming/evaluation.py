@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Sequence, cast
+from typing import Literal, Sequence, cast
 from dataclasses import dataclass
 from functools import partial
 import multiprocessing as mp
@@ -11,11 +11,12 @@ import numpy as np
 from asr_eval.streaming.buffer import ID_TYPE
 from asr_eval.streaming.timings import words_count
 
-from .model import InputChunk, OutputChunk, TranscriptionChunk, check_consistency
+from .model import InputChunk, OutputChunk, Signal, TranscriptionChunk, check_consistency
 from .sender import BaseStreamingAudioSender, Cutoff
-from ..align.data import MatchesList, Token
+from ..align.data import Match, MatchesList, Token
 from ..align.parsing import split_text_into_tokens
 from ..align.recursive import align
+from ..utils import N
 
 
 @dataclass
@@ -56,6 +57,79 @@ class PartialAlignment:
     audio_seconds_sent: float
     audio_seconds_processed: float | None = None
     real_seconds_overhead: float = 0
+
+    def get_error_positions(self) -> list[StreamingASRTokenStatus]:
+        assert self.audio_seconds_processed is not None
+
+        results: list[StreamingASRTokenStatus] = []
+
+        # split into head and tail
+        head: list[Match] = []
+        tail: list[Match] = []
+        in_tail = True
+        for match in self.alignment.matches[::-1]:
+            in_tail &= match.status == 'deletion'
+            if in_tail:
+                tail.insert(0, match)
+            else:
+                head.insert(0, match)
+        
+        # process head
+        for i, match in enumerate(head):
+            if match.status == 'correct':
+                for token in match.true:
+                    results.append(StreamingASRTokenStatus(
+                        start_time=token.start_time,
+                        end_time=token.end_time,
+                        processed_time=self.audio_seconds_processed,
+                        status='correct',
+                    ))
+            elif match.status == 'insertion':
+                left_pos = max(
+                    [0] + [token.end_time for match2 in head[:i] for token in match2.true]
+                )
+                right_pos = min(
+                    [self.audio_seconds_processed]
+                    + [token.end_time for match2 in head[i + 1:] for token in match2.true]
+                )
+                results.append(StreamingASRTokenStatus(
+                    start_time=left_pos,
+                    end_time=right_pos,
+                    processed_time=self.audio_seconds_processed,
+                    status='error',
+                ))
+            else:
+                for token in match.true:
+                    results.append(StreamingASRTokenStatus(
+                        start_time=token.start_time,
+                        end_time=token.end_time,
+                        processed_time=self.audio_seconds_processed,
+                        status='error',
+                    ))
+        
+        # process tail
+        for match in tail:
+            for token in match.true:
+                results.append(StreamingASRTokenStatus(
+                    start_time=token.start_time,
+                    end_time=token.end_time,
+                    processed_time=self.audio_seconds_processed,
+                    status='not_yet',
+                ))
+        
+        return results
+
+
+@dataclass
+class StreamingASRTokenStatus:
+    start_time: float
+    end_time: float
+    processed_time: float
+    status: Literal['correct', 'error', 'not_yet']
+
+    @property
+    def time_delta(self) -> float:
+        return self.processed_time -  (self.start_time + self.end_time) / 2
     
     
 def _calculate_partial_alignment(
@@ -114,7 +188,8 @@ def get_partial_alignments(
     - A full history of input and output chunks from StreamASR (belonging to the same recording ID)
     - A true transcription as a list of Token with `.start_time` and `.end_time` filled
     
-    For each output chunk calculates a PartialAlignment. To do this, obtains a partial true
+    For each output chunk except the last chunk with Signal.FINISH (if present) calculates a
+    PartialAlignment. To do this, the method obtains a partial true
     transcription based on `output_chunk.seconds_processed` and aligns with the predicted transcription
     (all the previous output chunks joined). If the time is inside a word, that is `token.start_time
     < output_chunk.seconds_processed < token.end_time`, considers two partial true transcription - with
@@ -123,6 +198,9 @@ def get_partial_alignments(
     Can be paralellized using multiprocessing if `processes > 1` (we cannot use multithreading here
     because of GIL, considering that the alignment function is written on pure Python).
     """
+    if output_history[-1].data is Signal.FINISH:
+        output_history = output_history[:-1]
+
     # check that timings are not None and do not decrease
     assert np.all(np.diff([(x.put_timestamp or np.nan) for x in input_history])[1:] >= 0)
     assert np.all(np.diff([(x.start_time or np.nan) for x in input_history])[1:] >= 0)
@@ -155,7 +233,6 @@ def remap_time(
     in both input and output chunks  to simulate the result of `.start_sending()` instead of
     `.send_all_without_delays()`.
     """
-    fl = partial(cast, float)
     
     check_consistency(input_chunks, output_chunks)
     
@@ -171,19 +248,19 @@ def remap_time(
 
     # insert delays when get_timestamp < put_timestamp, updating get_timestamp accordingly
     for input_chunk in input_chunks[1:]:
-        put = fl(input_chunk.put_timestamp)
-        get = fl(input_chunk.get_timestamp)
+        put = N(input_chunk.put_timestamp)
+        get = N(input_chunk.get_timestamp)
         get += sum([delta for t, delta in inserted_delays if t <= get])
         if get < put:
             delay = put - get
-            inserted_delays.append((fl(input_chunk.get_timestamp), delay))
+            inserted_delays.append((N(input_chunk.get_timestamp), delay))
             get += delay
         
         input_chunk.get_timestamp = get
 
     # update put_timestamp and get_timestamp for output chunks accordingly
     for output_chunk in output_chunks:
-        put = fl(output_chunk.put_timestamp)
+        put = N(output_chunk.put_timestamp)
         put += sum([delta for t, delta in inserted_delays if t <= put])
         output_chunk.put_timestamp = put
         output_chunk.get_timestamp = put

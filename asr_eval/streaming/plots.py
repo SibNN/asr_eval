@@ -1,5 +1,4 @@
 from typing import Literal, cast
-from functools import partial
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -7,6 +6,7 @@ import matplotlib.pyplot as plt
 from .model import InputChunk, OutputChunk, Signal
 from ..align.data import Token
 from .evaluation import PartialAlignment
+from ..utils import N
 
 
 def partial_alignment_diagram(
@@ -93,9 +93,7 @@ def visualize_history(
     Visualize the history of sending and receiving chunks.
     
     TODO merge with `partial_alignment_diagram()`
-    """
-    fl = partial(cast, float)
-    
+    """    
     plt.figure(figsize=(6, 6)) # type: ignore
         
     plot_t_shift = cast(float, input_chunks[0].put_timestamp)
@@ -103,7 +101,7 @@ def visualize_history(
     plot_y_pos = 0
     for input_chunk in input_chunks:
         plt.scatter( # type: ignore
-            [fl(input_chunk.get_timestamp) - plot_t_shift, fl(input_chunk.put_timestamp) - plot_t_shift],
+            [N(input_chunk.get_timestamp) - plot_t_shift, N(input_chunk.put_timestamp) - plot_t_shift],
             [plot_y_pos, plot_y_pos],
             c=['b', 'g'],
             s=30,
@@ -115,7 +113,7 @@ def visualize_history(
         plot_y_pos = 0
         for output_chunk in output_chunks:
             plt.axvline( # type: ignore
-                fl(output_chunk.put_timestamp) - plot_t_shift,
+                N(output_chunk.put_timestamp) - plot_t_shift,
                 c='orange',
                 alpha=1 if output_chunk.data is Signal.FINISH else 0.5,
                 ls='dashed' if output_chunk.data is Signal.FINISH else 'solid',
