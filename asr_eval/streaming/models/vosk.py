@@ -1,6 +1,6 @@
 from collections import defaultdict
 import json
-from typing import override
+from typing import Literal, override
 
 from vosk import Model, KaldiRecognizer # type: ignore
 
@@ -27,7 +27,7 @@ class VoskStreaming(StreamingASR):
     
     def _make_kaldi_recognizer(self) -> KaldiRecognizer:
         """Seems like we need to create one for each recording"""
-        return KaldiRecognizer(self._model, self._sampling_rate)
+        return KaldiRecognizer(self._model, self.sampling_rate)
     
     def _send_finish(self, id: ID_TYPE):
         self.output_buffer.put(OutputChunk(data=Signal.FINISH), id=id)
@@ -73,3 +73,8 @@ class VoskStreaming(StreamingASR):
                     self._process_chunk(id, data, end_time)
                 if is_finished:
                     self._send_finish(id)
+    
+    @property
+    @override
+    def audio_type(self) -> Literal['float', 'int', 'bytes']:
+        return 'bytes'
