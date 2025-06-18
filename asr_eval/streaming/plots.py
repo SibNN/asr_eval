@@ -76,7 +76,7 @@ def partial_alignment_diagram(
         if partial_alignment.audio_seconds_processed is not None:
             plt.scatter( # type: ignore
                 [partial_alignment.audio_seconds_processed], [y_pos], # type: ignore
-                s=20, zorder=2, color='gray', marker='|'
+                s=30, zorder=2, color='red', marker='|'
             )
         plt.scatter( # type: ignore
             [partial_alignment.audio_seconds_sent], [y_pos], # type: ignore

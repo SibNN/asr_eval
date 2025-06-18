@@ -38,20 +38,20 @@ def align_partial(
     Aligns `pred` with the beginning part of `true` up to `seconds_processed`.
 
     In `true`, timings for all tokens should be filled (.start_time and .end_time).
+    
+    TODO adapt for multivariant case.
     """
     for token in true:
         assert not np.isnan(token.start_time) and not np.isnan(token.end_time)
 
     n_true_words, in_true_word = words_count(true, seconds_processed)
-
-    option1 = true[:n_true_words]
-    alignment = align(cast(list[Token | MultiVariant], option1), pred)
-
+    
+    true_partial = cast(list[Token | MultiVariant], true[:n_true_words])
     if in_true_word:
-        option2 = true[:n_true_words + 1]
-        alignment2 = align(cast(list[Token | MultiVariant], option2), pred)
-
-        if alignment2.score > alignment.score:
-            alignment = alignment2
-
-    return alignment
+        last_word = true[n_true_words]
+        true_partial.append(MultiVariant(
+            options=[[last_word], []],
+            pos=(last_word.start_pos, last_word.end_pos),
+        ))
+    
+    return align(true_partial, pred)
