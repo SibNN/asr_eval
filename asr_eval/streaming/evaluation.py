@@ -66,10 +66,10 @@ class PartialAlignment:
     audio_seconds_sent: float
     audio_seconds_processed: float | None = None
 
-    def get_error_positions(self) -> list[StreamingASRTokenStatus]:
+    def get_error_positions(self) -> list[StreamingASRErrorPosition]:
         assert self.audio_seconds_processed is not None
 
-        results: list[StreamingASRTokenStatus] = []
+        results: list[StreamingASRErrorPosition] = []
 
         # split into head and tail
         head: list[Match] = []
@@ -86,11 +86,11 @@ class PartialAlignment:
         for i, match in enumerate(head):
             if match.status == 'correct':
                 for token in match.true:
-                    results.append(StreamingASRTokenStatus(
+                    results.append(StreamingASRErrorPosition(
                         start_time=token.start_time,
                         end_time=token.end_time,
                         processed_time=self.audio_seconds_processed,
-                        status='correct',
+                        status=match.status,
                     ))
             elif match.status == 'insertion':
                 left_pos = max(
@@ -100,25 +100,25 @@ class PartialAlignment:
                     [self.audio_seconds_processed]
                     + [token.end_time for match2 in head[i + 1:] for token in match2.true]
                 )
-                results.append(StreamingASRTokenStatus(
+                results.append(StreamingASRErrorPosition(
                     start_time=left_pos,
                     end_time=right_pos,
                     processed_time=self.audio_seconds_processed,
-                    status='error',
+                    status=match.status,
                 ))
             else:
                 for token in match.true:
-                    results.append(StreamingASRTokenStatus(
+                    results.append(StreamingASRErrorPosition(
                         start_time=token.start_time,
                         end_time=token.end_time,
                         processed_time=self.audio_seconds_processed,
-                        status='error',
+                        status=match.status,
                     ))
         
         # process tail
         for match in tail:
             for token in match.true:
-                results.append(StreamingASRTokenStatus(
+                results.append(StreamingASRErrorPosition(
                     start_time=token.start_time,
                     end_time=token.end_time,
                     processed_time=self.audio_seconds_processed,
@@ -129,11 +129,11 @@ class PartialAlignment:
 
 
 @dataclass
-class StreamingASRTokenStatus:
+class StreamingASRErrorPosition:
     start_time: float
     end_time: float
     processed_time: float
-    status: Literal['correct', 'error', 'not_yet']
+    status: Literal['correct', 'deletion', 'insertion', 'replacement', 'not_yet']
 
     @property
     def time_delta(self) -> float:

@@ -1,11 +1,13 @@
-from typing import cast
+from typing import Literal, cast
+from itertools import pairwise
 
 import numpy as np
+import numpy.typing as npt
 import matplotlib.pyplot as plt
 
 from .model import InputChunk, OutputChunk, Signal
 from ..align.data import Token
-from .evaluation import PartialAlignment
+from .evaluation import PartialAlignment, StreamingASRErrorPosition
 from ..utils import N
 
 
@@ -50,29 +52,25 @@ def partial_alignment_diagram(
         )
 
     # partial alignments
-    last_end_time = 0
+    # last_end_time = 0
     for partial_alignment in partial_alignments:
         y_pos = partial_alignment.at_time
-        for match in partial_alignment.alignment.matches:
-            if len(match.true) == 0:
-                plt.scatter([last_end_time], [y_pos], color='black', s=10, zorder=2) # type: ignore
+        for pos in partial_alignment.get_error_positions():
+            if pos.status == 'insertion':
+                plt.scatter( # type: ignore
+                    [(pos.start_time + pos.end_time) / 2], [y_pos], color='darkred', s=10, zorder=3
+                )
             else:
-                assert len(match.true) == 1
-                last_end_time = match.true[0].end_time
-
-                skip = False
-                if match.status == 'correct':
-                    color = 'green'
-                elif match.status == 'replacement':
-                    color = 'red'
-                else:
-                    assert match.status == 'deletion'
-                    color = 'gray'
-                    # skip = True
-                
-                if not skip:
-                    for token in match.true:
-                        plt.plot([token.start_time, token.end_time], [y_pos, y_pos], color=color) # type: ignore
+                match pos.status:
+                    case 'correct':
+                        color = 'green'
+                    case 'deletion':
+                        color = 'red'
+                    case 'replacement':
+                        color = 'red'
+                    case 'not_yet':
+                        color = 'gray'
+                plt.plot([pos.start_time, pos.end_time], [y_pos, y_pos], color=color) # type: ignore
         if partial_alignment.audio_seconds_processed is not None:
             plt.scatter( # type: ignore
                 [partial_alignment.audio_seconds_processed], [y_pos], # type: ignore
@@ -122,4 +120,35 @@ def visualize_history(
             )
         
     # extend_lims(plt.gca(), dxmin=-0.1, dxmax=0.1, dymin=-1, dymax=1)
+    plt.show() # type: ignore
+
+
+def streaming_error_vs_latency_diagram(
+    error_positions: list[StreamingASRErrorPosition],
+):
+    counts: dict[Literal['correct', 'error', 'not_yet'], npt.NDArray[np.int64]] = {}
+
+    # bins = [0, 1, 2, 3, 5, 10, 1000]
+    bins = np.linspace(0, 10, num=31).round(2).tolist() + [1000]
+    for status, pos_status in [
+        ('correct', ['correct']),
+        ('error', ['deletion', 'replacement', 'insertion']),
+        ('not_yet', ['not_yet']),
+    ]:
+        counts[status] = np.histogram( # type: ignore
+            [x.time_delta for x in error_positions if x.status in pos_status],
+            bins=bins
+        )[0]
+
+    total_counts = sum(counts.values())
+
+    ratios = {status: c / total_counts for status, c in counts.items()}
+
+    plt.figure(figsize=(10, 3)) # type: ignore
+    xrange = range(len(bins) - 1)
+    plt.bar(xrange, height=ratios['correct']) # type: ignore
+    plt.bar(xrange, height=ratios['error'], bottom=ratios['correct']) # type: ignore
+    plt.bar(xrange, height=ratios['not_yet'], bottom=ratios['correct'] + ratios['error']) # type: ignore
+    plt.gca().set_xticks(xrange) # type: ignore
+    plt.gca().set_xticklabels([f'{a:g}-{b:g}' for a, b in pairwise(bins)], rotation=90) # type: ignore
     plt.show() # type: ignore
