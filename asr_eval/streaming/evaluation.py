@@ -194,7 +194,7 @@ def get_partial_alignments(
         ]
     
     partial_alignments: list[PartialAlignment] = []
-    for i, (al, output_chunk) in enumerate(zip(alignments, output_history)):
+    for al, output_chunk in zip(alignments, output_history):
         input_chunks_sent = [
             input_chunk for input_chunk in input_history
             if N(input_chunk.put_timestamp) < N(output_chunk.put_timestamp)
