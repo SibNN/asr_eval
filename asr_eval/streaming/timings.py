@@ -1,4 +1,3 @@
-from typing import Sequence
 import re
 
 import numpy as np
@@ -11,29 +10,6 @@ from asr_eval.align.parsing import split_text_into_tokens
 from asr_eval.ctc.base import ctc_mapping
 from asr_eval.ctc.forced_alignment import forced_alignment
 from asr_eval.models.gigaam import FREQ, decode, encode, transcribe_with_gigaam_ctc
-
-
-def words_count(
-    word_timings: Sequence[Token],
-    time: float,
-) -> tuple[int, bool]:
-    '''
-    Given a list of Token with `.start_time` and `.end_time` filled, returns a tuple of:
-    1. Number of full words in the time span [0, time]
-    2. `in_word` flag: is the given time inside a word?
-    '''
-    count = 0
-    in_word = False
-
-    for token in word_timings:
-        if token.end_time <= time:
-            count += 1
-        else:
-            if token.start_time < time:
-                in_word = True
-            break
-
-    return count, in_word
 
 
 def get_word_timings(

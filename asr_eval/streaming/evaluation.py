@@ -2,20 +2,18 @@ from __future__ import annotations
 
 from typing import Literal, Sequence, cast
 from dataclasses import dataclass
-from functools import partial
 import multiprocessing as mp
 import copy
 
 import numpy as np
+import numpy.typing as npt
 
-from asr_eval.streaming.buffer import ID_TYPE
-from asr_eval.streaming.timings import words_count
-
+from .buffer import ID_TYPE
 from .model import InputChunk, OutputChunk, Signal, TranscriptionChunk, check_consistency
 from .sender import BaseStreamingAudioSender, Cutoff
 from ..align.data import Match, MatchesList, Token
 from ..align.parsing import split_text_into_tokens
-from ..align.recursive import align
+from ..align.recursive import match_from_pair, align_partial, words_count
 from ..utils import N
 
 
@@ -41,6 +39,14 @@ class RecordingStreamingEvaluation:
     input_chunks: list[InputChunk] | None = None
     output_chunks: list[OutputChunk] | None = None
     
+    @property
+    def start_timestamp(self) -> float:
+        return N(N(self.input_chunks)[0].put_timestamp)
+    
+    @property
+    def finish_timestamp(self) -> float:
+        return N(N(self.output_chunks)[-1].put_timestamp)
+    
     partial_alignments: list[PartialAlignment] | None = None
 
 
@@ -54,9 +60,9 @@ class PartialAlignment:
     Obtaining PartialAlignment requires word timings for the true transcription.
     """
     alignment: MatchesList
+    at_time: float
     audio_seconds_sent: float
     audio_seconds_processed: float | None = None
-    real_seconds_overhead: float = 0
 
     def get_error_positions(self) -> list[StreamingASRTokenStatus]:
         assert self.audio_seconds_processed is not None
@@ -132,55 +138,11 @@ class StreamingASRTokenStatus:
         return self.processed_time -  (self.start_time + self.end_time) / 2
     
     
-def _calculate_partial_alignment(
-    input_history: Sequence[InputChunk],
-    output_history: Sequence[OutputChunk],
-    true_word_timings: list[Token],
-    output_chunk_idx: int,
-) -> PartialAlignment:
-    """A helper function to paralellize get_partial_alignments() using multiprocessing."""
-    output_chunk = output_history[output_chunk_idx]
-    text = TranscriptionChunk.join(output_history[:output_chunk_idx + 1])
-
-    pred_tokens = split_text_into_tokens(text)
-
-    chunks_sent = [
-        input_chunk for input_chunk in input_history
-        if input_chunk.put_timestamp < output_chunk.put_timestamp # pyright: ignore[reportOperatorIssue]
-    ]
-    audio_seconds_sent: float = chunks_sent[-1].end_time if chunks_sent else 0 # pyright: ignore[reportAssignmentType]
-
-    n_true_words, in_true_word = words_count(
-        true_word_timings,
-        audio_seconds_sent if output_chunk.seconds_processed is None else output_chunk.seconds_processed
-    )
-
-    option1 = true_word_timings[:n_true_words]
-    alignment = align(option1, pred_tokens) # pyright: ignore[reportArgumentType]
-
-    if in_true_word:
-        option2 = true_word_timings[:n_true_words + 1]
-        alignment2 = align(option2, pred_tokens) # pyright: ignore[reportArgumentType]
-        
-        if alignment2.score > alignment.score:
-            alignment = alignment2
-
-    return PartialAlignment(
-        alignment=alignment,
-        audio_seconds_sent=audio_seconds_sent,
-        audio_seconds_processed=output_chunk.seconds_processed,
-        real_seconds_overhead=(
-            output_chunk.put_timestamp - chunks_sent[-1].put_timestamp # type: ignore
-            if chunks_sent and len(chunks_sent) == len(input_history)
-            else 0
-        ),
-    )
-
-
 def get_partial_alignments(
     input_history: Sequence[InputChunk],
     output_history: Sequence[OutputChunk],
     true_word_timings: list[Token],
+    timestamps: list[float] | npt.NDArray[np.integer] | None = None,
     processes: int = 1,
 ) -> list[PartialAlignment]:
     """
@@ -195,6 +157,9 @@ def get_partial_alignments(
     < output_chunk.seconds_processed < token.end_time`, considers two partial true transcription - with
     and without this word - and selects one with the best alignment score.
     
+    If `timestamps` is specified, calculates PartialAlignment for each time, not for each output chunk. For
+    each time, joins all output chunks with `.put_timestamp` less than the specified time.
+    
     Can be paralellized using multiprocessing if `processes > 1` (we cannot use multithreading here
     because of GIL, considering that the alignment function is written on pure Python).
     """
@@ -207,17 +172,75 @@ def get_partial_alignments(
     assert np.all(np.diff([(x.end_time or np.nan) for x in input_history])[1:] >= 0)
     assert np.all(np.diff([(x.put_timestamp or np.nan) for x in output_history])[1:] >= 0)
     
+    texts: list[list[Token]] = [
+        split_text_into_tokens(TranscriptionChunk.join(output_history[:i + 1]))
+        for i in range(len(output_history))
+    ]
+    seconds_processed: list[float] = [
+        N(output_chunk.seconds_processed)
+        for output_chunk in output_history
+    ]
+    
     if processes > 1:
         pool = mp.Pool(processes=processes)
-        return pool.map(
-            partial(_calculate_partial_alignment, input_history, output_history, true_word_timings),
-            range(len(output_history))
+        alignments = pool.map(
+            lambda x: align_partial(true_word_timings, *x),
+            zip(texts, seconds_processed, strict=True) 
         )
     else:
-        return [
-            _calculate_partial_alignment(input_history, output_history, true_word_timings, i)
-            for i in range(len(output_history))
+        alignments = [
+            align_partial(true_word_timings, *x)
+            for x in zip(texts, seconds_processed, strict=True) 
         ]
+    
+    partial_alignments: list[PartialAlignment] = []
+    for i, (al, output_chunk) in enumerate(zip(alignments, output_history)):
+        input_chunks_sent = [
+            input_chunk for input_chunk in input_history
+            if N(input_chunk.put_timestamp) < N(output_chunk.put_timestamp)
+        ]
+        partial_alignments.append(PartialAlignment(
+            alignment=al,
+            at_time=N(output_chunk.put_timestamp),
+            audio_seconds_sent=N(input_chunks_sent[-1].end_time) if input_chunks_sent else 0,
+            audio_seconds_processed=N(output_chunk.seconds_processed),
+        ))
+    
+    if timestamps is None:
+        return partial_alignments
+    
+    partial_alignments_for_times: list[PartialAlignment] = []
+    for time in timestamps:
+        output_chunks_put = [x for x in output_history if N(x.put_timestamp) < time]
+        n_chunks_sent = len(output_chunks_put)
+        if n_chunks_sent > 0:
+            partial_alignment = copy.deepcopy(partial_alignments[n_chunks_sent - 1])
+            partial_alignment.at_time = time
+        else:
+            partial_alignment = PartialAlignment(
+                alignment=MatchesList.from_list([]),
+                at_time=time,
+                audio_seconds_sent=0,
+                audio_seconds_processed=0,
+            )
+        input_chunks_sent = [x for x in input_history if N(x.put_timestamp) < time]
+        partial_alignment.audio_seconds_sent = (
+            max([N(x.end_time) for x in input_chunks_sent])
+            if len(input_chunks_sent)
+            else 0
+        )
+        n_sent_words, _ = words_count(true_word_timings, partial_alignment.audio_seconds_sent)
+        sent_words = true_word_timings[:n_sent_words]
+        n_processed_words = sum([len(m.true) for m in partial_alignment.alignment.matches])
+        for word in sent_words[n_processed_words:]:
+            partial_alignment.alignment = (
+                partial_alignment.alignment.append(match_from_pair([word], []))
+            )
+        
+        partial_alignments_for_times.append(partial_alignment)
+    
+    return partial_alignments_for_times
+        
         
         
 def remap_time(

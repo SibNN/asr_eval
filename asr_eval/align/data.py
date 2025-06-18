@@ -175,3 +175,10 @@ class MatchesList:
             total_true_len=len(match.true) + self.total_true_len,
             score = match.score + self.score
         )
+    
+    def append(self, match: Match) -> MatchesList:
+        return MatchesList(
+            matches=self.matches + [match],
+            total_true_len=self.total_true_len + len(match.true),
+            score = self.score + match.score
+        )

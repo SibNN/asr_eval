@@ -1,4 +1,4 @@
-from typing import Literal, cast
+from typing import cast
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -12,9 +12,10 @@ from ..utils import N
 def partial_alignment_diagram(
     partial_alignments: list[PartialAlignment],
     true_words_timed: list[Token],
-    audio_len: float,
+    start_real_time: float,
+    end_real_time: float,
+    # audio_len: float,
     figsize: tuple[float, float] = (15, 15),
-    y_type: Literal['sent', 'processed'] = 'sent',
 ):
     """
     Displays a partial alignment diagram, given the result of `get_partial_alignments()`.
@@ -24,8 +25,8 @@ def partial_alignment_diagram(
     plt.figure(figsize=figsize) # type: ignore
 
     # main lines
-    plt.plot([0, audio_len], [0, audio_len], color='lightgray') # type: ignore
-    plt.plot([0, audio_len], [0, 0], color='lightgray') # type: ignore
+    # plt.plot([0, audio_len], [0, audio_len], color='lightgray') # type: ignore
+    # plt.plot([0, audio_len], [0, 0], color='lightgray') # type: ignore
 
     # word timings
     for token in true_words_timed:
@@ -33,14 +34,14 @@ def partial_alignment_diagram(
         assert not np.isnan(token.end_time)
         plt.fill_between( # type: ignore
             [token.start_time, token.end_time],
-            [0, 0],
-            [audio_len, audio_len],
+            [start_real_time, start_real_time],
+            [end_real_time, end_real_time],
             color='#eeeeee',
             zorder=-1
         )
         plt.text( # type: ignore
             (token.start_time + token.end_time) / 2,
-            0,
+            start_real_time,
             ' ' + str(token.value),
             fontsize=10,
             rotation=90,
@@ -51,11 +52,7 @@ def partial_alignment_diagram(
     # partial alignments
     last_end_time = 0
     for partial_alignment in partial_alignments:
-        y_pos = (
-            partial_alignment.audio_seconds_sent
-            if y_type == 'sent'
-            else partial_alignment.audio_seconds_processed
-        )
+        y_pos = partial_alignment.at_time
         for match in partial_alignment.alignment.matches:
             if len(match.true) == 0:
                 plt.scatter([last_end_time], [y_pos], color='black', s=10, zorder=2) # type: ignore
@@ -70,8 +67,8 @@ def partial_alignment_diagram(
                     color = 'red'
                 else:
                     assert match.status == 'deletion'
-                    color = None
-                    skip = True
+                    color = 'gray'
+                    # skip = True
                 
                 if not skip:
                     for token in match.true:
@@ -81,6 +78,10 @@ def partial_alignment_diagram(
                 [partial_alignment.audio_seconds_processed], [y_pos], # type: ignore
                 s=20, zorder=2, color='gray', marker='|'
             )
+        plt.scatter( # type: ignore
+            [partial_alignment.audio_seconds_sent], [y_pos], # type: ignore
+            s=20, zorder=2, color='red', marker='.'
+        )
 
     plt.show() # type: ignore
 
