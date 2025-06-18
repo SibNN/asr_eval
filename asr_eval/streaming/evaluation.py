@@ -10,13 +10,15 @@ import numpy.typing as npt
 
 
 from .buffer import ID_TYPE
-from .model import InputChunk, OutputChunk, Signal, TranscriptionChunk, check_consistency
-from .sender import BaseStreamingAudioSender, Cutoff
+from .model import InputChunk, OutputChunk, Signal, StreamingASR, TranscriptionChunk, check_consistency
+from .sender import BaseStreamingAudioSender, Cutoff, StreamingAudioSender
+from .caller import receive_full_transcription
 from ..align.data import Match, MatchesList, Token
 from ..align.parsing import split_text_into_tokens
 from ..align.recursive import match_from_pair
 from ..align.partial import align_partial, words_count
 from ..utils import N
+from ..data import Recording
 
 
 @dataclass
@@ -50,6 +52,72 @@ class RecordingStreamingEvaluation:
         return N(N(self.output_chunks)[-1].put_timestamp)
     
     partial_alignments: list[PartialAlignment] | None = None
+
+
+def default_evaluation_pipeline(
+    recording: Recording,
+    asr: StreamingASR,
+) -> RecordingStreamingEvaluation:
+    assert recording.waveform is not None
+
+    evals = RecordingStreamingEvaluation()
+    evals.id = recording.hf_uid
+
+    # preparing input audio
+    match asr.audio_type:
+        case 'float':
+            audio = recording.waveform
+            array_len_per_sec = asr.sampling_rate
+        case 'int':
+            audio = (recording.waveform * 32768).astype(np.int16)
+            array_len_per_sec = asr.sampling_rate
+        case 'bytes':
+            audio = (recording.waveform * 32768).astype(np.int16).tobytes()
+            array_len_per_sec = asr.sampling_rate * 2  # x2 because of the conversion int16 -> bytes
+    
+    # predicting
+    evals.sender = StreamingAudioSender(
+        id=evals.id,
+        audio=audio,
+        array_len_per_sec=array_len_per_sec,
+        real_time_interval_sec=1 / 5,
+        speed_multiplier=1,
+        verbose=False,
+    )
+    output_chunks = receive_full_transcription(
+        asr=asr,
+        sender=evals.sender,
+        id=evals.id,
+        send_all_without_delays=True,
+    )
+
+    # processing to save the results
+    evals.cutoffs = evals.sender.get_send_times()
+    evals.input_chunks, evals.output_chunks = remap_time(
+        evals.cutoffs,
+        evals.sender.history,
+        output_chunks,
+    )
+    evals.partial_alignments = get_partial_alignments(
+        evals.input_chunks,
+        evals.output_chunks,
+        cast(list[Token], recording.transcription_words),
+        processes=1,
+        timestamps=np.arange(
+            evals.start_timestamp,
+            evals.finish_timestamp + 0.2 - 0.0001,
+            step=0.2,
+        ).tolist(),
+    )
+
+    # cleaning large arrays to save the results
+    evals.sender.audio = ''
+    evals.sender.history = []
+    for input_chunk in evals.input_chunks:
+        if input_chunk.data != Signal.FINISH:
+            input_chunk.data = ''
+        
+    return evals
 
 
 @dataclass
