@@ -8,12 +8,14 @@ import copy
 import numpy as np
 import numpy.typing as npt
 
+
 from .buffer import ID_TYPE
 from .model import InputChunk, OutputChunk, Signal, TranscriptionChunk, check_consistency
 from .sender import BaseStreamingAudioSender, Cutoff
 from ..align.data import Match, MatchesList, Token
 from ..align.parsing import split_text_into_tokens
-from ..align.recursive import match_from_pair, align_partial, words_count
+from ..align.recursive import match_from_pair
+from ..align.partial import align_partial, words_count
 from ..utils import N
 
 
