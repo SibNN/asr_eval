@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any, cast, TYPE_CHECKING
 
 import numpy as np
 import numpy.typing as npt
@@ -9,8 +9,10 @@ from gigaam.model import GigaAMASR
 
 from asr_eval.align.data import Token, MultiVariant
 from asr_eval.align.parsing import parse_multivariant_string
-from asr_eval.streaming.evaluation import RecordingStreamingEvaluation
 from asr_eval.streaming.timings import get_word_timings
+
+if TYPE_CHECKING:
+    from asr_eval.streaming.evaluation import RecordingStreamingEvaluation
 
 
 @dataclass

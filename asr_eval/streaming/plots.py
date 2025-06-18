@@ -5,13 +5,15 @@ import numpy as np
 import numpy.typing as npt
 import matplotlib.pyplot as plt
 
+from asr_eval.data import Recording
+
 from .model import InputChunk, OutputChunk, Signal
 from ..align.data import Token
 from .evaluation import PartialAlignment, StreamingASRErrorPosition
 from ..utils import N
 
 
-def partial_alignment_diagram(
+def partial_alignment_plot(
     partial_alignments: list[PartialAlignment],
     true_words_timed: list[Token],
     start_real_time: float,
@@ -123,7 +125,7 @@ def visualize_history(
     plt.show() # type: ignore
 
 
-def streaming_error_vs_latency_diagram(
+def streaming_error_vs_latency_histogram(
     error_positions: list[StreamingASRErrorPosition],
 ):
     counts: dict[Literal['correct', 'error', 'not_yet'], npt.NDArray[np.int64]] = {}
@@ -151,4 +153,17 @@ def streaming_error_vs_latency_diagram(
     plt.bar(xrange, height=ratios['not_yet'], bottom=ratios['correct'] + ratios['error']) # type: ignore
     plt.gca().set_xticks(xrange) # type: ignore
     plt.gca().set_xticklabels([f'{a:g}-{b:g}' for a, b in pairwise(bins)], rotation=90) # type: ignore
+    plt.show() # type: ignore
+
+
+def latency_plot(samples: list[Recording]):
+    plt.figure(figsize=(10, 5)) # type: ignore
+    
+    for recording in samples:
+        sent = np.array([pa.audio_seconds_sent for pa in N(N(recording.evals).partial_alignments)])
+        processed = np.array([pa.audio_seconds_processed for pa in N(N(recording.evals).partial_alignments)])
+        plt.plot(sent, sent - processed, alpha=0.5, lw=3, color='C0') # type: ignore
+
+    plt.xlabel('Sent, sec') # type: ignore
+    plt.ylabel('Processed, sec') # type: ignore
     plt.show() # type: ignore
