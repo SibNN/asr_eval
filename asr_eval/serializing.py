@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from dataclasses import fields, _is_dataclass_instance, _ATOMIC_TYPES # type: ignore
 
 from hydra_zen.funcs import get_obj
-from hydra_zen.structured_configs._implementations import DefaultBuilds  # pyright: ignore[reportPrivateImportUsage]
+from hydra_zen.structured_configs._implementations import DefaultBuilds
 
 # from hydra.utils import log as _log
 # _log.setLevel('FATAL')  # for get_obj messages on ImportError

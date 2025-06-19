@@ -3,7 +3,7 @@ import uuid
 from typing import TypeVar
 
 import srt
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 # from matplotlib.patches import Rectangle
 
 
@@ -37,8 +37,14 @@ def utterances_to_srt(utterances: list[tuple[str, float, float]]) -> str:
     ], reindex=True)
 
 
+# def get_or_create_ax(figsize: tuple[float, float] = (6, 6)) -> plt.Axes:
+#     if not plt.get_fignums():
+#         plt.figure(figsize=figsize) # type: ignore
+#     return plt.gca()
+
+
 # def extend_lims(
-#     ax: plt.Axes, # pyright: ignore[reportPrivateImportUsage]
+#     ax: plt.Axes,
 #     xmin: float | None = None,
 #     xmax: float | None = None,
 #     ymin: float | None = None,
@@ -78,7 +84,7 @@ def utterances_to_srt(utterances: list[tuple[str, float, float]]) -> str:
 #     y: float,
 #     color: str = 'C0',
 #     lw: float = 0.2,
-#     ax: plt.Axes | None = None # pyright: ignore[reportPrivateImportUsage]
+#     ax: plt.Axes | None = None
 # ):
 #     ax = ax or plt.gca()
 #     ax.add_patch(Rectangle(
@@ -95,7 +101,7 @@ def utterances_to_srt(utterances: list[tuple[str, float, float]]) -> str:
 #     y: float,
 #     color: str = 'C0',
 #     s: float = 10,
-#     ax: plt.Axes | None = None # pyright: ignore[reportPrivateImportUsage]
+#     ax: plt.Axes | None = None
 # ):
 #     ax = ax or plt.gca()
 #     plt.scatter([x], [y], s=s, c=color) # type: ignore

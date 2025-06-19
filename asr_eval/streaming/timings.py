@@ -40,7 +40,7 @@ def get_word_timings(
         assert '{' not in text, 'Not implemented for multivariant texts'
         if normalize:
             text = text.lower().replace('ё', 'е').replace('-', ' ')
-            for char in ('.', ',', '!', '?', ';', ':', '"', '(', ')'):
+            for char in ('.', ',', '!', '?', ';', ':', '"', '(', ')', '«', '»', '—'):
                 text = text.replace(char, '')
         tokens, _probs = forced_alignment(
             outputs.log_probs,

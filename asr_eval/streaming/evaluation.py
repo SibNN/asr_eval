@@ -21,7 +21,7 @@ from ..utils import N
 from ..data import Recording
 
 
-@dataclass
+@dataclass(kw_only=True)
 class RecordingStreamingEvaluation:
     """
     Keeps data related to obtaining and evaluating streaming prediction for some model and
@@ -36,12 +36,16 @@ class RecordingStreamingEvaluation:
     
     `partial_alignments` - partial alignments obtained from input and output chunks
     """
-    id: ID_TYPE | None = None
-    sender: BaseStreamingAudioSender | None = None
-    cutoffs: list[Cutoff] | None = None
+    recording: Recording
     
-    input_chunks: list[InputChunk] | None = None
-    output_chunks: list[OutputChunk] | None = None
+    id: ID_TYPE
+    sender: BaseStreamingAudioSender
+    cutoffs: list[Cutoff]
+    
+    input_chunks: list[InputChunk]
+    output_chunks: list[OutputChunk]
+    
+    partial_alignments: list[PartialAlignment]
     
     @property
     def start_timestamp(self) -> float:
@@ -50,8 +54,6 @@ class RecordingStreamingEvaluation:
     @property
     def finish_timestamp(self) -> float:
         return N(N(self.output_chunks)[-1].put_timestamp)
-    
-    partial_alignments: list[PartialAlignment] | None = None
 
 
 def default_evaluation_pipeline(
@@ -59,9 +61,8 @@ def default_evaluation_pipeline(
     asr: StreamingASR,
 ) -> RecordingStreamingEvaluation:
     assert recording.waveform is not None
-
-    evals = RecordingStreamingEvaluation()
-    evals.id = recording.hf_uid
+    
+    id = recording.hf_uid
 
     # preparing input audio
     match asr.audio_type:
@@ -76,8 +77,8 @@ def default_evaluation_pipeline(
             array_len_per_sec = asr.sampling_rate * 2  # x2 because of the conversion int16 -> bytes
     
     # predicting
-    evals.sender = StreamingAudioSender(
-        id=evals.id,
+    sender = StreamingAudioSender(
+        id=id,
         audio=audio,
         array_len_per_sec=array_len_per_sec,
         real_time_interval_sec=1 / 5,
@@ -86,38 +87,46 @@ def default_evaluation_pipeline(
     )
     output_chunks = receive_full_transcription(
         asr=asr,
-        sender=evals.sender,
-        id=evals.id,
+        sender=sender,
+        id=id,
         send_all_without_delays=True,
     )
 
     # processing to save the results
-    evals.cutoffs = evals.sender.get_send_times()
-    evals.input_chunks, evals.output_chunks = remap_time(
-        evals.cutoffs,
-        evals.sender.history,
+    cutoffs = sender.get_send_times()
+    input_chunks, output_chunks = remap_time(
+        cutoffs,
+        sender.history,
         output_chunks,
     )
-    evals.partial_alignments = get_partial_alignments(
-        evals.input_chunks,
-        evals.output_chunks,
+    partial_alignments = get_partial_alignments(
+        input_chunks,
+        output_chunks,
         cast(list[Token], recording.transcription_words),
         processes=1,
         timestamps=np.arange(
-            evals.start_timestamp,
-            evals.finish_timestamp + 0.2 - 0.0001,
+            N(input_chunks[0].put_timestamp),
+            N(output_chunks[-1].put_timestamp) + 0.2 - 0.0001,
             step=0.2,
         ).tolist(),
     )
 
     # cleaning large arrays to save the results
-    evals.sender.audio = ''
-    evals.sender.history = []
-    for input_chunk in evals.input_chunks:
+    sender.audio = ''
+    sender.history = []
+    for input_chunk in input_chunks:
         if input_chunk.data != Signal.FINISH:
             input_chunk.data = ''
         
-    return evals
+    return RecordingStreamingEvaluation(
+        recording=recording,
+        id=recording.hf_uid,
+        sender=sender,
+        partial_alignments=partial_alignments,
+        cutoffs=cutoffs,
+        input_chunks=input_chunks,
+        output_chunks=output_chunks,
+    )
 
 
 @dataclass

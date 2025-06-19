@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from itertools import pairwise
 import threading
 import time
-from typing import Any, Literal, Self, override
+from typing import Literal, Self, override
 
 import numpy as np
 

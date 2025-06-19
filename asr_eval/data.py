@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, cast, TYPE_CHECKING
+from typing import Any, cast  #, TYPE_CHECKING
 
 import numpy as np
 import numpy.typing as npt
@@ -11,8 +11,8 @@ from asr_eval.align.data import Token, MultiVariant
 from asr_eval.align.parsing import parse_multivariant_string
 from asr_eval.streaming.timings import get_word_timings
 
-if TYPE_CHECKING:
-    from asr_eval.streaming.evaluation import RecordingStreamingEvaluation
+# if TYPE_CHECKING:
+#     from asr_eval.streaming.evaluation import RecordingStreamingEvaluation
 
 
 @dataclass
@@ -28,7 +28,7 @@ class Recording:
     hf_dataset_split: str | None = None
     hf_dataset_index: int | None = None
     
-    evals: RecordingStreamingEvaluation | None = None
+    # evals: RecordingStreamingEvaluation | None = None
     
     @property
     def hf_uid(self) -> str:
