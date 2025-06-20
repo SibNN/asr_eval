@@ -59,8 +59,7 @@ def partial_alignments_plot(
     # word timings
     for token in cast(list[Token], eval.recording.transcription_words):
         assert isinstance(token, Token)
-        assert not np.isnan(token.start_time)
-        assert not np.isnan(token.end_time)
+        assert token.is_timed
         ax.fill_between( # type: ignore
             [token.start_time, token.end_time],
             [eval.start_timestamp, eval.start_timestamp],

@@ -41,7 +41,11 @@ class Token:
     end_time: float = np.nan
     
     def __repr__(self) -> str:
-        return str(self.value)
+        return f'Token({self.value})'
+
+    @property
+    def is_timed(self) -> bool:
+        return not np.isnan(self.start_time) and not np.isnan(self.end_time)
 
 
 @dataclass(slots=True)
@@ -53,6 +57,24 @@ class MultiVariant:
     """
     options: list[list[Token]]
     pos: tuple[int, int] = (0, 0)
+    
+    @property
+    def start_time(self) -> float:
+        """
+        Will return the earliest .start_time across all options, or NaN if tokens are not timed
+        """
+        start_times = [option[0].start_time for option in self.options if len(option)]
+        assert len(start_times), 'All options are empty in a MultiVariant block, should not happen'
+        return np.min(start_times)  # `min` builtin works incorrectly: min(-1.0, np.nan) --> -1.0
+    
+    @property
+    def end_time(self) -> float:
+        """
+        Will return the latest .end_time across all options, or NaN if tokens are not timed
+        """
+        end_times = [option[-1].end_time for option in self.options if len(option)]
+        assert len(end_times), 'All options are empty in a MultiVariant block, should not happen'
+        return np.max(end_times)
 
 
 @dataclass(slots=True)

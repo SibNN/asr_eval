@@ -1,7 +1,5 @@
 from typing import Sequence, cast
 
-import numpy as np
-
 from asr_eval.align.data import MatchesList, MultiVariant, Token
 from asr_eval.align.recursive import align
 
@@ -42,7 +40,7 @@ def align_partial(
     TODO adapt for multivariant case.
     """
     for token in true:
-        assert not np.isnan(token.start_time) and not np.isnan(token.end_time)
+        assert token.is_timed
 
     n_true_words, in_true_word = words_count(true, seconds_processed)
     
