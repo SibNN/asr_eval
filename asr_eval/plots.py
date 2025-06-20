@@ -35,14 +35,6 @@ def draw_transcription(
                     color='g',
                     lw=2,
                 )
-                if graybox_y is not None:
-                    ax.fill_between( # type: ignore
-                        [block.start_time, block.end_time],
-                        [graybox_y[0], graybox_y[0]],
-                        [graybox_y[1], graybox_y[1]],
-                        color='#eeeeee',
-                        zorder=-1,
-                    )
             case MultiVariant():
                 for option_idx, option in enumerate(block.options):
                     option_y_pos = y_pos + y_delta * option_idx
@@ -56,14 +48,6 @@ def draw_transcription(
                             color='g',
                             lw=2,
                         )
-                        if graybox_y is not None:
-                            ax.fill_between( # type: ignore
-                                [t.start_time, t.end_time],
-                                [graybox_y[0], graybox_y[0]],
-                                [graybox_y[1], graybox_y[1]],
-                                color='#eeeeee',
-                                zorder=-1,
-                            )
     
     # bezier connections
     block_spans = [(x.start_time, x.end_time) for x in transcription]
