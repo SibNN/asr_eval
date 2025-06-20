@@ -65,7 +65,7 @@ def draw_transcription(
                                 zorder=-1,
                             )
     
-    # bezier collections
+    # bezier connections
     block_spans = [(x.start_time, x.end_time) for x in transcription]
     joints = (
         [block_spans[0][0] - 0.05]
