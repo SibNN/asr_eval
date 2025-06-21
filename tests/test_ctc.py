@@ -30,7 +30,7 @@ def test_forced_alignment():
     # use model.decoding.blank_id as blank token
     
     tokens1, p1 = recursion_forced_alignment(output.log_probs, tokens, model.decoding.blank_id)
-    tokens2, p2 = forced_alignment(output.log_probs, tokens, model.decoding.blank_id)
+    tokens2, p2, _ = forced_alignment(output.log_probs, tokens, model.decoding.blank_id)
     
     assert np.allclose(p1, p2)
     assert tokens1 == tokens2
@@ -42,10 +42,11 @@ def test_forced_alignment():
     for fa in [forced_alignment, recursion_forced_alignment]: # type: ignore
     
         n_tokens = output.log_probs.shape[1]
-        tokens3, p3 = fa( # type: ignore
+        fa_result = fa( # type: ignore
             np.ascontiguousarray(output.log_probs[:, [n_tokens - 1] + list(range(n_tokens - 1))]),
             [(t + 1 if t != n_tokens - 1 else 0) for t in tokens],
             0,
         )
+        tokens3, p3 = fa_result[:2]
         assert np.allclose(p1, p3) # type: ignore
         assert tokens1 == [(t - 1 if t != 0 else n_tokens - 1) for t in tokens3] # type: ignore

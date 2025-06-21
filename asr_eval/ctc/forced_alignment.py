@@ -7,24 +7,43 @@ import numpy.typing as npt
 import torch
 import torchaudio
 
+from asr_eval.utils import groupby_into_spans
+
 
 def forced_alignment(
     log_probs: npt.NDArray[np.floating],
     true_tokens: list[int] | npt.NDArray[np.integer],
     blank_id: int = 0,
-) -> tuple[list[int], list[float]]:
+) -> tuple[list[int], list[float], list[tuple[int, int]]]:
     '''
     Returns the path with the highest cumulative probability among all paths
     that match the specified transcription.
     
     A wrapper around the pytorch implementation.
+    
+    Returns:
+    - token for each frame
+    - probability for each frame
+    - frame span (start_pos, end_pos) for each of true_tokens
     '''
     alignments, scores = torchaudio.functional.forced_align(
         torch.tensor(log_probs).unsqueeze(0),
         torch.tensor(true_tokens, dtype=torch.int32, device='cpu').unsqueeze(0),
         blank=blank_id,
     )
-    return alignments[0].tolist(), scores[0].tolist(),  # type: ignore
+    idx_per_frame: list[int] = alignments[0].tolist() # type: ignore
+    scores_per_frame: list[float] = scores[0].tolist() # type: ignore
+    
+    spans = [
+        (value, start, end)
+        for value, start, end in groupby_into_spans(idx_per_frame)
+        if value != blank_id
+    ]
+    assert [value for value, _start, _end in spans] == true_tokens
+    true_tokens_pos = [(start, end) for _value, start, end in spans]
+    
+    return idx_per_frame, scores_per_frame, true_tokens_pos
+
 
 def recursion_forced_alignment(
     log_probs: npt.NDArray[np.floating],
@@ -36,6 +55,10 @@ def recursion_forced_alignment(
     that match the specified transcription.
     
     A custom minimal implementation via recursion.
+    
+    Returns:
+    - token for each frame
+    - probability for each frame
     '''
     assert all(t != blank_id for t in tokens)
     

@@ -42,7 +42,7 @@ def get_word_timings(
             text = text.lower().replace('ё', 'е').replace('-', ' ')
             for char in ('.', ',', '!', '?', ';', ':', '"', '(', ')', '«', '»', '—'):
                 text = text.replace(char, '')
-        tokens, _probs = forced_alignment(
+        tokens, _probs, _spans = forced_alignment(
             outputs.log_probs,
             encode(model, text),
             blank_id=model.decoding.blank_id

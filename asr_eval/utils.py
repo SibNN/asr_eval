@@ -5,6 +5,7 @@ import uuid
 from typing import TypeVar
 from dataclasses import dataclass, asdict, field
 from itertools import groupby
+from collections.abc import Iterable
 
 from termcolor import colored
 import srt
@@ -23,6 +24,18 @@ def N(val: T | None) -> T:
 
 def new_uid() -> str:
     return str(uuid.uuid4())
+
+
+def groupby_into_spans(iterable: Iterable[T]) -> Iterable[tuple[T, int, int]]:
+    '''
+    Find spans of the same value in a sequence. Returns (value, start_index, end_index).
+    
+    list(groupby_enumerate(['x', 'x', 'b', 'a', 'a', 'a']))
+    >>> [('x', 0, 2), ('b', 2, 3), ('a', 3, 6)]
+    '''
+    for key, group in groupby(enumerate(iterable), key=lambda x: x[1]):
+        group = list(group)
+        yield key, group[0][0], group[-1][0] + 1
 
 
 def utterances_to_srt(utterances: list[tuple[str, float, float]]) -> str:
@@ -85,10 +98,7 @@ def apply_ansi_formatting(text: str, spans: list[FormattingSpan]) -> str:
             fmt_per_char[i]._update_inplace(span.fmt)  # pyright:ignore[reportPrivateUsage]
     
     result = ''
-    for fmt, group in groupby(enumerate(fmt_per_char), key=lambda x: x[1]):
-        group = list(group)
-        start, end = group[0][0], group[-1][0]
-        block = colored(text[start:end + 1], **asdict(fmt))
-        result += block
+    for fmt, start, end in groupby_into_spans(fmt_per_char):
+        result += colored(text[start:end], **asdict(fmt))
     
     return result
