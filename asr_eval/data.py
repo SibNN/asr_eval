@@ -9,7 +9,7 @@ from gigaam.model import GigaAMASR
 
 from asr_eval.align.data import Token, MultiVariant
 from asr_eval.align.parsing import parse_multivariant_string
-from asr_eval.streaming.timings import get_word_timings
+from asr_eval.streaming.timings import get_word_timings_simple
 
 # if TYPE_CHECKING:
 #     from asr_eval.streaming.evaluation import RecordingStreamingEvaluation
@@ -49,7 +49,7 @@ class Recording:
         
         if use_gigaam is not None:
             transcription_words = cast(
-                list[Token | MultiVariant], get_word_timings(use_gigaam, waveform, text)
+                list[Token | MultiVariant], get_word_timings_simple(use_gigaam, waveform, text)
             )
         else:
             # this will also work for texts without multivariant blocks
