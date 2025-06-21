@@ -14,3 +14,13 @@ pip install git+https://github.com/lhotse-speech/lhotse
 sudo apt install cmake
 pip install git+https://github.com/k2-fsa/icefall
 ```
+
+For GigaAM you also need `sudo apt install ffmpeg`.
+
+For GPU support:
+
+```
+sudo ubuntu-drivers install
+sudo reboot
+sudo apt install nvidia-cuda-toolkit
+```
