@@ -82,32 +82,44 @@ def split_text_into_tokens(
     text: str,
     method: Literal['wordpunct_tokenize', 'space', 'razdel', 'asr_eval'] = 'asr_eval',
     drop_punct: bool = True,
+    lower: bool = True,
+    ru_tweaks: bool = True,
 ) -> list[Token]:
     """
     Finds words in the text and return them as a list of Token.  For "method" see
     `parse_multivariant_string` docstring.
     """
-    match method:
-        case 'razdel':
-            return razdel_split_text_into_tokens(text)
-        case 'wordpunct_tokenize':
-            options = {
-                'word': r'\w+',
-                'punct': r'[^\w\s]+',
-            }
-        case 'space':
-            options = {
-                'word': r'\S+',
-            }
-        case 'asr_eval':
-            punct = re.escape(r'''.,!?:;…-–—'"‘“”()[]{}''')
-            options = {
-                'word': rf'\w+|[^\w\s{punct}]+',
-                'punct': rf'[{punct}]+',
-            }
-    if drop_punct:
-        options.pop('punct', None)
-    return regexp_split_text_into_tokens(text, options)
+    if method == 'razdel':
+        tokens = razdel_split_text_into_tokens(text)
+    else:
+        match method:
+            case 'wordpunct_tokenize':
+                options = {
+                    'word': r'\w+',
+                    'punct': r'[^\w\s]+',
+                }
+            case 'space':
+                options = {
+                    'word': r'\S+',
+                }
+            case 'asr_eval':
+                punct = re.escape(r'''.,!?:;…-–—'"‘“”()[]{}''')
+                options = {
+                    'word': rf'\w+|[^\w\s{punct}]+',
+                    'punct': rf'[{punct}]+',
+                }
+        if drop_punct:
+            options.pop('punct', None)
+        tokens = regexp_split_text_into_tokens(text, options)
+    
+    for token in tokens:
+        if not isinstance(token.value, Anything):
+            if lower:
+                token.value = token.value.lower()
+            if ru_tweaks:
+                token.value = token.value.replace('ё', 'е')
+    
+    return tokens
 
 
 # We can also parse multivariant strings with pyparsing:
@@ -135,8 +147,10 @@ MULTIVARIANT_PATTERN = re.compile(
 
 def parse_multivariant_string(
     text: str,
-    method: Literal['wordpunct_tokenize', 'space', 'razdel', 'asr_eval'],
+    method: Literal['wordpunct_tokenize', 'space', 'razdel', 'asr_eval'] = 'asr_eval',
     drop_punct: bool = True,
+    lower: bool = True,
+    ru_tweaks: bool = True,
 ) -> list[Token | MultiVariant]:
     r"""
     Finds words in the text, possibly with multivariant blocks, and return them as a list of
@@ -194,7 +208,13 @@ def parse_multivariant_string(
             result.append(MultiVariant(
                 options=[
                     _shift_tokens(
-                        split_text_into_tokens(option.group(1), method=method, drop_punct=drop_punct),
+                        split_text_into_tokens(
+                            option.group(1),
+                            method=method,
+                            drop_punct=drop_punct, 
+                            lower=lower,
+                            ru_tweaks=ru_tweaks,
+                        ),
                         shift=start + option.start() + 1
                     )
                     for option in re.finditer(r'([^\|]*)\|', text_part[1:-1] + '|')
@@ -203,7 +223,13 @@ def parse_multivariant_string(
             ))
         else:
             result += _shift_tokens(
-                split_text_into_tokens(text_part, method=method, drop_punct=drop_punct),
+                split_text_into_tokens(
+                    text_part,
+                    method=method,
+                    drop_punct=drop_punct, 
+                    lower=lower,
+                    ru_tweaks=ru_tweaks,
+                ),
                 shift=start
             )
     
