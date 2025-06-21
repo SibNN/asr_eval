@@ -166,6 +166,8 @@ def parse_multivariant_string(
     
     Example:
     ```
+    from asr_eval.align.parsing import parse_multivariant_string, colorize_parsed_string
+    
     text = '7-8 мая (в Пуэрто-Рико) прошел {шестнадцатый | 16-й | 16} этап "Формулы-1" с фондом 100,000$!'
 
     for method in 'razdel', 'wordpunct_tokenize', 'space', 'asr_eval':
