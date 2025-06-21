@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import re
 import string
 from typing import Literal, cast
@@ -8,62 +9,105 @@ import razdel
 
 from .data import Anything, Token, MultiVariant
 from ..utils import apply_ansi_formatting, Formatting, FormattingSpan
+    
+
+# def _strip_and_locate(text: str, strip: str) -> tuple[str, int, int]:
+#     '''
+#     strips a word, return 1) the result, 2) start delta, 3) end delta (negative)
+#     '''
+#     stripped = text.strip(strip)
+#     d_start = text.find(stripped)  # will be 0 if stripped is empty
+#     d_end = -(len(text) - d_start - len(stripped))
+#     return stripped, d_start, d_end
+
+
+def razdel_split_text_into_tokens(text: str) -> list[Token]:
+    tokens: list[Token] = []
+    for word in razdel.tokenize(text):
+        value = cast(str, word.text) # pyright:ignore[reportUnknownMemberType]
+        start = cast(int, word.start) # pyright:ignore[reportUnknownMemberType]
+        stop = cast(int, word.stop) # pyright:ignore[reportUnknownMemberType]
+        tokens.append(Token(
+            value=value,
+            start_pos=start,
+            end_pos=stop,
+        ))
+    while True:
+        for i in range(len(tokens) - 2):
+            if (
+                tokens[i + 2].end_pos == tokens[i].start_pos + 3
+                and tokens[i].value == '<'
+                and tokens[i + 1].value == '*'
+                and tokens[i + 2].value == '>'
+            ):
+                tokens = (
+                    tokens[:i]
+                    + [Token(
+                        value=Anything(),
+                        start_pos=tokens[i].start_pos,
+                        end_pos=tokens[i].start_pos + 3
+                    )]
+                    + tokens[i + 3:]
+                )
+                break
+        else:
+            break
+    
+    return tokens
+
+
+def regexp_split_text_into_tokens(text: str, patterns: dict[str, str]):
+    tokens: list[Token] = []
+    pattern = '|'.join(f'(?P<{name}>{subpattern})' for name, subpattern in patterns.items())
+    for match in re.finditer(re.compile(pattern, re.MULTILINE|re.DOTALL|re.UNICODE), text):
+        found_groups = [
+            (name, substr)
+            for name, substr in match.groupdict().items()
+            if substr is not None
+        ]
+        assert len(found_groups) == 1
+        name, word = found_groups[0]
+        assert name in patterns
+        
+        tokens.append(Token(
+            value=Anything() if word == '<*>' else word,
+            start_pos=match.start(),
+            end_pos=match.end(),
+            type=name,
+        ))
+    return tokens
+
 
 def split_text_into_tokens(
     text: str,
-    method: Literal['wordpunct_tokenize', 'space', 'razdel'],
-    pos_shift: int = 0,
+    method: Literal['wordpunct_tokenize', 'space', 'razdel', 'asr_eval'] = 'asr_eval',
+    drop_punct: bool = True,
 ) -> list[Token]:
-    result: list[Token] = []
-    
-    if method == 'razdel':
-        tokens = [
-            Token(
-                value=cast(str, word.text), # pyright:ignore[reportUnknownMemberType]
-                start_pos=pos_shift + cast(int, word.start), # pyright:ignore[reportUnknownMemberType]
-                end_pos=pos_shift + cast(int, word.stop), # pyright:ignore[reportUnknownMemberType]
-            )
-            for word in razdel.tokenize(text)
-        ]
-        while True:
-            for i in range(len(tokens) - 2):
-                if (
-                    tokens[i + 2].end_pos == tokens[i].start_pos + 3
-                    and tokens[i].value == '<'
-                    and tokens[i + 1].value == '*'
-                    and tokens[i + 2].value == '>'
-                ):
-                    tokens = (
-                        tokens[:i]
-                        + [Token(
-                            value=Anything(),
-                            start_pos=tokens[i].start_pos,
-                            end_pos=tokens[i].start_pos + 3
-                        )]
-                        + tokens[i + 3:]
-                    )
-                    break
-            else:
-                break
-        return tokens
-    
+    """
+    Finds words in the text and return them as a list of Token.  For "method" see
+    `parse_multivariant_string` docstring.
+    """
     match method:
+        case 'razdel':
+            return razdel_split_text_into_tokens(text)
         case 'wordpunct_tokenize':
-            # equals nltk.WordPunctTokenizer()._regexp used for nltk.wordpunct_tokenize(text)
-            # we cannot use nltk.wordpunct_tokenize because we also need word spans (start, end)
-            regexp = re.compile(r'\w+|[^\w\s]+', re.MULTILINE|re.DOTALL|re.UNICODE)
+            options = {
+                'word': r'\w+',
+                'punct': r'[^\w\s]+',
+            }
         case 'space':
-            regexp = re.compile(r'\S+', re.MULTILINE|re.DOTALL|re.UNICODE)
-        
-    for match in re.finditer(regexp, text):
-        word = match.group()
-        start, end = match.span()
-        result.append(Token(
-            value=word if word != '<*>' else Anything(),
-            start_pos=start + pos_shift,
-            end_pos=end + pos_shift,
-        ))
-    return result
+            options = {
+                'word': r'\S+',
+            }
+        case 'asr_eval':
+            punct = re.escape(r'''.,!?:;…-–—'"‘“”()[]{}''')
+            options = {
+                'word': rf'\w+|[^\w\s{punct}]+',
+                'punct': rf'[{punct}]+',
+            }
+    if drop_punct:
+        options.pop('punct', None)
+    return regexp_split_text_into_tokens(text, options)
 
 
 # We can also parse multivariant strings with pyparsing:
@@ -91,8 +135,46 @@ MULTIVARIANT_PATTERN = re.compile(
 
 def parse_multivariant_string(
     text: str,
-    method: Literal['wordpunct_tokenize', 'space', 'razdel'],
+    method: Literal['wordpunct_tokenize', 'space', 'razdel', 'asr_eval'],
+    drop_punct: bool = True,
 ) -> list[Token | MultiVariant]:
+    r"""
+    Finds words in the text, possibly with multivariant blocks, and return them as a list of
+    Token and/or MultiVariant objects.
+    
+    The method "razdel" uses a custom algorithm. The other methods return Token object
+    with .type field filled with one of "word" or "punct".
+    
+    - The method "wordpunct_tokenize" treat \w+ as word and [^\w\s]+ as punct (this equals
+    the regexp used in nltk.wordpunct_tokenize).
+    - The method "asr_eval" treat \w+ or [^\w\s{P}]+ as word and [{P}]+ as punct, where {P}
+    is one of the following symbols: .,!?:;…-–—'"‘“”()[]{}
+    - The method "space" treat \S+ as word and nothing as punct.
+    
+    `drop_punct` removes "punct" tokens (not supported for razdel).
+    
+    NOTE: An annotator should know how such a postprocessing works. For example, if "3/4$" is
+    treated as a single word, then "3/4$" and "3 / 4 $" are different options: if we annotate
+    only "3/4$", then a prediction "3 / 4 $" will be considered as 4 errors. Razdel has a
+    complex tokenization rules and hence is not suitable (an annotator should know clearly how
+    does it work). On the other side, if we split by space, we need to enumerate a lot of
+    options for "3/4$!".
+    
+    Possible problems with "asr_eval" method:
+    1) If a speaker speaks "point" or "semicolon", how do we evaluate an ASR prediction?
+    2) If "16-й" is a correct transcription, then "16 й" will always be considered correct.
+    
+    Example:
+    ```
+    text = '7-8 мая (в Пуэрто-Рико) прошел {шестнадцатый | 16-й | 16} этап "Формулы-1" с фондом 100,000$!'
+
+    for method in 'razdel', 'wordpunct_tokenize', 'space', 'asr_eval':
+        tokens = parse_multivariant_string(text, method=method)
+        colored_str, colors = colorize_parsed_string(text, tokens)
+        print(f'{method: <20}', colored_str)
+    print()
+    ```
+    """
     result: list[Token | MultiVariant] = []
     for match in re.finditer(MULTIVARIANT_PATTERN, '}' + text + '{'):
         text_part = match.group()
@@ -109,15 +191,28 @@ def parse_multivariant_string(
                 )
             result.append(MultiVariant(
                 options=[
-                    split_text_into_tokens(option.group(1), pos_shift=start + option.start() + 1, method=method)
+                    _shift_tokens(
+                        split_text_into_tokens(option.group(1), method=method, drop_punct=drop_punct),
+                        shift=start + option.start() + 1
+                    )
                     for option in re.finditer(r'([^\|]*)\|', text_part[1:-1] + '|')
                 ],
                 pos=(start, end),
             ))
         else:
-            result += split_text_into_tokens(text_part, pos_shift=start, method=method)
+            result += _shift_tokens(
+                split_text_into_tokens(text_part, method=method, drop_punct=drop_punct),
+                shift=start
+            )
     
     return result
+
+
+def _shift_tokens(tokens: list[Token], shift: int = 0) -> list[Token]:
+    return [
+        replace(t, start_pos=t.start_pos + shift, end_pos=t.end_pos + shift)
+        for t in tokens
+    ]
 
 
 def colorize_parsed_string(

@@ -32,6 +32,7 @@ class Token:
     - `start_pos` and `end_pos`: position in the original text: start (inclusive) and end (exclusive)
     characters. May be useful for displaying an alignment.
     - `start_time` and `end_time`: start and end time in seconds, if known.
+    - `type` is either "word", or "punct" (see `split_text_into_tokens`), or any user-defined types
     """
     value: str | Anything
     uid: str = field(default_factory=new_uid)
@@ -39,6 +40,7 @@ class Token:
     end_pos: int = 0
     start_time: float = np.nan
     end_time: float = np.nan
+    type: str = 'word'
     
     def __repr__(self) -> str:
         strings = [
@@ -47,6 +49,8 @@ class Token:
         ]
         if self.is_timed:
             strings.append(f't=({self.start_time:.1f}, {self.end_time:.1f})')
+        if self.type != 'word':
+            strings.append(self.type)
         return f'Token(' + ', '.join(strings) + ')'
 
     @property
