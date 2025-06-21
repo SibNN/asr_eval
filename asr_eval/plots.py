@@ -8,7 +8,7 @@ import matplotlib.path
 from .align.data import Token, MultiVariant
 
 
-def draw_transcription(
+def draw_timed_transcription(
     transcription: list[Token | MultiVariant],
     y_pos: float = 0,
     y_delta: float = -1,
