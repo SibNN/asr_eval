@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, cast  #, TYPE_CHECKING
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -9,10 +9,7 @@ from gigaam.model import GigaAMASR
 
 from asr_eval.align.data import Token, MultiVariant
 from asr_eval.align.parsing import parse_multivariant_string
-from asr_eval.streaming.timings import get_word_timings_simple
-
-# if TYPE_CHECKING:
-#     from asr_eval.streaming.evaluation import RecordingStreamingEvaluation
+from asr_eval.streaming.timings import fill_word_timings_inplace
 
 
 @dataclass
@@ -47,13 +44,14 @@ class Recording:
         waveform = sample['audio']['array']
         text = sample['transcription']
         
+        # this will also work for texts without multivariant blocks
+        transcription_words = parse_multivariant_string(text)
+        
         if use_gigaam is not None:
-            transcription_words = cast(
-                list[Token | MultiVariant], get_word_timings_simple(use_gigaam, waveform, text)
-            )
-        else:
-            # this will also work for texts without multivariant blocks
-            transcription_words = parse_multivariant_string(text)
+            fill_word_timings_inplace(use_gigaam, waveform, transcription_words)
+            # transcription_words = cast(
+            #     list[Token | MultiVariant], get_word_timings_simple(fill_timings, waveform, text)
+            # )
         
         return Recording(
             waveform=waveform,
