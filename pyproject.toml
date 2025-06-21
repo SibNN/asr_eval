@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "asr_eval"
+version = "0.0.1"
+requires-python = ">=3.12"
+description = "Evaluation tools for Automatic Speech Recognition"
+authors = [{name = "Oleg Sedukhin", email = "sedukhin@sibnn.ai"}]
+dependencies = [
+    "numpy",
+    "librosa",
+    "matplotlib",
+    "datasets", 
+    "ipywidgets",
+    "ipykernel",
+    "hydra_zen",
+    "srt",
+    "termcolor",
+    "nltk",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-cov"]
+gigaam = ["gigaam[longform]"]
+vosk = ["vosk"]
+
+[tool.setuptools.packages.find]
+include = ["asr_eval"]
+
+[project.urls]
+Repository = "https://gitlab.sibnn.ai/research/asr-eval"
