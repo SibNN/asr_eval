@@ -16,8 +16,8 @@ class Anything:
     def __eq__(self, other: Any) -> bool:
         return True
     
-    def __repr__(self) -> str:
-        return '<*>'
+    # def __repr__(self) -> str:
+    #     return '<*>'
 
 
 @dataclass(slots=True)
@@ -41,7 +41,13 @@ class Token:
     end_time: float = np.nan
     
     def __repr__(self) -> str:
-        return f'Token({self.value})'
+        strings = [
+            str(self.value),
+            # f'pos=({self.start_pos}, {self.end_pos})'
+        ]
+        if self.is_timed:
+            strings.append(f't=({self.start_time:.1f}, {self.end_time:.1f})')
+        return f'Token(' + ', '.join(strings) + ')'
 
     @property
     def is_timed(self) -> bool:
@@ -57,6 +63,9 @@ class MultiVariant:
     """
     options: list[list[Token]]
     pos: tuple[int, int] = (0, 0)
+    
+    def __repr__(self) -> str:
+        return f'MultiVariant({str(self.options)[1:-1]})'
     
     @property
     def start_time(self) -> float:
