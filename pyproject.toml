@@ -19,6 +19,7 @@ dependencies = [
     "srt",
     "termcolor",
     "nltk",
+    "razdel",
 ]
 
 [project.optional-dependencies]

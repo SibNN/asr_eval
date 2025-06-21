@@ -2,20 +2,60 @@ from __future__ import annotations
 
 import re
 import string
+from typing import Literal, cast
+
+import razdel
 
 from .data import Anything, Token, MultiVariant
 from ..utils import apply_ansi_formatting, Formatting, FormattingSpan
 
-# equals nltk.WordPunctTokenizer()._regexp used for nltk.wordpunct_tokenize(text)
-# we cannot use nltk.wordpunct_tokenize because we also need word spans (start, end)
-WORD_REGEXP = re.compile(r'\w+|[^\w\s]+', re.MULTILINE|re.DOTALL|re.UNICODE)
-
 def split_text_into_tokens(
     text: str,
+    method: Literal['wordpunct_tokenize', 'space', 'razdel'],
     pos_shift: int = 0,
 ) -> list[Token]:
     result: list[Token] = []
-    for match in re.finditer(WORD_REGEXP, text):
+    
+    if method == 'razdel':
+        tokens = [
+            Token(
+                value=cast(str, word.text), # pyright:ignore[reportUnknownMemberType]
+                start_pos=pos_shift + cast(int, word.start), # pyright:ignore[reportUnknownMemberType]
+                end_pos=pos_shift + cast(int, word.stop), # pyright:ignore[reportUnknownMemberType]
+            )
+            for word in razdel.tokenize(text)
+        ]
+        while True:
+            for i in range(len(tokens) - 2):
+                if (
+                    tokens[i + 2].end_pos == tokens[i].start_pos + 3
+                    and tokens[i].value == '<'
+                    and tokens[i + 1].value == '*'
+                    and tokens[i + 2].value == '>'
+                ):
+                    tokens = (
+                        tokens[:i]
+                        + [Token(
+                            value=Anything(),
+                            start_pos=tokens[i].start_pos,
+                            end_pos=tokens[i].start_pos + 3
+                        )]
+                        + tokens[i + 3:]
+                    )
+                    break
+            else:
+                break
+        return tokens
+    
+    match method:
+        case 'wordpunct_tokenize':
+            # equals nltk.WordPunctTokenizer()._regexp used for nltk.wordpunct_tokenize(text)
+            # we cannot use nltk.wordpunct_tokenize because we also need word spans (start, end)
+            regexp = re.compile(r'\w+|[^\w\s]+', re.MULTILINE|re.DOTALL|re.UNICODE)
+        case 'space':
+            regexp = re.compile(r'\S+', re.MULTILINE|re.DOTALL|re.UNICODE)
+        
+    for match in re.finditer(regexp, text):
         word = match.group()
         start, end = match.span()
         result.append(Token(
@@ -51,6 +91,7 @@ MULTIVARIANT_PATTERN = re.compile(
 
 def parse_multivariant_string(
     text: str,
+    method: Literal['wordpunct_tokenize', 'space', 'razdel'],
 ) -> list[Token | MultiVariant]:
     result: list[Token | MultiVariant] = []
     for match in re.finditer(MULTIVARIANT_PATTERN, '}' + text + '{'):
@@ -66,15 +107,16 @@ def parse_multivariant_string(
                 assert (c := text[end]) in string.whitespace, (
                     f'put a space after a multivariant block, got "{c}"'
                 )
-            options = [
-                split_text_into_tokens(option.group(1), pos_shift=start + option.start() + 1)
-                for option in re.finditer(r'([^\|]*)\|', text_part[1:-1] + '|')
-            ]
-            if len(options) == 1:
-                options.append([])
-            result.append(MultiVariant(options=options, pos=(start, end)))
+            result.append(MultiVariant(
+                options=[
+                    split_text_into_tokens(option.group(1), pos_shift=start + option.start() + 1, method=method)
+                    for option in re.finditer(r'([^\|]*)\|', text_part[1:-1] + '|')
+                ],
+                pos=(start, end),
+            ))
         else:
-            result += split_text_into_tokens(text_part, pos_shift=start)
+            result += split_text_into_tokens(text_part, pos_shift=start, method=method)
+    
     return result
 
 
