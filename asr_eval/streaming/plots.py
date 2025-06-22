@@ -1,13 +1,13 @@
-from typing import Literal, cast
+from typing import Literal
 from itertools import pairwise
 
 import numpy as np
 import numpy.typing as npt
 import matplotlib.pyplot as plt
 
+from asr_eval.align.plots import draw_timed_transcription
 from asr_eval.streaming.model import InputChunk, OutputChunk, Signal
 from asr_eval.streaming.evaluation import PartialAlignment, RecordingStreamingEvaluation
-from asr_eval.align.data import Token
 
 
 def draw_partial_alignment(
@@ -53,27 +53,15 @@ def partial_alignments_plot(
     TODO merge with `visualize_history()`
     """
     ax = ax or plt.gca()
-
-    # word timings
-    for token in cast(list[Token], eval.recording.transcription_words):
-        assert isinstance(token, Token)
-        assert token.is_timed
-        ax.fill_between( # type: ignore
-            [token.start_time, token.end_time],
-            [eval.start_timestamp, eval.start_timestamp],
-            [eval.finish_timestamp, eval.finish_timestamp],
-            color='#eeeeee',
-            zorder=-1
-        )
-        ax.text( # type: ignore
-            (token.start_time + token.end_time) / 2,
-            eval.start_timestamp,
-            ' ' + str(token.value),
-            fontsize=10,
-            rotation=90,
-            ha='center',
-            va='bottom',
-        )
+    
+    y1, y2 = eval.start_timestamp, eval.finish_timestamp
+    y0 = y1 - (y2 - y1) / 15
+    draw_timed_transcription(
+        eval.recording.transcription_words,
+        y_pos=y0,
+        y_delta=-(y2 - y1) / 15,
+        graybox_y=(y0, y2)
+    )
 
     for partial_alignment in eval.partial_alignments:
         draw_partial_alignment(partial_alignment, ax=ax)

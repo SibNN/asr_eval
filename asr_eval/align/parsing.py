@@ -205,22 +205,23 @@ def parse_multivariant_string(
                 assert (c := text[end]) in string.whitespace, (
                     f'put a space after a multivariant block, got "{c}"'
                 )
-            result.append(MultiVariant(
-                options=[
-                    _shift_tokens(
-                        split_text_into_tokens(
-                            option.group(1),
-                            method=method,
-                            drop_punct=drop_punct, 
-                            lower=lower,
-                            ru_tweaks=ru_tweaks,
-                        ),
-                        shift=start + option.start() + 1
-                    )
-                    for option in re.finditer(r'([^\|]*)\|', text_part[1:-1] + '|')
-                ],
-                pos=(start, end),
-            ))
+            options = [
+                _shift_tokens(
+                    split_text_into_tokens(
+                        option.group(1),
+                        method=method,
+                        drop_punct=drop_punct, 
+                        lower=lower,
+                        ru_tweaks=ru_tweaks,
+                    ),
+                    shift=start + option.start() + 1
+                )
+                for option in re.finditer(r'([^\|]*)\|', text_part[1:-1] + '|')
+            ]
+            if len(options) == 1:
+                assert  len(options[0]), 'empty multivariant block'
+                options.append([])
+            result.append(MultiVariant(options=options, pos=(start, end)))
         else:
             result += _shift_tokens(
                 split_text_into_tokens(

@@ -2,7 +2,7 @@ from itertools import pairwise
 
 import matplotlib.pyplot as plt
 
-from asr_eval.align.data import MultiVariant, Token
+from asr_eval.align.data import Anything, MultiVariant, Token
 from asr_eval.utils.plots import draw_bezier, draw_line_with_ticks
 
 
@@ -30,7 +30,7 @@ def draw_timed_transcription(
                     y=y_pos,
                     y_tick_width=y_tick_width,
                     ax=ax,
-                    color='g',
+                    color='r' if isinstance(block.value, Anything) else 'g',
                     lw=2,
                 )
             case MultiVariant():
@@ -43,9 +43,29 @@ def draw_timed_transcription(
                             y=option_y_pos,
                             y_tick_width=y_tick_width,
                             ax=ax,
-                            color='g',
+                            color='r' if isinstance(t.value, Anything) else 'g',
                             lw=2,
                         )
+    
+    # texts
+    def write_token(token: Token, y: float):
+        ax.text( # type: ignore
+            (token.start_time + token.end_time) / 2,
+            y,
+            ' ' + str(token.value),
+            fontsize=10,
+            rotation=90,
+            ha='center',
+            va='bottom',
+        )
+    for block_idx, block in enumerate(transcription):
+        match block:
+            case Token():
+                write_token(block, y_pos)
+            case MultiVariant():
+                non_empty_option = [o for o in block.options if len(o)][0]
+                for token in non_empty_option:
+                    write_token(token, y_pos)
 
     # bezier connections
     block_spans = [(x.start_time, x.end_time) for x in transcription]
@@ -95,7 +115,7 @@ def draw_timed_transcription(
                         [graybox_y[0], graybox_y[0]],
                         [graybox_y[1], graybox_y[1]],
                         color='#eeeeee',
-                        zorder=-1,
+                        zorder=-999,
                     )
                 case MultiVariant():
                     for option_idx, option in enumerate(block.options):
@@ -105,5 +125,5 @@ def draw_timed_transcription(
                                 [graybox_y[0], graybox_y[0]],
                                 [graybox_y[1], graybox_y[1]],
                                 color='#eeeeee',
-                                zorder=-1,
+                                zorder=-999,
                             )

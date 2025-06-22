@@ -172,7 +172,7 @@ class PartialAlignment:
                 )
                 right_pos = min(
                     [self.audio_seconds_processed]
-                    + [token.end_time for match2 in head[i + 1:] for token in match2.true]
+                    + [token.start_time for match2 in head[i + 1:] for token in match2.true]
                 )
                 results.append(StreamingASRErrorPosition(
                     start_time=left_pos,
