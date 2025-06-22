@@ -117,7 +117,7 @@ def draw_bezier(
     indent: float = 0.1,
     zorder: int = 0,
     lw: float = 1,
-    color: str = 'lightgray',
+    color: str = 'darkgray',
 ):
     verts: list[tuple[float, float]] = []
     for x, y in xy_points:
