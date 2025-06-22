@@ -70,6 +70,10 @@ class MultiVariant:
     
     def __repr__(self) -> str:
         return f'MultiVariant({str(self.options)[1:-1]})'
+
+    @property
+    def is_timed(self) -> bool:
+        return all(all(t.is_timed for t in option) for option in self.options)
     
     @property
     def start_time(self) -> float:

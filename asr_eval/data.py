@@ -9,7 +9,7 @@ from gigaam.model import GigaAMASR
 
 from asr_eval.align.data import Token, MultiVariant
 from asr_eval.align.parsing import parse_multivariant_string
-from asr_eval.streaming.timings import fill_word_timings_inplace
+from asr_eval.align.timings import fill_word_timings_inplace
 
 
 @dataclass
