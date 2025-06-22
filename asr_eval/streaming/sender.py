@@ -71,12 +71,10 @@ class BaseStreamingAudioSender(ABC):
     audio: AUDIO_CHUNK_TYPE
     id: ID_TYPE = 0
     array_len_per_sec: int = 16_000
-    # densify: bool = False
     verbose: bool = False
     track_history: bool = True
 
     history: list[InputChunk] = field(default_factory=list) # type: ignore
-    # timings_history: list[DelayInfo] = field(default_factory=list)
     _thread: threading.Thread | None = None
     _sent_without_delays: bool = False
 
@@ -131,8 +129,7 @@ class BaseStreamingAudioSender(ABC):
             )
         chunk = InputChunk(
             data=self.audio[cutoff1.arr_pos:cutoff2.arr_pos],
-            start_time=cutoff1.t_audio,
-            end_time=cutoff2.t_audio,
+            end_time=min(cutoff2.t_audio, self.audio_length_sec),
         )
         send_to.put(chunk, id=self.id)
         if self.track_history:
@@ -149,25 +146,13 @@ class BaseStreamingAudioSender(ABC):
                 wait_start_time = time.time()
                 if (delay := start_time - densify_total_saved_time + cutoff2.t_real - wait_start_time) > 0:
                     time.sleep(delay)
-                    # if self.densify:
-                    #     with send_to.consumer_waits:
-                    #         was_wakeup = send_to.consumer_waits.wait(timeout=delay)
-                    #         wait_end_time = time.time()
-                    #         if was_wakeup:
-                    #             densify_total_saved_time += delay - (wait_end_time - wait_start_time)
-                    #         self.timings_history.append(DelayInfo(was_wakeup, wait_start_time, delay, wait_end_time))
-                    #         if self.verbose:
-                    #             print(
-                    #                 f'waited for {time.time() - wait_start_time:.3f} of {delay:.3f} sec'
-                    #                 + (' (woken up early by consumer)' if was_wakeup else ' (full delay)')
-                    #             )
-                    # else:
-                    #     time.sleep(delay)
-                    #     self.timings_history.append(DelayInfo(False, wait_start_time, delay, time.time()))
                     
                 self._send_chunk(send_to, cutoff1, cutoff2)
                 
-            send_to.put(InputChunk(data=Signal.FINISH), id=self.id)
+            send_to.put(InputChunk(
+                data=Signal.FINISH,
+                end_time=min(cutoffs[-1].t_audio, self.audio_length_sec),
+            ), id=self.id)
             
         except BaseException as e:
             send_to.put_error(e)
@@ -179,34 +164,15 @@ class BaseStreamingAudioSender(ABC):
             cutoffs = self.get_send_times()
             for cutoff1, cutoff2 in pairwise(cutoffs):
                 self._send_chunk(send_to, cutoff1, cutoff2)
-            send_to.put(InputChunk(data=Signal.FINISH), id=self.id)
+            send_to.put(InputChunk(
+                data=Signal.FINISH,
+                end_time=min(cutoffs[-1].t_audio, self.audio_length_sec),
+            ), id=self.id)
         except BaseException as e:
             send_to.put_error(e)
             raise e
         self._sent_without_delays = True
         return self
-    
-    # def undensify(self, time: float) -> float:
-    #     addition = 0.
-    #     for d1, d2 in pairwise(self.timings_history):
-    #         assert d1.wait_start_time < d1.wait_end_time < d2.wait_start_time < d2.wait_end_time
-        
-    #     for delay_info in self.timings_history:
-    #         if delay_info.was_wakeup:
-    #             if time < delay_info.wait_start_time:
-    #                 break
-    #             elif time >= delay_info.wait_end_time:
-    #                 addition += delay_info.intended_delay
-    #             else:
-    #                 # time is inside the interval
-    #                 addition += (
-    #                     delay_info.intended_delay
-    #                     * (time - delay_info.wait_start_time)
-    #                     / (delay_info.wait_end_time - delay_info.wait_start_time)
-    #                 )
-    #                 break
-        
-    #     return time + addition
             
         
 

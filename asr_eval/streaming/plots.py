@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 from .model import InputChunk, OutputChunk, Signal
 from ..align.data import Token
 from .evaluation import PartialAlignment, RecordingStreamingEvaluation
-from ..utils.utils import N
 
 
 def draw_partial_alignment(
@@ -96,12 +95,12 @@ def visualize_history(
     """
     ax = ax or plt.gca()
         
-    plot_t_shift = cast(float, input_chunks[0].put_timestamp)
+    plot_t_shift = input_chunks[0].put_timestamp
 
     plot_y_pos = 0
     for input_chunk in input_chunks:
         ax.scatter( # type: ignore
-            [N(input_chunk.get_timestamp) - plot_t_shift, N(input_chunk.put_timestamp) - plot_t_shift],
+            [input_chunk.get_timestamp - plot_t_shift, input_chunk.put_timestamp - plot_t_shift],
             [plot_y_pos, plot_y_pos],
             c=['b', 'g'],
             s=30,
@@ -113,7 +112,7 @@ def visualize_history(
         plot_y_pos = 0
         for output_chunk in output_chunks:
             ax.axvline( # type: ignore
-                N(output_chunk.put_timestamp) - plot_t_shift,
+                output_chunk.put_timestamp - plot_t_shift,
                 c='orange',
                 alpha=1 if output_chunk.data is Signal.FINISH else 0.5,
                 ls='dashed' if output_chunk.data is Signal.FINISH else 'solid',

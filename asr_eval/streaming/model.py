@@ -13,7 +13,7 @@ import numpy as np
 import numpy.typing as npt
 
 from .buffer import ID_TYPE, StreamingQueue
-from ..utils.utils import new_uid, N
+from ..utils.utils import new_uid
 
 
 class Signal(Enum):
@@ -40,20 +40,18 @@ class InputChunk:
     
     `data` is either a slice of audio, or a Signal.FINISH.
     
-    `start_time` and `end_time` are chunk boundaries (in seconds) in the audio timescale, where
-    0 means the beginning of the audio. For two consecutive chunks, .end_time for the first should
-    be .start_time for the second.
+    `end_time` is a chunk end time (in seconds) in the audio timescale, where 0 means the beginning
+    of the audio.
     
     `put_timestamp` is filled automatically when the chunk is added to the ASRStreamingQueue input buffer.
     `get_timestamp` is filled automatically when the StreamingASR thread takes the chunk from the buffer.
     """
     data: AUDIO_CHUNK_TYPE | Literal[Signal.FINISH]
     
-    start_time: float | None = None
-    end_time: float | None = None
+    end_time: float
     
-    put_timestamp: float | None = None
-    get_timestamp: float | None = None
+    put_timestamp: float = np.nan
+    get_timestamp: float = np.nan
  
     
 @dataclass(kw_only=True)
@@ -73,12 +71,10 @@ class OutputChunk:
     """
     data: TranscriptionChunk | Literal[Signal.FINISH]
     
-    # total audio seconds processed, optional
-    seconds_processed: float | None = None
+    seconds_processed: float
     
-    # real-world timestamps in seconds (time.time()) filled by ASRStreamingQueue
-    put_timestamp: float | None = None
-    get_timestamp: float | None = None
+    put_timestamp: float = np.nan
+    get_timestamp: float = np.nan
     
     
 def check_consistency(input_chunks: list[InputChunk], output_chunks: list[OutputChunk]):
@@ -91,17 +87,17 @@ def check_consistency(input_chunks: list[InputChunk], output_chunks: list[Output
     Fails indicate errors in the chunk processing pipeline (sender, buffer or model).
     """
     for input_chunk in input_chunks:
-        assert N(input_chunk.put_timestamp) <= N(input_chunk.get_timestamp)
+        assert input_chunk.put_timestamp <= input_chunk.get_timestamp
     for input_chunk in output_chunks:
-        assert N(input_chunk.put_timestamp) <= N(input_chunk.get_timestamp)
+        assert input_chunk.put_timestamp <= input_chunk.get_timestamp
     for output_chunk in output_chunks:
         if output_chunk.data is not Signal.FINISH:
             seconds_consumed = max([
-                N(c.end_time)
+                c.end_time
                 for c in input_chunks
-                if N(c.get_timestamp) < N(output_chunk.put_timestamp)
+                if c.get_timestamp < output_chunk.put_timestamp
             ])
-            assert seconds_consumed >= N(output_chunk.seconds_processed)
+            assert seconds_consumed >= output_chunk.seconds_processed
 
 
 CHUNK_TYPE = TypeVar('CHUNK_TYPE', InputChunk, OutputChunk)
@@ -156,7 +152,7 @@ class InputBuffer(ASRStreamingQueue[InputChunk]):
         super().__init__(name=name)
         self._rechunking_mode_on: bool = False
         self._rechunking_buffer: dict[ID_TYPE, AUDIO_CHUNK_TYPE] = {}
-        self._rechunking_end_time: dict[ID_TYPE, float | None] = {}
+        self._rechunking_end_time: dict[ID_TYPE, float] = {}
         self._rechunking_finish_received: dict[ID_TYPE, bool] = {}
         
     @override
@@ -171,7 +167,7 @@ class InputBuffer(ASRStreamingQueue[InputChunk]):
         self,
         size: int,
         id: ID_TYPE | None = None,
-    ) -> tuple[ID_TYPE, AUDIO_CHUNK_TYPE | None, bool, float | None]:
+    ) -> tuple[ID_TYPE, AUDIO_CHUNK_TYPE | None, bool, float]:
         '''
         Internally calles `.get()` as many times as needed and concatenates and/or slices the results
         to obtain the desired array size.
@@ -430,14 +426,20 @@ class DummyASR(StreamingASR):
             new_transcribed_seconds = math.ceil(self._received_seconds[id])
             
             for i in range(self._transcribed_seconds[id], new_transcribed_seconds):
-                self.output_buffer.put(OutputChunk(data=TranscriptionChunk(text=str(i))), id=id)
+                self.output_buffer.put(OutputChunk(
+                    data=TranscriptionChunk(text=str(i)),
+                    seconds_processed=chunk.end_time,
+                ), id=id)
                 
             self._transcribed_seconds[id] = new_transcribed_seconds
             
             if chunk.data is Signal.FINISH:
                 del self._received_seconds[id]
                 del self._transcribed_seconds[id]
-                self.output_buffer.put(OutputChunk(data=Signal.FINISH), id=id)
+                self.output_buffer.put(OutputChunk(
+                    data=Signal.FINISH,
+                    seconds_processed=chunk.end_time,
+                ), id=id)
     
     @property
     @override

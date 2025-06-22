@@ -29,12 +29,12 @@ class VoskStreaming(StreamingASR):
         """Seems like we need to create one for each recording"""
         return KaldiRecognizer(self._model, self.sampling_rate)
     
-    def _send_finish(self, id: ID_TYPE):
-        self.output_buffer.put(OutputChunk(data=Signal.FINISH), id=id)
+    def _send_finish(self, id: ID_TYPE, end_time: float):
+        self.output_buffer.put(OutputChunk(data=Signal.FINISH, seconds_processed=end_time), id=id)
         self._recognizers.pop(id, None)
         self._transcription_chunk_ref.pop(id, None)
     
-    def _process_chunk(self, id: ID_TYPE, data: AUDIO_CHUNK_TYPE, end_time: float | None):
+    def _process_chunk(self, id: ID_TYPE, data: AUDIO_CHUNK_TYPE, end_time: float):
         assert isinstance(data, bytes)
         rec = self._recognizers[id]
         
@@ -49,7 +49,7 @@ class VoskStreaming(StreamingASR):
         
         self.output_buffer.put(OutputChunk(
             data=TranscriptionChunk(uid=self._transcription_chunk_ref[id], text=text),
-            seconds_processed=end_time
+            seconds_processed=end_time,
         ), id=id)
         
         if is_final:
@@ -62,7 +62,7 @@ class VoskStreaming(StreamingASR):
             while True:
                 chunk, id = self.input_buffer.get()
                 if chunk.data is Signal.FINISH:
-                    self._send_finish(id)
+                    self._send_finish(id, chunk.end_time)
                 else:
                     self._process_chunk(id, chunk.data, chunk.end_time)
         else:
@@ -72,7 +72,7 @@ class VoskStreaming(StreamingASR):
                 if data is not None:
                     self._process_chunk(id, data, end_time)
                 if is_finished:
-                    self._send_finish(id)
+                    self._send_finish(id, end_time)
     
     @property
     @override

@@ -19,6 +19,7 @@ def test_duplicate_input_ids():
     with pytest.raises(RuntimeError):
         for _ in range(4):
             asr.output_buffer.get()
+    asr.stop_thread()
 
 
 def test_dummy():

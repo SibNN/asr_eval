@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal, Sequence, cast
+from typing import Literal, Sequence
 from dataclasses import dataclass
 import multiprocessing as mp
 import copy
@@ -48,11 +48,11 @@ class RecordingStreamingEvaluation:
     
     @property
     def start_timestamp(self) -> float:
-        return N(N(self.input_chunks)[0].put_timestamp)
+        return self.input_chunks[0].put_timestamp
     
     @property
     def finish_timestamp(self) -> float:
-        return N(N(self.output_chunks)[-1].put_timestamp)
+        return self.output_chunks[-1].put_timestamp
 
 
 def default_evaluation_pipeline(
@@ -104,8 +104,8 @@ def default_evaluation_pipeline(
         recording.transcription_words,
         processes=1,
         timestamps=np.arange(
-            N(input_chunks[0].put_timestamp),
-            N(output_chunks[-1].put_timestamp) + 0.2 - 0.0001,
+            input_chunks[0].put_timestamp,
+            output_chunks[-1].put_timestamp + 0.2 - 0.0001,
             step=0.2,
         ).tolist(),
     )
@@ -246,26 +246,25 @@ def get_partial_alignments(
         output_history = output_history[:-1]
 
     # check that timings are not None and do not decrease
-    assert np.all(np.diff([(x.put_timestamp or np.nan) for x in input_history])[1:] >= 0)
-    assert np.all(np.diff([(x.start_time or np.nan) for x in input_history])[1:] >= 0)
-    assert np.all(np.diff([(x.end_time or np.nan) for x in input_history])[1:] >= 0)
-    assert np.all(np.diff([(x.put_timestamp or np.nan) for x in output_history])[1:] >= 0)
+    assert np.all(np.diff([x.put_timestamp for x in input_history])[1:] >= 0)
+    assert np.all(np.diff([x.end_time for x in input_history])[1:] >= 0)
+    assert np.all(np.diff([x.put_timestamp for x in output_history])[1:] >= 0)
     
     def get_audio_seconds_sent(time: float) -> float:
         input_chunks_sent = [
             input_chunk for input_chunk in input_history
-            if N(input_chunk.put_timestamp) < time
+            if input_chunk.put_timestamp < time
         ]
-        return N(input_chunks_sent[-1].end_time) if input_chunks_sent else 0
+        return input_chunks_sent[-1].end_time if input_chunks_sent else 0
     
     partial_alignments: list[PartialAlignment] = []
     for i, output_chunk in enumerate(output_history):
         partial_alignments.append(PartialAlignment(
             pred=split_text_into_tokens(TranscriptionChunk.join(output_history[:i + 1])),
             alignment=None, # type: ignore
-            at_time=N(output_chunk.put_timestamp),
-            audio_seconds_sent=get_audio_seconds_sent(N(output_chunk.put_timestamp)),
-            audio_seconds_processed=N(output_chunk.seconds_processed),
+            at_time=output_chunk.put_timestamp,
+            audio_seconds_sent=get_audio_seconds_sent(output_chunk.put_timestamp),
+            audio_seconds_processed=output_chunk.seconds_processed,
         ))
     
     if timestamps is not None:
@@ -328,25 +327,25 @@ def remap_time(
     inserted_delays: list[tuple[float, float]] = []
 
     # set put_timestamp as if StreamingAudioSender sends with correct delays
-    start_time = cast(float, input_chunks[0].put_timestamp)
+    start_time = input_chunks[0].put_timestamp
     for start_cutoff, input_chunk in zip(cutoffs[:-1], input_chunks, strict=True):
         input_chunk.put_timestamp = start_time + start_cutoff.t_real
 
     # insert delays when get_timestamp < put_timestamp, updating get_timestamp accordingly
     for input_chunk in input_chunks[1:]:
-        put = N(input_chunk.put_timestamp)
-        get = N(input_chunk.get_timestamp)
+        put = input_chunk.put_timestamp
+        get = input_chunk.get_timestamp
         get += sum([delta for t, delta in inserted_delays if t <= get])
         if get < put:
             delay = put - get
-            inserted_delays.append((N(input_chunk.get_timestamp), delay))
+            inserted_delays.append((input_chunk.get_timestamp, delay))
             get += delay
         
         input_chunk.get_timestamp = get
 
     # update put_timestamp and get_timestamp for output chunks accordingly
     for output_chunk in output_chunks:
-        put = N(output_chunk.put_timestamp)
+        put = output_chunk.put_timestamp
         put += sum([delta for t, delta in inserted_delays if t <= put])
         output_chunk.put_timestamp = put
         output_chunk.get_timestamp = put
