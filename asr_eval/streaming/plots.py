@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from .model import InputChunk, OutputChunk, Signal
 from ..align.data import Token
 from .evaluation import PartialAlignment, RecordingStreamingEvaluation
-from ..utils import N
+from ..utils.utils import N
 
 
 def draw_partial_alignment(

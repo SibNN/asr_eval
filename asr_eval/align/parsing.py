@@ -8,7 +8,7 @@ from typing import Literal, cast
 import razdel
 
 from .data import Anything, Token, MultiVariant
-from ..utils import apply_ansi_formatting, Formatting, FormattingSpan
+from ..utils.utils import apply_ansi_formatting, Formatting, FormattingSpan
     
 
 # def _strip_and_locate(text: str, strip: str) -> tuple[str, int, int]:

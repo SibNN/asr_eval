@@ -6,7 +6,7 @@ from vosk import Model, KaldiRecognizer # type: ignore
 
 from ..buffer import ID_TYPE
 from ..model import AUDIO_CHUNK_TYPE, OutputChunk, StreamingASR, Signal, TranscriptionChunk
-from ...utils import new_uid
+from ...utils.utils import new_uid
 
 class VoskStreaming(StreamingASR):
     def __init__(
