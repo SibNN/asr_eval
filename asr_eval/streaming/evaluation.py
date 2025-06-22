@@ -16,7 +16,6 @@ from .caller import receive_full_transcription
 from ..align.data import Match, MatchesList, MultiVariant, Token
 from ..align.parsing import split_text_into_tokens
 from ..align.partial import align_partial
-from ..utils.utils import N
 from ..datasets.recording import Recording
 
 

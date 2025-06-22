@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 
-from asr_eval.utils.utils import groupby_into_spans
+from asr_eval.utils.misc import groupby_into_spans
 
 from termcolor import colored
 

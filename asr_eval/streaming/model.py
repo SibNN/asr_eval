@@ -13,7 +13,7 @@ import numpy as np
 import numpy.typing as npt
 
 from .buffer import ID_TYPE, StreamingQueue
-from ..utils.utils import new_uid
+from ..utils.misc import new_uid
 
 
 class Signal(Enum):
