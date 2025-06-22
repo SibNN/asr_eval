@@ -12,8 +12,8 @@ from typing import Any, Literal, Self, Sequence, TypeVar, override
 import numpy as np
 import numpy.typing as npt
 
-from .buffer import ID_TYPE, StreamingQueue
-from ..utils.misc import new_uid
+from asr_eval.streaming.buffer import ID_TYPE, StreamingQueue
+from asr_eval.utils.misc import new_uid
 
 
 class Signal(Enum):

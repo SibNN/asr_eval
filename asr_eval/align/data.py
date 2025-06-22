@@ -5,7 +5,7 @@ from typing import Any, Literal, cast
 
 import numpy as np
 
-from ..utils.misc import new_uid
+from asr_eval.utils.misc import new_uid
 
 
 @dataclass(slots=True)

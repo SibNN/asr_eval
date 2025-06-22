@@ -5,9 +5,9 @@ import numpy as np
 import numpy.typing as npt
 import matplotlib.pyplot as plt
 
-from .model import InputChunk, OutputChunk, Signal
-from ..align.data import Token
-from .evaluation import PartialAlignment, RecordingStreamingEvaluation
+from asr_eval.streaming.model import InputChunk, OutputChunk, Signal
+from asr_eval.streaming.evaluation import PartialAlignment, RecordingStreamingEvaluation
+from asr_eval.align.data import Token
 
 
 def draw_partial_alignment(

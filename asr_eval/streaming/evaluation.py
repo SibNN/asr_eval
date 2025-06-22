@@ -9,14 +9,14 @@ import numpy as np
 import numpy.typing as npt
 
 
-from .buffer import ID_TYPE
-from .model import InputChunk, OutputChunk, Signal, StreamingASR, TranscriptionChunk, check_consistency
-from .sender import BaseStreamingAudioSender, Cutoff, StreamingAudioSender
-from .caller import receive_full_transcription
-from ..align.data import Match, MatchesList, MultiVariant, Token
-from ..align.parsing import split_text_into_tokens
-from ..align.partial import align_partial
-from ..datasets.recording import Recording
+from asr_eval.streaming.buffer import ID_TYPE
+from asr_eval.streaming.model import InputChunk, OutputChunk, Signal, StreamingASR, TranscriptionChunk, check_consistency
+from asr_eval.streaming.sender import BaseStreamingAudioSender, Cutoff, StreamingAudioSender
+from asr_eval.streaming.caller import receive_full_transcription
+from asr_eval.align.data import Match, MatchesList, MultiVariant, Token
+from asr_eval.align.parsing import split_text_into_tokens
+from asr_eval.align.partial import align_partial
+from asr_eval.datasets.recording import Recording
 
 
 @dataclass(kw_only=True)

@@ -4,7 +4,7 @@ from functools import cache
 
 import nltk
 
-from .data import Anything, Token, MultiVariant, Match, MatchesList, AlignmentScore
+from asr_eval.align.data import Anything, Token, MultiVariant, Match, MatchesList, AlignmentScore
 
 
 @cache

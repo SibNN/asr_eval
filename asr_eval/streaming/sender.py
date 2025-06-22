@@ -8,8 +8,7 @@ from typing import Literal, Self, override
 import numpy as np
 
 from asr_eval.streaming.buffer import ID_TYPE
-
-from .model import AUDIO_CHUNK_TYPE, InputBuffer, InputChunk, Signal
+from asr_eval.streaming.model import AUDIO_CHUNK_TYPE, InputBuffer, InputChunk, Signal
 
 
 @dataclass(slots=True)

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import overload
 from itertools import groupby
 
+
 @overload
 def ctc_mapping(symbols: list[str], blank: str) -> list[str]: ...
 

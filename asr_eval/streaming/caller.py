@@ -1,9 +1,9 @@
 from concurrent.futures import ThreadPoolExecutor
 from textwrap import shorten
-from asr_eval.streaming.buffer import ID_TYPE
 
-from .model import OutputChunk, Signal, StreamingASR, TranscriptionChunk
-from .sender import BaseStreamingAudioSender, StreamingAudioSender
+from asr_eval.streaming.buffer import ID_TYPE
+from asr_eval.streaming.model import OutputChunk, Signal, StreamingASR, TranscriptionChunk
+from asr_eval.streaming.sender import BaseStreamingAudioSender, StreamingAudioSender
 
 
 def receive_full_transcription(
