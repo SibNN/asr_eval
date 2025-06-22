@@ -13,10 +13,9 @@ from .buffer import ID_TYPE
 from .model import InputChunk, OutputChunk, Signal, StreamingASR, TranscriptionChunk, check_consistency
 from .sender import BaseStreamingAudioSender, Cutoff, StreamingAudioSender
 from .caller import receive_full_transcription
-from ..align.data import Match, MatchesList, Token
+from ..align.data import Match, MatchesList, MultiVariant, Token
 from ..align.parsing import split_text_into_tokens
-from ..align.recursive import match_from_pair
-from ..align.partial import align_partial, words_count
+from ..align.partial import align_partial
 from ..utils import N
 from ..data import Recording
 
@@ -102,7 +101,7 @@ def default_evaluation_pipeline(
     partial_alignments = get_partial_alignments(
         input_chunks,
         output_chunks,
-        cast(list[Token], recording.transcription_words),
+        recording.transcription_words,
         processes=1,
         timestamps=np.arange(
             N(input_chunks[0].put_timestamp),
@@ -138,6 +137,7 @@ class PartialAlignment:
     
     Obtaining PartialAlignment requires word timings for the true transcription.
     """
+    pred: list[Token]
     alignment: MatchesList
     at_time: float
     audio_seconds_sent: float
@@ -220,7 +220,7 @@ class StreamingASRErrorPosition:
 def get_partial_alignments(
     input_history: Sequence[InputChunk],
     output_history: Sequence[OutputChunk],
-    true_word_timings: list[Token],
+    true_word_timings: list[Token | MultiVariant],
     timestamps: list[float] | npt.NDArray[np.integer] | None = None,
     processes: int = 1,
 ) -> list[PartialAlignment]:
@@ -251,74 +251,58 @@ def get_partial_alignments(
     assert np.all(np.diff([(x.end_time or np.nan) for x in input_history])[1:] >= 0)
     assert np.all(np.diff([(x.put_timestamp or np.nan) for x in output_history])[1:] >= 0)
     
-    texts: list[list[Token]] = [
-        split_text_into_tokens(TranscriptionChunk.join(output_history[:i + 1]))
-        for i in range(len(output_history))
-    ]
-    seconds_processed: list[float] = [
-        N(output_chunk.seconds_processed)
-        for output_chunk in output_history
-    ]
+    def get_audio_seconds_sent(time: float) -> float:
+        input_chunks_sent = [
+            input_chunk for input_chunk in input_history
+            if N(input_chunk.put_timestamp) < time
+        ]
+        return N(input_chunks_sent[-1].end_time) if input_chunks_sent else 0
+    
+    partial_alignments: list[PartialAlignment] = []
+    for i, output_chunk in enumerate(output_history):
+        partial_alignments.append(PartialAlignment(
+            pred=split_text_into_tokens(TranscriptionChunk.join(output_history[:i + 1])),
+            alignment=None, # type: ignore
+            at_time=N(output_chunk.put_timestamp),
+            audio_seconds_sent=get_audio_seconds_sent(N(output_chunk.put_timestamp)),
+            audio_seconds_processed=N(output_chunk.seconds_processed),
+        ))
+    
+    if timestamps is not None:
+        partial_alignments_for_times: list[PartialAlignment] = []
+        for at_time in timestamps:
+            prev_alignments = [pa for pa in partial_alignments if pa.at_time < at_time]
+            if len(prev_alignments):
+                pa = copy.deepcopy(prev_alignments[-1])
+                pa.at_time = at_time
+                pa.audio_seconds_sent = get_audio_seconds_sent(at_time)
+            else:
+                pa = PartialAlignment(
+                    pred=[],
+                    alignment=None, # type: ignore
+                    at_time=at_time,
+                    audio_seconds_sent=get_audio_seconds_sent(at_time),
+                    audio_seconds_processed=0,
+                )
+            partial_alignments_for_times.append(pa)
+        partial_alignments = partial_alignments_for_times
     
     if processes > 1:
         pool = mp.Pool(processes=processes)
         alignments = pool.map(
-            lambda x: align_partial(true_word_timings, *x),
-            zip(texts, seconds_processed, strict=True) 
+            lambda pa: align_partial(true_word_timings, pa.pred, N(pa.audio_seconds_processed)),
+            partial_alignments
         )
     else:
         alignments = [
-            align_partial(true_word_timings, *x)
-            for x in zip(texts, seconds_processed, strict=True) 
+            align_partial(true_word_timings, pa.pred, N(pa.audio_seconds_processed))
+            for pa in partial_alignments
         ]
     
-    partial_alignments: list[PartialAlignment] = []
-    for al, output_chunk in zip(alignments, output_history):
-        input_chunks_sent = [
-            input_chunk for input_chunk in input_history
-            if N(input_chunk.put_timestamp) < N(output_chunk.put_timestamp)
-        ]
-        partial_alignments.append(PartialAlignment(
-            alignment=al,
-            at_time=N(output_chunk.put_timestamp),
-            audio_seconds_sent=N(input_chunks_sent[-1].end_time) if input_chunks_sent else 0,
-            audio_seconds_processed=N(output_chunk.seconds_processed),
-        ))
-    
-    if timestamps is None:
-        return partial_alignments
-    
-    partial_alignments_for_times: list[PartialAlignment] = []
-    for time in timestamps:
-        output_chunks_put = [x for x in output_history if N(x.put_timestamp) < time]
-        n_chunks_sent = len(output_chunks_put)
-        if n_chunks_sent > 0:
-            partial_alignment = copy.deepcopy(partial_alignments[n_chunks_sent - 1])
-            partial_alignment.at_time = time
-        else:
-            partial_alignment = PartialAlignment(
-                alignment=MatchesList.from_list([]),
-                at_time=time,
-                audio_seconds_sent=0,
-                audio_seconds_processed=0,
-            )
-        input_chunks_sent = [x for x in input_history if N(x.put_timestamp) < time]
-        partial_alignment.audio_seconds_sent = (
-            max([N(x.end_time) for x in input_chunks_sent])
-            if len(input_chunks_sent)
-            else 0
-        )
-        n_sent_words, _ = words_count(true_word_timings, partial_alignment.audio_seconds_sent)
-        sent_words = true_word_timings[:n_sent_words]
-        n_processed_words = sum([len(m.true) for m in partial_alignment.alignment.matches])
-        for word in sent_words[n_processed_words:]:
-            partial_alignment.alignment = (
-                partial_alignment.alignment.append(match_from_pair([word], []))
-            )
+    for al, pa in zip(alignments, partial_alignments):
+        pa.alignment = al
         
-        partial_alignments_for_times.append(partial_alignment)
-    
-    return partial_alignments_for_times
+    return partial_alignments
         
         
         

@@ -48,7 +48,7 @@ def match_from_pair(true: list[Token], pred: list[Token]) -> Match:
     )
     
 
-def _select_shortest_multi_variants(seq: list[Token | MultiVariant]) -> list[Token]:
+def select_shortest_multi_variants(seq: list[Token | MultiVariant]) -> list[Token]:
     result: list[Token] = []
     for x in seq:
         if isinstance(x, MultiVariant):
@@ -98,7 +98,7 @@ def align(
         elif len(_pred) == 0 and len(_true) > 0:
             _matches: list[Match] = []
             for token in _true:
-                if len(shortest := _select_shortest_multi_variants([token])):
+                if len(shortest := select_shortest_multi_variants([token])):
                     _matches.append(match_from_pair(shortest, []))
             return MatchesList.from_list(_matches)
         elif len(_pred) > 0 and len(_true) == 0:

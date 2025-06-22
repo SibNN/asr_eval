@@ -65,6 +65,10 @@ class _MultiVariantEncoded:
         return [option for option in self.options if not self._is_valid(option)]
 
 
+class CannotFillTimings(ValueError):
+    pass
+
+
 def fill_word_timings_inplace(
     model: GigaAMASR,
     waveform: npt.NDArray[np.floating],
@@ -85,14 +89,17 @@ def fill_word_timings_inplace(
     for x in encoded_multivariant:
         match x:
             case _TokenEncoded():
-                assert x.idxs != 'not_possible', 'cannot encode'
+                if x.idxs == 'not_possible':
+                    raise CannotFillTimings()
                 if x.idxs != 'anything':
                     baseline.append(x)
             case _MultiVariantEncoded():
                 for option in x.options:
-                    assert all(t.idxs != 'anything' for t in option), 'cannot encode'
+                    if any(t.idxs == 'anything' for t in option):
+                        raise CannotFillTimings()
                 valid_options = x.filter_valid_options()
-                assert len(valid_options) > 0, 'cannot encode'
+                if len(valid_options) == 0:
+                    raise CannotFillTimings()
                 baseline += valid_options[0]
 
     # do force alignment on baseline
@@ -128,13 +135,13 @@ def fill_word_timings_inplace(
                         t.ref.end_time = end
                 elif len(option) == 1:
                     # scenario 2: baseline has many words, other option has one word
-                    assert len(option) == 1, 'cannot encode'
                     option[0].ref.start_time = baseline_start
                     option[0].ref.end_time = baseline_end
                 else:
                     # scenario 3: baseline has 2 words, other option has 2 words
                     # and either first word matches or second word matches
-                    assert len(baseline_option) == 2 and len(option) == 2, 'cannot encode'
+                    if len(baseline_option) != 2 or len(option) != 2:
+                        raise CannotFillTimings()
                     if (
                         baseline_option[0].ref.value == option[0].ref.value
                         or baseline_option[1].ref.value == option[1].ref.value
@@ -158,8 +165,10 @@ def fill_word_timings_inplace(
                 if i != len(encoded_multivariant) - 1
                 else finish_time
             )
-            assert not np.isnan(prev_end_time), 'cannot encode'
-            assert not np.isnan(next_start_time), 'cannot encode'
+            if np.isnan(prev_end_time):
+                    raise CannotFillTimings()
+            if np.isnan(next_start_time):
+                    raise CannotFillTimings()
             # TODO make and return deep copy of all refs
             t.ref.start_time = prev_end_time
             t.ref.end_time = next_start_time
