@@ -3,8 +3,8 @@ from itertools import pairwise
 import matplotlib.pyplot as plt
 
 from asr_eval.align.data import MultiVariant, Token
-from asr_eval.utils.utils import draw_bezier
-from asr_eval.utils.utils import draw_line_with_ticks
+from asr_eval.utils.plots import draw_bezier
+from asr_eval.utils.plots import draw_line_with_ticks
 
 
 def draw_timed_transcription(
