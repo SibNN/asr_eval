@@ -33,11 +33,10 @@ def draw_partial_alignment(
                 case 'not_yet':
                     color = 'gray'
             ax.plot([pos.start_time, pos.end_time], [y_pos, y_pos], color=color) # type: ignore
-    if partial_alignment.audio_seconds_processed is not None:
-        ax.scatter( # type: ignore
-            [partial_alignment.audio_seconds_processed], [y_pos], # type: ignore
-            s=30, zorder=2, color='red', marker='|'
-        )
+    ax.scatter( # type: ignore
+        [partial_alignment.audio_seconds_processed], [y_pos], # type: ignore
+        s=30, zorder=2, color='red', marker='|'
+    )
     ax.scatter( # type: ignore
         [partial_alignment.audio_seconds_sent], [y_pos], # type: ignore
         s=20, zorder=2, color='red', marker='.'

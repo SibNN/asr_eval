@@ -141,11 +141,9 @@ class PartialAlignment:
     alignment: MatchesList
     at_time: float
     audio_seconds_sent: float
-    audio_seconds_processed: float | None = None
+    audio_seconds_processed: float
 
     def get_error_positions(self) -> list[StreamingASRErrorPosition]:
-        assert self.audio_seconds_processed is not None
-
         results: list[StreamingASRErrorPosition] = []
 
         # split into head and tail
@@ -289,12 +287,12 @@ def get_partial_alignments(
     if processes > 1:
         pool = mp.Pool(processes=processes)
         alignments = pool.map(
-            lambda pa: align_partial(true_word_timings, pa.pred, N(pa.audio_seconds_processed)),
+            lambda pa: align_partial(true_word_timings, pa.pred, pa.audio_seconds_processed),
             partial_alignments
         )
     else:
         alignments = [
-            align_partial(true_word_timings, pa.pred, N(pa.audio_seconds_processed))
+            align_partial(true_word_timings, pa.pred, pa.audio_seconds_processed)
             for pa in partial_alignments
         ]
     
