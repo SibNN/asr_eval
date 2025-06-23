@@ -34,5 +34,11 @@ def groupby_into_spans(iterable: Iterable[T]) -> Iterable[tuple[T, int, int]]:
 #     return val
 
 
-
-
+def self_product_nonequal(iterable: Iterable[T], triangle: bool) -> Iterable[tuple[T, T]]:
+    for x1_idx, x1 in enumerate(iterable):
+        for x2_idx, x2 in enumerate(iterable):
+            if (
+                (triangle and x1_idx < x2_idx)
+                or (not triangle and x1_idx != x2_idx)
+            ):
+                yield (x1, x2)

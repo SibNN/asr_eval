@@ -14,6 +14,7 @@ from asr_eval.align.parsing import split_text_into_tokens
 from asr_eval.ctc.base import ctc_mapping
 from asr_eval.ctc.forced_alignment import forced_alignment
 from asr_eval.models.gigaam import FREQ, decode, encode, transcribe_with_gigaam_ctc, GigaAMEncodeError
+from asr_eval.utils.misc import self_product_nonequal
 
 @dataclass
 class _TokenEncoded:
@@ -67,12 +68,98 @@ class _MultiVariantEncoded:
 
 class CannotFillTimings(ValueError):
     pass
+    
 
+def _propagate_timings(
+    from_block: list[_TokenEncoded],
+    to_block: list[_TokenEncoded],
+) -> bool:
+    from_block = from_block.copy()
+    to_block = to_block.copy()
+    
+    shared_head_from: list[_TokenEncoded] = []
+    shared_head_to: list[_TokenEncoded] = []
+    shared_tail_from: list[_TokenEncoded] = []
+    shared_tail_to: list[_TokenEncoded] = []
+    
+    # cut an equal head
+    while len(from_block) and len(to_block) and from_block[0].ref.value == to_block[0].ref.value:
+        shared_head_from.append(from_block[0])
+        shared_head_to.append(to_block[0])
+        from_block = from_block[1:]
+        to_block = to_block[1:]
+        
+    # cut an equal tail
+    while len(from_block) and len(to_block) and from_block[-1].ref.value == to_block[-1].ref.value:
+        shared_tail_from.insert(0, from_block[-1])
+        shared_tail_to.insert(0, to_block[-1])
+        from_block = from_block[:-1]
+        to_block = to_block[:-1]
+    
+    def propagate_pairwise(_from: list[_TokenEncoded], _to: list[_TokenEncoded]):
+        for token1, token2 in zip(_from, _to, strict=True):
+            token2.ref.start_time = token1.ref.start_time
+            token2.ref.end_time = token1.ref.end_time
+    
+    # study the different part
+    if len(from_block) <= 1 or len(to_block) <= 1:
+        propagate_pairwise(shared_head_from, shared_head_to)
+        propagate_pairwise(shared_tail_from, shared_tail_to)
+        # propagate timings for different part
+        if len(from_block) == 0:
+            return False
+            # for token in to_block:
+            #     token.ref.start_time = np.inf  # use as a temporary placeholder
+            #     token.ref.end_time = np.inf  # use as a temporary placeholder
+        elif len(from_block) == 1:
+            times = np.linspace(
+                from_block[0].ref.start_time,
+                from_block[0].ref.end_time,
+                num=len(to_block) + 1
+            )
+            for (time1, time2), token in zip(pairwise(times), to_block):
+                token.ref.start_time = time1
+                token.ref.end_time = time2
+        elif len(to_block) == 1:
+            to_block[0].ref.start_time = from_block[0].ref.start_time
+            to_block[0].ref.end_time = from_block[-1].ref.end_time
+        return True
+
+    # custom rules
+    for currency_symbol in '$', '€', '¥', '£', '₽', '₹', '¥':
+        # for example, from ['100', '000', '$'] to from ['$', '100', '000']
+        if (
+            len(from_block) == len(to_block) > 1
+            and from_block[-1].ref.value == currency_symbol
+            and to_block[0].ref.value == currency_symbol
+        ):
+            propagate_pairwise(from_block[:-1], to_block[1:])
+            to_block[0].ref.start_time = to_block[1].ref.start_time
+            to_block[0].ref.end_time = to_block[1].ref.end_time
+    
+    return False
+
+
+def _print_propagation(
+    from_block: list[_TokenEncoded],
+    to_block: list[_TokenEncoded],
+):
+    str1 = ', '.join(
+        f'{t.ref.value} ({t.ref.start_time:.1f}-{t.ref.end_time:.1f})'
+        for t in from_block
+    )
+    str2 = ', '.join(
+        f'{t.ref.value} ({t.ref.start_time:.1f}-{t.ref.end_time:.1f})'
+        for t in to_block
+    )
+    print(f'Propagated timings from [{str1}] to [{str2}]')
+    
 
 def fill_word_timings_inplace(
     model: GigaAMASR,
     waveform: npt.NDArray[np.floating],
     tokens: list[Token | MultiVariant],
+    verbose: bool = False,
 ):
     outputs = transcribe_with_gigaam_ctc(model, [waveform])[0]
     finish_time = len(waveform) / 16_000
@@ -90,16 +177,19 @@ def fill_word_timings_inplace(
         match x:
             case _TokenEncoded():
                 if x.idxs == 'not_possible':
-                    raise CannotFillTimings()
+                    raise CannotFillTimings(f'Cannot encode a single-variant token {x.ref.value}')
                 if x.idxs != 'anything':
                     baseline.append(x)
             case _MultiVariantEncoded():
                 for option in x.options:
                     if any(t.idxs == 'anything' for t in option):
-                        raise CannotFillTimings()
+                        raise CannotFillTimings('Cannot process Anything() in a multivatiant block')
                 valid_options = x.filter_valid_options()
                 if len(valid_options) == 0:
-                    raise CannotFillTimings()
+                    raise CannotFillTimings(
+                        'Cannot encode any option in a multivariant block'
+                        + str([[t.value for t in option] for option in x.ref.options])
+                    )
                 baseline += valid_options[0]
 
     # do force alignment on baseline
@@ -119,38 +209,28 @@ def fill_word_timings_inplace(
     # process the remaining multivariant options
     for block in encoded_multivariant:
         if isinstance(block, _MultiVariantEncoded):
-            baseline_option = block.filter_valid_options()[0]
-            baseline_start = baseline_option[0].ref.start_time
-            baseline_end = baseline_option[-1].ref.end_time
-            for option in block.filter_valid_options()[1:] + block.filter_invalid_options():
-                # skip the first valid option that was in the baseline
-                if len(option) == 0:
-                    # skip empty options
-                    continue
-                elif len(baseline_option) == 1:
-                    # scenario 1: baseline has one word, other option has one or many words
-                    times = np.linspace(baseline_start, baseline_end, endpoint=True, num=len(option) + 1)
-                    for t, (start, end) in zip(option, pairwise(times), strict=True):
-                        t.ref.start_time = start
-                        t.ref.end_time = end
-                elif len(option) == 1:
-                    # scenario 2: baseline has many words, other option has one word
-                    option[0].ref.start_time = baseline_start
-                    option[0].ref.end_time = baseline_end
-                else:
-                    # scenario 3: baseline has 2 words, other option has 2 words
-                    # and either first word matches or second word matches
-                    if len(baseline_option) != 2 or len(option) != 2:
-                        raise CannotFillTimings()
-                    if (
-                        baseline_option[0].ref.value == option[0].ref.value
-                        or baseline_option[1].ref.value == option[1].ref.value
-                    ):
-                        option[0].ref.start_time = baseline_option[0].ref.start_time
-                        option[0].ref.end_time = baseline_option[0].ref.end_time
-                        option[1].ref.start_time = baseline_option[1].ref.start_time
-                        option[1].ref.end_time = baseline_option[1].ref.end_time
-                # TODO do force alignment for other valid options?
+            # propagate timings: first propagate for equal length (stage 1), then for others
+            for stage in (1, 2):
+                while True:
+                    for option1, option2 in self_product_nonequal(block.options, triangle=False):
+                        if (
+                            len(option1)
+                            and all(t.ref.is_timed for t in option1)
+                            and not all(t.ref.is_timed for t in option2)
+                            and (stage != 1 or len(option1) == len(option2))
+                        ):
+                            can_propagate = _propagate_timings(from_block=option1, to_block=option2)
+                            if can_propagate:
+                                if verbose:
+                                    _print_propagation(from_block=option1, to_block=option2)
+                                break
+                    else:
+                        break
+            
+            # check if all options are now timed
+            for option in block.options:
+                if not all(t.ref.is_timed for t in option):
+                    raise CannotFillTimings('Cannot fill for', [t.ref.value for t in option])
 
     # process the Anything tokens: expand their time spans as wide as possible
     for i, t in enumerate(encoded_multivariant):
@@ -166,9 +246,9 @@ def fill_word_timings_inplace(
                 else finish_time
             )
             if np.isnan(prev_end_time):
-                    raise CannotFillTimings()
+                    raise CannotFillTimings('Cannot find a left boundary for Anything()')
             if np.isnan(next_start_time):
-                    raise CannotFillTimings()
+                    raise CannotFillTimings('Cannot find a right boundary for Anything()')
             # TODO make and return deep copy of all refs
             t.ref.start_time = prev_end_time
             t.ref.end_time = next_start_time
