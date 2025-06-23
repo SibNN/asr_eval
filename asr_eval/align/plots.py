@@ -35,7 +35,7 @@ def draw_timed_transcription(
                 )
             case MultiVariant():
                 for option_idx, option in enumerate(block.options):
-                    option_y_pos = y_pos + y_delta * option_idx
+                    option_y_pos = y_pos + y_delta * option_idx / (len(block.options) - 1)
                     for t in option:
                         draw_line_with_ticks(
                             x1=t.start_time,
@@ -63,8 +63,11 @@ def draw_timed_transcription(
             case Token():
                 write_token(block, y_pos)
             case MultiVariant():
-                non_empty_option = [o for o in block.options if len(o)][0]
-                for token in non_empty_option:
+                best_option = sorted(
+                    block.options,
+                    key=lambda option: len(' '.join(str(t.value) for t in option))
+                )[-1]
+                for token in best_option:
                     write_token(token, y_pos)
 
     # bezier connections
@@ -91,7 +94,7 @@ def draw_timed_transcription(
                     ], ax=ax, indent=0, lw=2)
             case MultiVariant():
                 for option_idx, option in enumerate(block.options):
-                    option_y_pos = y_pos + y_delta * option_idx
+                    option_y_pos = y_pos + y_delta * option_idx / (len(block.options) - 1)
                     draw_bezier([
                         (prev_joint if option_idx == 0 else block.start_time - 0.05, y_pos),
                         (block.start_time, option_y_pos)
