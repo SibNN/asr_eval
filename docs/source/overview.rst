@@ -7,7 +7,7 @@ Multivariant string alignment
 
 **Problem 1**. Often a speech can be transcribed in multiple ways, such as *"On the {seventh|7} - {eighth|8} of May, the {sixteenth|16th|16-th} stage of Formula {1|One} was held."* A usual stage of text normalization does not handle all cases well, especially for non-latin languages with rich word formation. 
 
-**Problem 2**. Some parts of speech are poorly heard. Such parts can be annotathed by `<*>` ("Anything"): a symbol that matches any word sequence, possibly empty. The longer the audio, the more likely it is to contain at least one such section, so the problem is especially relevant for evaluating long-form transcription.
+**Problem 2**. Some parts of speech are either optional to transcribe (like *"Oh..."*) or poorly heard. Optional part can be seen as multivariant block when empty option, and poorly heard parts can be annotathed by `<*>` ("Anything"): a symbol that matches any word sequence, possibly empty. The longer the audio, the more likely it is to contain at least one such section, so the problem is especially relevant for evaluating long-form transcription.
 
 **Solution**. Multivariant string alignment with "Anything" insertions is implemented. This allows you to create high quality multivariant-labeled datasets for ASR evaluation.
 
@@ -22,6 +22,8 @@ Preparing streaming datasets
 ********************************
 
 **Word timings**. An algorithm is impelemented to perform force alignment using CTC models, such as GigaAM 2, to obtain timings for each word, also for multivariant labeling. Such a pseudo-labeling gives gives an error of about 0.2, rarely up to 0.5 seconds, that is enough to test streaming ASR latency and partial transcription quality.
+
+.. _Preparing streaming models:
 
 Preparing streaming models
 ********************************

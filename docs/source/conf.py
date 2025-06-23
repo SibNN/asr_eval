@@ -6,6 +6,8 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
+# type: ignore
+
 project = 'asr_eval'
 copyright = '2025, Oleg Sedukhin'
 author = 'Oleg Sedukhin'
@@ -26,3 +28,6 @@ exclude_patterns = []
 
 html_theme = 'alabaster'
 html_static_path = ['_static']
+
+def setup(app):
+    app.add_css_file('my_theme.css')

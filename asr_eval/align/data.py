@@ -181,7 +181,7 @@ class Match:
     def __repr__(self) -> str:
         first = ' '.join([str(x) for x in self.true])
         second = ' '.join([str(x) for x in self.pred])
-        return f'({first}, {second})'
+        return f'Match({first}, {second})'
 
 
 @dataclass(slots=True)
