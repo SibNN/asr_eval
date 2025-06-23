@@ -7,13 +7,15 @@ import matplotlib.pyplot as plt
 
 from asr_eval.align.plots import draw_timed_transcription
 from asr_eval.streaming.model import InputChunk, OutputChunk, Signal
-from asr_eval.streaming.evaluation import PartialAlignment, RecordingStreamingEvaluation
+from asr_eval.streaming.evaluation import PartialAlignment, RecordingStreamingEvaluation, get_audio_seconds_processed, get_audio_seconds_sent
 
 
 def draw_partial_alignment(
     partial_alignment: PartialAlignment,
     override_y_pos: float | None = None,
     ax: plt.Axes | None = None,
+    show_processed_time: bool = True,
+    show_send_time: bool = True,
 ):
     ax = ax or plt.gca()
     y_pos = override_y_pos if override_y_pos is not None else partial_alignment.at_time
@@ -32,15 +34,18 @@ def draw_partial_alignment(
                     color = 'red'
                 case 'not_yet':
                     color = 'gray'
-            ax.plot([pos.start_time, pos.end_time], [y_pos, y_pos], color=color) # type: ignore
-    ax.scatter( # type: ignore
-        [partial_alignment.audio_seconds_processed], [y_pos], # type: ignore
-        s=30, zorder=2, color='red', marker='|'
-    )
-    ax.scatter( # type: ignore
-        [partial_alignment.audio_seconds_sent], [y_pos], # type: ignore
-        s=20, zorder=2, color='red', marker='.'
-    )
+            dtime = min((pos.end_time - pos.start_time) / 8, 0.2)
+            ax.plot([pos.start_time + dtime, pos.end_time - dtime], [y_pos, y_pos], color=color) # type: ignore
+    if show_processed_time:
+        ax.scatter( # type: ignore
+            [partial_alignment.audio_seconds_processed], [y_pos], # type: ignore
+            s=30, zorder=2, color='red', marker='|'
+        )
+    if show_send_time:
+        ax.scatter( # type: ignore
+            [partial_alignment.audio_seconds_sent], [y_pos], # type: ignore
+            s=20, zorder=2, color='red', marker='.'
+        )
 
 
 def partial_alignments_plot(
@@ -56,6 +61,7 @@ def partial_alignments_plot(
     
     y1, y2 = eval.start_timestamp, eval.finish_timestamp
     y0 = y1 - (y2 - y1) / 15
+    
     draw_timed_transcription(
         eval.recording.transcription_words,
         y_pos=y0,
@@ -64,7 +70,13 @@ def partial_alignments_plot(
     )
 
     for partial_alignment in eval.partial_alignments:
-        draw_partial_alignment(partial_alignment, ax=ax)
+        draw_partial_alignment(partial_alignment, ax=ax, show_processed_time=False, show_send_time=False)
+    
+    real_times = np.linspace(eval.start_timestamp, eval.finish_timestamp, num=3000)
+    sent_times = [get_audio_seconds_sent(t, eval.input_chunks) for t in real_times]
+    processed_times = [get_audio_seconds_processed(t, eval.output_chunks) for t in real_times]
+    plt.plot(processed_times, real_times, color='darkgreen', zorder=1) # type: ignore
+    plt.plot(sent_times, real_times, color='grey', zorder=0) # type: ignore
         
     ax.set_xlabel('Audio time') # type: ignore
     ax.set_ylabel('Real time') # type: ignore

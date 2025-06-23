@@ -17,6 +17,7 @@ from asr_eval.align.data import Match, MatchesList, MultiVariant, Token
 from asr_eval.align.parsing import split_text_into_tokens
 from asr_eval.align.partial import align_partial
 from asr_eval.datasets.recording import Recording
+from asr_eval.utils.misc import new_uid
 
 
 @dataclass(kw_only=True)
@@ -33,6 +34,10 @@ class RecordingStreamingEvaluation:
     `output_chunks` - output chunks obtained from StreamingASR
     
     `partial_alignments` - partial alignments obtained from input and output chunks
+    
+    Properties:
+    `start_timestamp` - a real time when the transcribing was started (the fisrst input chunk was sent).
+    `finish_timestamp` - a real time when the transcribing was ended (the last output chunk was sent).
     """
     recording: Recording
     
@@ -57,10 +62,19 @@ class RecordingStreamingEvaluation:
 def default_evaluation_pipeline(
     recording: Recording,
     asr: StreamingASR,
+    real_time_interval_sec: float = 1 / 5,
+    speed_multiplier: float = 1,
+    without_delays: Literal['yes', 'yes_with_remapping', 'no'] = 'yes_with_remapping',
+    partial_alignment_interval: float = 0.25,
+    reset_timestamps: bool = True,
 ) -> RecordingStreamingEvaluation:
+    '''
+    A default pipeline to evaluate
+    '''
     assert recording.waveform is not None
     
-    id = recording.hf_uid
+    # id = recording.hf_uid
+    id = new_uid()
 
     # preparing input audio
     match asr.audio_type:
@@ -79,24 +93,31 @@ def default_evaluation_pipeline(
         id=id,
         audio=audio,
         array_len_per_sec=array_len_per_sec,
-        real_time_interval_sec=1 / 5,
-        speed_multiplier=1,
+        real_time_interval_sec=real_time_interval_sec,
+        speed_multiplier=speed_multiplier,
         verbose=False,
     )
     output_chunks = receive_full_transcription(
         asr=asr,
         sender=sender,
         id=id,
-        send_all_without_delays=True,
+        send_all_without_delays=without_delays in ('yes', 'yes_with_remapping'),
     )
+    input_chunks = sender.history
+    cutoffs = sender.get_send_times()
+    
+    # remapping
+    if without_delays == 'yes_with_remapping':
+        input_chunks, output_chunks = remap_time(cutoffs, sender.history, output_chunks)
+    
+    # resetting time
+    if reset_timestamps:
+        start_time = input_chunks[0].put_timestamp
+        for chunk in input_chunks + output_chunks:
+            chunk.put_timestamp -= start_time
+            chunk.get_timestamp -= start_time
 
     # processing to save the results
-    cutoffs = sender.get_send_times()
-    input_chunks, output_chunks = remap_time(
-        cutoffs,
-        sender.history,
-        output_chunks,
-    )
     partial_alignments = get_partial_alignments(
         input_chunks,
         output_chunks,
@@ -104,8 +125,8 @@ def default_evaluation_pipeline(
         processes=1,
         timestamps=np.arange(
             input_chunks[0].put_timestamp,
-            output_chunks[-1].put_timestamp + 0.2 - 0.0001,
-            step=0.2,
+            output_chunks[-1].put_timestamp + partial_alignment_interval - 0.00001,
+            step=partial_alignment_interval,
         ).tolist(),
     )
 
@@ -118,7 +139,7 @@ def default_evaluation_pipeline(
         
     return RecordingStreamingEvaluation(
         recording=recording,
-        id=recording.hf_uid,
+        id=id,
         sender=sender,
         partial_alignments=partial_alignments,
         cutoffs=cutoffs,
@@ -214,6 +235,22 @@ class StreamingASRErrorPosition:
         return self.processed_time -  (self.start_time + self.end_time) / 2
     
     
+def get_audio_seconds_sent(time: float, input_chunks: Sequence[InputChunk]) -> float:
+    input_chunks_sent = [
+        input_chunk for input_chunk in input_chunks
+        if input_chunk.put_timestamp < time
+    ]
+    return input_chunks_sent[-1].end_time if input_chunks_sent else 0
+    
+    
+def get_audio_seconds_processed(time: float, output_chunks: Sequence[OutputChunk]) -> float:
+    output_chunks_sent = [
+        output_chunk for output_chunk in output_chunks
+        if output_chunk.put_timestamp < time
+    ]
+    return output_chunks_sent[-1].seconds_processed if output_chunks_sent else 0
+    
+    
 def get_partial_alignments(
     input_history: Sequence[InputChunk],
     output_history: Sequence[OutputChunk],
@@ -247,20 +284,13 @@ def get_partial_alignments(
     assert np.all(np.diff([x.end_time for x in input_history])[1:] >= 0)
     assert np.all(np.diff([x.put_timestamp for x in output_history])[1:] >= 0)
     
-    def get_audio_seconds_sent(time: float) -> float:
-        input_chunks_sent = [
-            input_chunk for input_chunk in input_history
-            if input_chunk.put_timestamp < time
-        ]
-        return input_chunks_sent[-1].end_time if input_chunks_sent else 0
-    
     partial_alignments: list[PartialAlignment] = []
     for i, output_chunk in enumerate(output_history):
         partial_alignments.append(PartialAlignment(
             pred=split_text_into_tokens(TranscriptionChunk.join(output_history[:i + 1])),
             alignment=None, # type: ignore
             at_time=output_chunk.put_timestamp,
-            audio_seconds_sent=get_audio_seconds_sent(output_chunk.put_timestamp),
+            audio_seconds_sent=get_audio_seconds_sent(output_chunk.put_timestamp, input_history),
             audio_seconds_processed=output_chunk.seconds_processed,
         ))
     
@@ -271,13 +301,13 @@ def get_partial_alignments(
             if len(prev_alignments):
                 pa = copy.deepcopy(prev_alignments[-1])
                 pa.at_time = at_time
-                pa.audio_seconds_sent = get_audio_seconds_sent(at_time)
+                pa.audio_seconds_sent = get_audio_seconds_sent(at_time, input_history)
             else:
                 pa = PartialAlignment(
                     pred=[],
                     alignment=None, # type: ignore
                     at_time=at_time,
-                    audio_seconds_sent=get_audio_seconds_sent(at_time),
+                    audio_seconds_sent=get_audio_seconds_sent(at_time, input_history),
                     audio_seconds_processed=0,
                 )
             partial_alignments_for_times.append(pa)

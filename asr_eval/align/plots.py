@@ -30,7 +30,7 @@ def draw_timed_transcription(
                     y=y_pos,
                     y_tick_width=y_tick_width,
                     ax=ax,
-                    color='r' if isinstance(block.value, Anything) else 'g',
+                    color='blue' if isinstance(block.value, Anything) else 'g',
                     lw=2,
                 )
             case MultiVariant():
@@ -43,7 +43,7 @@ def draw_timed_transcription(
                             y=option_y_pos,
                             y_tick_width=y_tick_width,
                             ax=ax,
-                            color='r' if isinstance(t.value, Anything) else 'g',
+                            color='blue' if isinstance(t.value, Anything) else 'g',
                             lw=2,
                         )
     
