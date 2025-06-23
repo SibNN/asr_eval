@@ -103,7 +103,7 @@ def split_text_into_tokens(
                     'word': r'\S+',
                 }
             case 'asr_eval':
-                punct = re.escape(r'''.,!?:;…-–—'"‘“”()[]{}''')
+                punct = re.escape(r'''.,!?:;…-–—'"‘“”«»()[]{}''')
                 options = {
                     'word': rf'\w+|[^\w\s{punct}]+',
                     'punct': rf'[{punct}]+',
@@ -162,7 +162,7 @@ def parse_multivariant_string(
     - The method "wordpunct_tokenize" treat \w+ as word and [^\w\s]+ as punct (this equals
     the regexp used in nltk.wordpunct_tokenize).
     - The method "asr_eval" treat \w+ or [^\w\s{P}]+ as word and [{P}]+ as punct, where {P}
-    is one of the following symbols: .,!?:;…-–—'"‘“”()[]{}
+    is one of the following symbols: .,!?:;…-–—'"‘“”«»()[]{}
     - The method "space" treat \S+ as word and nothing as punct.
     
     `drop_punct` removes "punct" tokens (not supported for razdel).
