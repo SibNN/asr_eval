@@ -23,7 +23,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-cov", "coverage[toml]"]
+dev = ["pytest", "pytest-cov", "coverage[toml]", "sphinx"]
 gigaam = ["gigaam[longform]"]
 vosk = ["vosk"]
 all = ["asr_eval[dev,gigaam,vosk]"]
