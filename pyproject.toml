@@ -23,12 +23,16 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-cov"]
+dev = ["pytest", "pytest-cov", "coverage[toml]"]
 gigaam = ["gigaam[longform]"]
 vosk = ["vosk"]
+all = ["asr_eval[dev,gigaam,vosk]"]
 
 [tool.setuptools.packages.find]
 include = ["asr_eval"]
 
 [project.urls]
 Repository = "https://gitlab.sibnn.ai/research/asr-eval"
+
+[tool.coverage.report]
+skip_empty = true
