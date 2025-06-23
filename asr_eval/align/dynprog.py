@@ -2,6 +2,7 @@ import typing
 
 
 # TODO return something from align(), write tests
+# this file is not used in the project currently
 
 # TODO rewrite:
 # 1) matrix with Pred and True axes
