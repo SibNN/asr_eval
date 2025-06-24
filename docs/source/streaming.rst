@@ -218,7 +218,29 @@ Output:
     StreamingASRErrorPosition(start_time=14.36, end_time=14.84, processed_time=16.031375, status='not_yet'),
     StreamingASRErrorPosition(start_time=15.08, end_time=15.6, processed_time=16.031375, status='not_yet')]
 
-We can visualize all the error positions, sent and processed times on a diagram.
+We can visualize all the error positions, sent and processed times on a diagram. Sent audio seconds are displayed with the gray line, processed audio seconds are displayed with the dark green line. Replacements are shown in red, deletions in gray, insertions as dark-red dots (no insertions for this saple), and correct matches are shown in green.
+
+.. list-table::
+   :header-rows: 1
+
+   * - :code:`StreamingASRErrorPosition` Status
+     - Description
+     - Color in the diagram
+   * - **correct**
+     - A correctly transcribed word, *including* a match with "Anything".
+     - green
+   * - **replacement**
+     - An incorrectly transcribed single word.
+     - red
+   * - **insertion**
+     - A transcribed word that was not spoken.
+     - dark-red dot
+   * - **deletion**
+     - A missed word that was spoken but was not transcribed.
+     - gray
+   * - **not_yet**
+     - Trailing deletions in the end of the alignment.
+     - gray
 
 .. code-block:: python
 
@@ -235,3 +257,163 @@ From the diagram we can make the following observations:
 2. The model is able to successfully correct some words as more audio data arrives, but there is one word with with the opposite situation.
 
 3. The model failed to recognize the last words.
+
+Evaluation on a dataset
+**************************
+
+For drawing aggregated charts we may need more data, so let's evaluate VoskStreaming model on the HuggingFace dataset `bond005/podlodka_speech`. In this dataset the labeling is single-variant.
+
+.. code-block:: python
+
+    dataset = (
+        load_dataset('bond005/podlodka_speech')['test']
+        .cast_column('audio', Audio(sampling_rate=16_000))
+    )
+
+    asr = VoskStreaming(model_name='vosk-model-ru-0.42', chunk_length_sec=0.5)
+    asr.start_thread()
+
+    evals: list[RecordingStreamingEvaluation] = []
+    for sample in dataset:
+        try:
+            recording = Recording.from_sample(sample, use_gigaam=model)
+        except CannotFillTimings:
+            continue
+        evals.append(default_evaluation_pipeline(
+            recording, asr, partial_alignment_interval=0.5
+        ))
+
+    asr.stop_thread()
+
+Calculating word error rate
+==================================
+
+Each partial allignment has a score consisting of 3 values. For each sample we take the last partial alignment where the whole audio is transcribed.
+
+.. code-block:: python
+
+    for i, eval in enumerate(evals):
+        alignment: MatchesList = eval.partial_alignments[-1].alignment
+        print(
+            f'sample {i},', f'total_true_len={alignment.total_true_len},', alignment.score
+        )
+
+Output:
+
+.. code-block::
+
+    sample 0, total_true_len=13, AlignmentScore(n_word_errors=3, n_correct=10, n_char_errors=20)
+    sample 1, total_true_len=49, AlignmentScore(n_word_errors=14, n_correct=35, n_char_errors=25)
+    ...
+    sample 12, total_true_len=54, AlignmentScore(n_word_errors=9, n_correct=46, n_char_errors=39)
+    sample 13, total_true_len=62, AlignmentScore(n_word_errors=16, n_correct=46, n_char_errors=67)
+
+For single-variant labeling, we can calculate WER on each sample as usual: 
+
+.. code-block:: python
+
+    alignment.score.n_word_errors / max(1, alignment.total_true_len)
+
+For multi-variant labeling, we recommend using the same method. More details are given under the spoiler.
+
+.. raw:: html
+
+   <details>
+   <summary><a>WER for multi-variant labeling with "Anything" blocks</a></summary>
+
+For multi-variant labeling, defining WER is less straightforward. Selecting a specific variant in a multivariant block also affects the reference ("true") length. Let we compare the prediction "B" against the reference "{A | B B B}". If we select option "A", we get edit distance 1 and WER = 1. If we select option "B B B", we get higher edit distance 2 but lower WER = 2/3. Our alignment algorithm minimizes edit distance, as usual, but in rare cases this may not minimize WER in multi-variant labeling. This is not a big problem, because in WER metric the denominator plays the same role as sample weights. If we always use 1 as the denominator, this will be a sum of edit distances for all samples, that is similar to calculating WER on concatenation of samples, that is also a valid method. So, choosing a correct denominator is not crucial.
+
+We now describe what exactly the values mean for multi-variant labeling:
+
+1. :code:`MatchesList.score.n_word_errors` is the total number of errors (edit distance): the number of words that need to be replaced, inserted, or deleted, to transform reference into prediction or vice versa. The alignment is selected to minimize this value. In the example above, we select the option "A" (edit distance 1) instead of "B B B" (edit distance 2).
+2. :code:`MatchesList.total_true_len` is the number of words in reference after selecting one option in each multi-variant block to achieve minimal edit distance. In the example above, we select the option "A" and get :code:`.total_true_len == 1`. "Anything" blocks do not increase this value.
+3. :code:`MatchesList.n_correct` is the number of correctly matched words in the alignment. "Anything" blocks do not increase this value.
+4. :code:`MatchesList.n_char_errors` is a sum of character edit distance for each word match. Calculating this value helps us to improve word alignments, but this is not the same as total character edit distance. For example, if the reference is "nothing" and the prediction is "no thing", then "no" will be considered a deletion (:code:`n_char_errors=2`), and "nothing -> thing" as a replacement (:code:`n_char_errors=2`), which gives a sum of :code:`n_char_errors=4`. However, the real character edit distance is 1.
+
+.. code-block:: python
+
+    matches_list = align(
+        parse_multivariant_string('nothing'),
+        parse_multivariant_string('no thing'),
+    )
+    print(matches_list.matches)
+    print(matches_list.score)
+
+Output:
+
+.. code-block::
+
+    [Match(, Token(no)), Match(Token(nothing), Token(thing))]
+    AlignmentScore(n_word_errors=2, n_correct=0, n_char_errors=4)
+
+.. raw:: html
+
+   </details>
+
+Analyzing samples manually
+==================================
+
+Let us look at the sample with index 10.
+
+.. code-block:: python
+
+    plt.figure(figsize=(15, 6))
+    partial_alignments_plot(evals[10])
+    plt.show()
+
+.. image:: images/partial_alignment_sample10.png
+
+In the diagram we see one deletion between "распределенных" and "больших", and besides we see that the last seconds of speech are not recognized again. You can also notice a lag at 22 seconds, when the processed time does not increase for around 2 real-time seconds. This may indicate heavy calculations in the model.
+
+We can also visualize input and output chunks timings. Here X axis is a real time (in contrast to the previous diagram), and for each input chunk put timestamp is marked in green (the moment when the sender sent the chunk to the buffer), and get timestamp is marked in blue (the moment when the StreamingASR thread takes this chunk from the buffer). If the model processes chunks sequentially, a lag between put ang get time indicates that processing the previous chunk took a long time. Orange lines show times when output chunks are returned.
+
+.. code-block::
+
+    plt.figure(figsize=(15, 3))
+    visualize_history(eval.input_chunks, eval.output_chunks)
+    plt.show()
+
+.. image:: images/timings_sample10.png
+
+Aggregated diagrams
+==================================
+
+To build an aggregated diagram, let us recall the concept of :code:`StreamingASRErrorPosition`. It represents a word match with one of 5 statuses: correct, replacement, insertion, deletion and not_yet.
+
+We aggregate error statistics as follows.
+
+1. **Calculate delay** for every error position: the difference between audio processed time and the error location in the audio.
+2. **Merge statuses** "replacement", "insertion" and "deletion" into "error".
+3. **Draw a histogram for delay and status**.
+
+.. code-block::
+
+    plt.figure(figsize=(10, 3))
+    streaming_error_vs_latency_histogram(evals)
+    plt.show()
+
+.. image:: images/error_histogram.png
+
+We can see that the VoskStreaming model starts to recognize words 1.6-2 seconds after speaking. Sometimes words are recognized earlier, but but almost always it turns out to be a recognition error (or alignment problem). The error-to-correct ratio stabilizes at around 20% errors.
+
+We can visualize sent-vs-processed time for all samples at once:
+
+.. code-block::
+
+    latency_plot(evals)
+
+.. image:: images/latency_plot.png
+
+We can see that VoskStreaming performs heavy calculation for some samples at some times, most often at 22 seconds.
+
+Finally, we can visualize the last partial alignments for each dataset sample. For better perception, the examples are sorted by increasing length.
+
+.. code-block::
+
+    plt.figure(figsize=(15, 3))
+    show_last_alignments(evals)
+    plt.show()
+
+.. image:: images/last_alignments.png
+
+We can see that VoskStreaming fails to recognize the last words for all samples in the dataset.
