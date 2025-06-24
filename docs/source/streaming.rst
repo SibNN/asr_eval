@@ -12,7 +12,34 @@ The code below is from the `notebooks/Demo.ipynb` notebook.
 
 .. code-block:: python
 
-   def fn():
+    import typing
+    from pathlib import Path
+
+    import librosa
+    from datasets import load_dataset, Audio
+    import gigaam
+    from gigaam.model import GigaAMASR
+    import numpy as np
+    import numpy.typing as npt
+    import matplotlib.pyplot as plt
+
+    from asr_eval.datasets.recording import Recording
+    from asr_eval.align.data import MatchesList
+    from asr_eval.align.timings import fill_word_timings_inplace, CannotFillTimings
+    from asr_eval.align.parsing import parse_multivariant_string, colorize_parsed_string
+    from asr_eval.align.plots import draw_timed_transcription
+    from asr_eval.streaming.models.vosk import VoskStreaming
+    from asr_eval.streaming.evaluation import default_evaluation_pipeline
+    from asr_eval.streaming.model import TranscriptionChunk
+    from asr_eval.streaming.evaluation import RecordingStreamingEvaluation
+    from asr_eval.align.recursive import align
+    from asr_eval.streaming.plots import (
+        partial_alignments_plot,
+        visualize_history,
+        streaming_error_vs_latency_histogram,
+        latency_plot,
+        show_last_alignments,
+    )
 
 .. raw:: html
 
