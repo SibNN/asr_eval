@@ -39,7 +39,7 @@ def match_from_pair(true: list[Token], pred: list[Token]) -> Match:
         status=status,
         score=AlignmentScore(
             n_word_errors=0 if status == 'correct' else max(len(true), len(pred)),
-            n_correct=len(true) if status == 'correct' else 0,
+            n_correct=len(true) if status == 'correct' and not is_anything else 0,
             n_char_errors=_char_edit_distance(
                 ' '.join(str(t.value) for t in true),
                 ' '.join(str(t.value) for t in pred)
