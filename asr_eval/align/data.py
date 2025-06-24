@@ -204,20 +204,26 @@ class MatchesList:
     def from_list(cls, matches: list[Match]) -> MatchesList:
         return MatchesList(
             matches=matches,
-            total_true_len=sum(len(m.true) for m in matches),
+            total_true_len=sum(_true_len(m) for m in matches),
             score=sum([m.score for m in matches], AlignmentScore())
         )
     
     def prepend(self, match: Match) -> MatchesList:
         return MatchesList(
             matches=[match] + self.matches,
-            total_true_len=len(match.true) + self.total_true_len,
+            total_true_len=_true_len(match) + self.total_true_len,
             score = match.score + self.score
         )
     
     def append(self, match: Match) -> MatchesList:
         return MatchesList(
             matches=self.matches + [match],
-            total_true_len=self.total_true_len + len(match.true),
+            total_true_len=self.total_true_len + _true_len(match),
             score = self.score + match.score
         )
+
+
+def _true_len(match: Match) -> int:
+    if len(match.true) == 1 and isinstance(match.true[0].value, Anything):
+        return 0
+    return len(match.true)
