@@ -83,7 +83,7 @@ Our :code:`parse_multivariant_string` function supports 4 methods: ours ("asr_ev
 
 .. _razdel: https://github.com/natasha/razdel
 
-1. Drops punctiation words (`[{P}]+`).
+1. Drops punctiation words (:code:`[{P}]+`).
 2. Turns into lower case.
 3. Converts Russian "ё" into "е".
 
@@ -297,13 +297,14 @@ For drawing aggregated charts we may need more data, so let's evaluate VoskStrea
         .cast_column('audio', Audio(sampling_rate=16_000))
     )
 
+    gigaam_model = typing.cast(GigaAMASR, gigaam.load_model('ctc', device='cuda'))
     asr = VoskStreaming(model_name='vosk-model-ru-0.42', chunk_length_sec=0.5)
     asr.start_thread()
 
     evals: list[RecordingStreamingEvaluation] = []
     for sample in dataset:
         try:
-            recording = Recording.from_sample(sample, use_gigaam=model)
+            recording = Recording.from_sample(sample, use_gigaam=gigaam_model)
         except CannotFillTimings:
             continue
         evals.append(default_evaluation_pipeline(
@@ -413,25 +414,18 @@ We aggregate error statistics as follows.
 2. **Merge statuses** "replacement", "insertion" and "deletion" into "error".
 3. **Draw a histogram for delay and status**.
 
+We can also visualize sent-vs-processed time for all samples at once.
+
 .. code-block::
 
-    plt.figure(figsize=(10, 3))
-    streaming_error_vs_latency_histogram(evals)
+    fig, (ax1, ax2) = plt.subplots(figsize=(12, 4), ncols=2, width_ratios=[2, 1])
+    streaming_error_vs_latency_histogram(evals, ax=ax1)
+    latency_plot(evals, ax=ax2)
     plt.show()
 
-.. image:: images/error_histogram.png
+.. image:: images/error_and_latency.png
 
-We can see that the VoskStreaming model starts to recognize words 1.6-2 seconds after speaking. Sometimes words are recognized earlier, but but almost always it turns out to be a recognition error (or alignment problem). The error-to-correct ratio stabilizes at around 20% errors.
-
-We can visualize sent-vs-processed time for all samples at once:
-
-.. code-block::
-
-    latency_plot(evals)
-
-.. image:: images/latency_plot.png
-
-We can see that VoskStreaming performs heavy calculation for some samples at some times, most often at 22 seconds.
+We can see that the VoskStreaming model starts to recognize words 1.6-2 seconds after speaking. Sometimes words are recognized earlier, but but almost always it turns out to be a recognition error (or alignment problem). The error-to-correct ratio stabilizes at around 20% errors. We also see that VoskStreaming performs heavy calculation for some samples at some times, most often at 22 seconds.
 
 Finally, we can visualize the last partial alignments for each dataset sample. For better perception, the examples are sorted by increasing length.
 
