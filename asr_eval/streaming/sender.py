@@ -74,6 +74,7 @@ class BaseStreamingAudioSender(ABC):
     track_history: bool = True
 
     history: list[InputChunk] = field(default_factory=list) # type: ignore
+    history_lock: threading.Lock = field(default_factory=threading.Lock)
     _thread: threading.Thread | None = None
     _sent_without_delays: bool = False
 
@@ -132,7 +133,8 @@ class BaseStreamingAudioSender(ABC):
         )
         send_to.put(chunk, id=self.id)
         if self.track_history:
-            self.history.append(chunk)
+            with self.history_lock:
+                self.history.append(chunk)
     
     def _run(self, send_to: InputBuffer):
         try:

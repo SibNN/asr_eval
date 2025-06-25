@@ -10,7 +10,7 @@ import numpy.typing as npt
 
 
 from asr_eval.streaming.buffer import ID_TYPE
-from asr_eval.streaming.model import InputChunk, OutputChunk, Signal, StreamingASR, TranscriptionChunk, check_consistency
+from asr_eval.streaming.model import AUDIO_CHUNK_TYPE, InputChunk, OutputChunk, Signal, StreamingASR, TranscriptionChunk, check_consistency
 from asr_eval.streaming.sender import BaseStreamingAudioSender, Cutoff, StreamingAudioSender
 from asr_eval.streaming.caller import receive_full_transcription
 from asr_eval.align.data import Match, MatchesList, MultiVariant, Token
@@ -57,6 +57,31 @@ class RecordingStreamingEvaluation:
     @property
     def finish_timestamp(self) -> float:
         return self.output_chunks[-1].put_timestamp
+    
+
+def prepare_audio_format(
+    waveform: npt.NDArray[np.floating],
+    asr: StreamingASR,
+    sampling_rate: int = 16_000,
+) -> tuple[AUDIO_CHUNK_TYPE, int]:
+    '''
+    Based on asr.audio_type and asr.sampling_rate, returns:
+    - the audio data to send into asr via BaseStreamingAudioSender
+    - the value array_len_per_sec to specify for BaseStreamingAudioSender
+    '''
+    assert sampling_rate == asr.sampling_rate  # todo implement resampling
+    match asr.audio_type:
+        case 'float':
+            audio = waveform
+            array_len_per_sec = asr.sampling_rate
+        case 'int':
+            audio = (waveform * 32768).astype(np.int16)
+            array_len_per_sec = asr.sampling_rate
+        case 'bytes':
+            audio = (waveform * 32768).astype(np.int16).tobytes()
+            array_len_per_sec = asr.sampling_rate * 2  # x2 because of the conversion int16 -> bytes
+    
+    return audio, array_len_per_sec
 
 
 def default_evaluation_pipeline(
@@ -77,16 +102,7 @@ def default_evaluation_pipeline(
     id = new_uid()
 
     # preparing input audio
-    match asr.audio_type:
-        case 'float':
-            audio = recording.waveform
-            array_len_per_sec = asr.sampling_rate
-        case 'int':
-            audio = (recording.waveform * 32768).astype(np.int16)
-            array_len_per_sec = asr.sampling_rate
-        case 'bytes':
-            audio = (recording.waveform * 32768).astype(np.int16).tobytes()
-            array_len_per_sec = asr.sampling_rate * 2  # x2 because of the conversion int16 -> bytes
+    audio, array_len_per_sec = prepare_audio_format(recording.waveform, asr)
     
     # predicting
     sender = StreamingAudioSender(
