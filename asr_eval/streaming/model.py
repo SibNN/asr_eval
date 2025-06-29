@@ -485,3 +485,28 @@ class TranscriptionChunk:
             parts[t.uid] = t.text
             
         return ' '.join(parts.values())
+
+
+def prepare_audio_format(
+    waveform: npt.NDArray[np.floating],
+    asr: StreamingASR,
+    sampling_rate: int = 16_000,
+) -> tuple[AUDIO_CHUNK_TYPE, int]:
+    '''
+    Based on asr.audio_type and asr.sampling_rate, returns:
+    - the audio data to send into asr via BaseStreamingAudioSender
+    - the value array_len_per_sec to specify for BaseStreamingAudioSender
+    '''
+    assert sampling_rate == asr.sampling_rate  # todo implement resampling
+    match asr.audio_type:
+        case 'float':
+            audio = waveform
+            array_len_per_sec = asr.sampling_rate
+        case 'int':
+            audio = (waveform * 32768).astype(np.int16)
+            array_len_per_sec = asr.sampling_rate
+        case 'bytes':
+            audio = (waveform * 32768).astype(np.int16).tobytes()
+            array_len_per_sec = asr.sampling_rate * 2  # x2 because of the conversion int16 -> bytes
+    
+    return audio, array_len_per_sec
