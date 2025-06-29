@@ -10,7 +10,7 @@ from vosk import Model, KaldiRecognizer # type: ignore
 
 from asr_eval.streaming.model import TranscriptionChunk
 from asr_eval.streaming.caller import receive_full_transcription
-from asr_eval.streaming.models.vosk import VoskStreaming
+from asr_eval.models.vosk_streaming import VoskStreaming
 from asr_eval.streaming.sender import StreamingAudioSender
 
 @pytest.mark.parametrize('frames_per_chunk, prediction', [
@@ -86,7 +86,7 @@ def test_vosk_wrapper():
 
 @pytest.mark.filterwarnings("ignore::DeprecationWarning", "ignore::FutureWarning")
 def test_vosk54_wrapper():
-    from asr_eval.models.vosk import VoskV54
+    from asr_eval.models.vosk54 import VoskV54
     
     waveform: npt.NDArray[np.float64]
     waveform, _ = librosa.load('tests/testdata/podlodka_test_0.wav', sr=16_000) # type: ignore
