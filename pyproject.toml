@@ -26,7 +26,8 @@ dependencies = [
 dev = ["pytest", "pytest-cov", "coverage[toml]", "sphinx"]
 gigaam = ["gigaam[longform]"]
 vosk = ["vosk"]
-all = ["asr_eval[dev,gigaam,vosk]"]
+speechbrain = ["speechbrain"]
+all = ["asr_eval[dev,gigaam,vosk,speechbrain]"]
 
 [tool.setuptools.packages.find]
 include = ["asr_eval"]
