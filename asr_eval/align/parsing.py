@@ -205,22 +205,44 @@ def parse_multivariant_string(
                 assert (c := text[end]) in string.whitespace, (
                     f'put a space after a multivariant block, got "{c}"'
                 )
-            options = [
-                _shift_tokens(
-                    split_text_into_tokens(
-                        option.group(1),
-                        method=method,
-                        drop_punct=drop_punct, 
-                        lower=lower,
-                        ru_tweaks=ru_tweaks,
-                    ),
-                    shift=start + option.start() + 1
+            
+            options_raw: list[tuple[str, int]] = []  # (option text, start pos)
+            for option_match in re.finditer(r'([^\|]*)\|', text_part[1:-1] + '|'):
+                option_text = option_match.group(1)
+                start_pos = start + option_match.start() + 1
+                if (match2 := re.match(r'(\w)\+', option_text.strip())) is not None:
+                    # forms like {A+}, {o+}
+                    letter = match2.group(1)
+                    for n_repeats in range(1, 5):
+                        repeated = letter + letter.lower() * (n_repeats - 1)
+                        options_raw.append((repeated, start_pos))
+                elif (match2 := re.match(r'(\w+)\<(\w+)\>', option_text.strip())) is not None:
+                    # forms like Facebook<е>
+                    # TODO: ambiuous: need to add empty option to {Facebook<е>} ??
+                    # TODO: handle this in single-variant blocks
+                    base, suffix = match2.groups()
+                    options_raw.append((f'{base}', start_pos))
+                    options_raw.append((f'{base}{suffix}', start_pos))
+                    options_raw.append((f'{base}-{suffix}', start_pos))
+                else:
+                    options_raw.append((option_text, start_pos))
+            
+            options: list[list[Token]] = []
+            for option_text, start_pos in options_raw:
+                option_tokens = split_text_into_tokens(
+                    option_text,
+                    method=method,
+                    drop_punct=drop_punct, 
+                    lower=lower,
+                    ru_tweaks=ru_tweaks,
                 )
-                for option in re.finditer(r'([^\|]*)\|', text_part[1:-1] + '|')
-            ]
+                option_tokens = _shift_tokens(option_tokens, start_pos)
+                options.append(option_tokens)
+                
             if len(options) == 1:
-                assert  len(options[0]), 'empty multivariant block'
+                assert len(options[0]), 'empty multivariant block'
                 options.append([])
+            
             result.append(MultiVariant(options=options, pos=(start, end)))
         else:
             result += _shift_tokens(
