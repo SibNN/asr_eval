@@ -1,4 +1,5 @@
 import wave
+from typing import Any
 
 import pytest
 import librosa
@@ -18,7 +19,7 @@ def test_wave():
     audio_path = 'tests/testdata/vosk.wav'
     
     # Load with librosa
-    waveform_librosa: npt.NDArray[np.floating]
+    waveform_librosa: npt.NDArray[np.floating[Any]]
     waveform_librosa, rate_librosa = librosa.load(audio_path, sr=None) # type: ignore
     assert rate_librosa == 16_000
 

@@ -1,4 +1,4 @@
-import typing
+from typing import Any, cast
 from pathlib import Path
 
 import pytest
@@ -25,7 +25,7 @@ from asr_eval.streaming.plots import (
 
 @pytest.mark.filterwarnings('ignore::FutureWarning:', 'ignore::DeprecationWarning:')
 def test_evaluation():
-    waveform: npt.NDArray[np.floating] = librosa.load('tests/testdata/formula1.mp3', sr=16000)[0] # type: ignore
+    waveform: npt.NDArray[np.floating[Any]] = librosa.load('tests/testdata/formula1.mp3', sr=16000)[0] # type: ignore
     waveform += waveform[::-1] / 4  # add speech-like noise
     text = Path('tests/testdata/formula1.txt').read_text()
     
@@ -33,7 +33,7 @@ def test_evaluation():
     tokens = parse_multivariant_string(text)
 
     # determine word timings
-    model = typing.cast(GigaAMASR, gigaam.load_model('ctc', device='cuda'))
+    model = cast(GigaAMASR, gigaam.load_model('ctc', device='cuda'))
     fill_word_timings_inplace(model, waveform, tokens)
     
     # plot should not raise an error

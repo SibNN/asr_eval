@@ -1,4 +1,4 @@
-from typing import cast
+from typing import cast, Any
 
 import pytest
 import numpy as np
@@ -13,7 +13,7 @@ from asr_eval.streaming.sender import StreamingAudioSender
 
 @pytest.mark.filterwarnings('ignore::FutureWarning:', 'ignore::DeprecationWarning:')
 def test_speechbrain_streaming():
-    waveform = cast(npt.NDArray[np.floating], librosa.load('tests/testdata/vosk.wav', sr=16_000)[0]) # type: ignore
+    waveform = cast(npt.NDArray[np.floating[Any]], librosa.load('tests/testdata/vosk.wav', sr=16_000)[0]) # type: ignore
     
     asr = SpeechbrainStreaming()
     asr.start_thread()

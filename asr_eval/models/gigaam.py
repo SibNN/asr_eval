@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-import typing
+from typing import Any, cast
 import warnings
 
 from gigaam.model import GigaAMASR, SAMPLE_RATE, LONGFORM_THRESHOLD
@@ -21,7 +21,7 @@ class GigaamCTCOutputs:
 @torch.inference_mode()
 def transcribe_with_gigaam_ctc(
     model: GigaAMASR,
-    waveforms: list[npt.NDArray[np.floating]],
+    waveforms: list[npt.NDArray[np.floating[Any]]],
 ) -> list[GigaamCTCOutputs]:
     '''
     Pass through Gigaam encoder, gigaam head, then decode and return all the results.
@@ -49,7 +49,7 @@ def transcribe_with_gigaam_ctc(
     
     # exp(log_probs) sums to 1
     # GigaamCTCOutputs will check this on __post_init__
-    log_probs = typing.cast(torch.Tensor, model.head(encoder_output=encoded))
+    log_probs = cast(torch.Tensor, model.head(encoder_output=encoded))
     labels = log_probs.argmax(dim=-1, keepdim=False)
     
     skip_mask = labels != model.decoding.blank_id

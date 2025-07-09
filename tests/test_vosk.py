@@ -1,5 +1,5 @@
 import json
-from typing import TypedDict
+from typing import TypedDict, Any
 import wave
 
 import pytest
@@ -50,7 +50,7 @@ def test_vosk_KaldiRecognizer(frames_per_chunk: int, prediction: list[str]):
 
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_vosk_wrapper():
-    waveform: npt.NDArray[np.floating]
+    waveform: npt.NDArray[np.floating[Any]]
     waveform, _ = librosa.load('tests/testdata/vosk.wav', sr=16_000) # type: ignore
     waveform_bytes = np.int16(waveform * 32768).tobytes()
 

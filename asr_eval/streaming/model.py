@@ -488,7 +488,7 @@ class TranscriptionChunk:
 
 
 def prepare_audio_format(
-    waveform: npt.NDArray[np.floating],
+    waveform: npt.NDArray[np.floating[Any]],
     asr: StreamingASR,
     sampling_rate: int = 16_000,
 ) -> tuple[AUDIO_CHUNK_TYPE, int]:

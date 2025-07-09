@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 from itertools import pairwise
 
 import numpy as np
@@ -157,7 +157,7 @@ def _print_propagation(
 
 def fill_word_timings_inplace(
     model: GigaAMASR,
-    waveform: npt.NDArray[np.floating],
+    waveform: npt.NDArray[np.floating[Any]],
     tokens: list[Token | MultiVariant],
     verbose: bool = False,
 ):
@@ -256,7 +256,7 @@ def fill_word_timings_inplace(
 
 def get_word_timings_simple(
     model: GigaAMASR,
-    waveform: npt.NDArray[np.floating],
+    waveform: npt.NDArray[np.floating[Any]],
     text: str | None = None,
     normalize: bool = True,
 ) -> list[Token]:

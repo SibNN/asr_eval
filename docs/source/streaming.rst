@@ -13,6 +13,7 @@ The code below is from the `notebooks/Demo.ipynb` notebook.
 .. code-block:: python
 
     import typing
+    from typing import Any
     from pathlib import Path
 
     import librosa
@@ -116,7 +117,7 @@ The function `fill_word_timings_inplace` accepts CTC model, waveform, a tokenize
 
 .. code-block:: python
 
-    waveform: npt.NDArray[np.floating] = (
+    waveform: npt.NDArray[np.floating[Any]] = (
         librosa.load('tests/testdata/formula1.mp3', sr=16000)[0])
     waveform += waveform[::-1] / 4  # add some speech-like noise
 

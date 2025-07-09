@@ -19,7 +19,7 @@ class Recording:
     """
     transcription: str
     transcription_words: list[Token | MultiVariant]
-    waveform: npt.NDArray[np.floating] | None = None
+    waveform: npt.NDArray[np.floating[Any]] | None = None
     
     hf_dataset_name: str | None = None
     hf_dataset_split: str | None = None

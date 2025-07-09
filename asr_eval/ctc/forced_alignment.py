@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -11,8 +12,8 @@ from asr_eval.utils.misc import groupby_into_spans
 
 
 def forced_alignment(
-    log_probs: npt.NDArray[np.floating],
-    true_tokens: list[int] | npt.NDArray[np.integer],
+    log_probs: npt.NDArray[np.floating[Any]],
+    true_tokens: list[int] | npt.NDArray[np.integer[Any]],
     blank_id: int = 0,
 ) -> tuple[list[int], list[float], list[tuple[int, int]]]:
     '''
@@ -46,8 +47,8 @@ def forced_alignment(
 
 
 def recursion_forced_alignment(
-    log_probs: npt.NDArray[np.floating],
-    tokens: list[int] | npt.NDArray[np.integer],
+    log_probs: npt.NDArray[np.floating[Any]],
+    tokens: list[int] | npt.NDArray[np.integer[Any]],
     blank_id: int = 0,
 ) -> tuple[list[int], list[float]]:
     '''

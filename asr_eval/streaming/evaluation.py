@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal, Sequence
+from typing import Literal, Sequence, Any
 from dataclasses import dataclass
 import multiprocessing as mp
 import copy
@@ -254,7 +254,7 @@ def get_partial_alignments(
     input_history: Sequence[InputChunk],
     output_history: Sequence[OutputChunk],
     true_word_timings: list[Token | MultiVariant],
-    timestamps: list[float] | npt.NDArray[np.integer] | None = None,
+    timestamps: list[float] | npt.NDArray[np.integer[Any]] | None = None,
     processes: int = 1,
 ) -> list[PartialAlignment]:
     """

@@ -22,7 +22,7 @@ def ctc_mapping(symbols, blank): # type: ignore
     return [key for key, _group in groupby(symbols) if key != blank] # type: ignore
 
 # def visualize(
-#     waveform: npt.NDArray[np.floating],
+#     waveform: npt.NDArray[np.floating[Any]],
 #     symbols: list[str | int],
 #     n_seconds: float | None = None,
 #     figsize: tuple[float, float] = (15, 2),
