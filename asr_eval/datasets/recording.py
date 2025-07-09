@@ -16,6 +16,11 @@ from asr_eval.align.timings import fill_word_timings_inplace
 class Recording:
     """
     An audio sample to test ASR systems. May refer to a huggingface dataset sample.
+    
+    This is useful because HF dataset samples themselves cannot keep transcriptions in form of
+    list[Token | MultiVariant], and also for tracking source samples when saving predictions
+    (such as RecordingStreamingEvaluation with .recording field).
+    
     """
     transcription: str
     transcription_words: list[Token | MultiVariant]

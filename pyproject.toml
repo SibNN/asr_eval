@@ -12,7 +12,7 @@ dependencies = [
     "numpy",
     "librosa",
     "matplotlib",
-    "datasets", 
+    "datasets<4.0.0",  # https://github.com/huggingface/datasets/issues/7675
     "ipywidgets",
     "ipykernel",
     "hydra_zen",

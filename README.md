@@ -20,6 +20,9 @@ sudo reboot
 sudo apt install nvidia-cuda-toolkit
 ```
 
+If you see torchcodec errors, install a specific version from the compatibility table:
+https://github.com/pytorch/torchcodec#installing-cpu-only-torchcodec
+
 **Basic installation**
 
 ```
