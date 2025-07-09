@@ -1,10 +1,74 @@
 Evaluation tools for Automatic Speech Recognition
 
-**Installation**
+# Installation
 
-`pip install -e .[dev,gigaam,vosk]`
+**Prerequisites**
 
-Since vosk 0.54 requires packages that are not on pypi, install them manually:
+```
+sudo apt install python3-dev python3.12-dev python3.12-venv ffmpeg
+python3.12 -m venv venv
+source venv/bin/activate
+```
+
+python3-dev is required to build some requirements; FFMpeg is needed for GigaAM.
+
+For GPU support:
+
+```
+sudo ubuntu-drivers install
+sudo reboot
+sudo apt install nvidia-cuda-toolkit
+```
+
+**Basic installation**
+
+```
+pip install -e .
+```
+
+**Full installation**
+
+```
+pip install -e .[all]
+```
+
+This will install all the required optional dependencies listed below. Note that this will not install Vosk 0.54 and Pisets since they are not on PyPI.
+
+**Dev installation**
+
+Instal dev version to run tests and build docs:
+
+```
+pip install -e .[dev]
+```
+
+**Speechbrain support**
+
+```
+pip install -e .[speechbrain]
+```
+
+**NVIDIA conformer support**
+
+```
+pip install -e .[nvidia-conformer]
+```
+
+**Pisets support**
+
+Locate to the Pisets dir and run:
+
+```
+pip install -e .
+```
+
+**Vosk support**
+
+```
+pip install -e .[vosk]
+```
+
+If you need Vosk 0.54, it requires packages that are not on PyPI, install them manually:
 
 ```
 pip install sentencepiece torch==2.5.1 huggingface_hub
@@ -13,14 +77,4 @@ pip install k2==1.24.4.dev20250208+cuda12.4.torch2.5.1 -f https://k2-fsa.github.
 pip install git+https://github.com/lhotse-speech/lhotse
 sudo apt install cmake
 pip install git+https://github.com/k2-fsa/icefall
-```
-
-For GigaAM you also need `sudo apt install ffmpeg`.
-
-For GPU support:
-
-```
-sudo ubuntu-drivers install
-sudo reboot
-sudo apt install nvidia-cuda-toolkit
 ```
