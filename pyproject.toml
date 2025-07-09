@@ -20,6 +20,8 @@ dependencies = [
     "termcolor",
     "nltk",
     "razdel",
+    "torch",
+    "torchcodec",
 ]
 
 [project.optional-dependencies]
