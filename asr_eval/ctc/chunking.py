@@ -5,7 +5,6 @@ from typing import Any
 import numpy as np
 import numpy.typing as npt
 import scipy
-from tqdm.auto import tqdm
 
 
 @dataclass(init=False)
@@ -41,8 +40,8 @@ class LogProbsWindow:
         expected_ticks = clipped_end_ticks - self.clipped_start_ticks
         actual_ticks = len(self.log_probs)
         assert np.allclose(actual_ticks, expected_ticks, atol=1.1), (
-            f'Expected {expected_ticks} ticks from the audio length,'
-            f' got {actual_ticks} ticks from the model. Incorrect {model_tick_size_sec=}?'
+            f'Expected {expected_ticks} ticks based on the audio length and {model_tick_size_sec=},'
+            f' got {actual_ticks} ticks from the model. Incorrect model_tick_size_sec?'
         )
         self.clipped_end_ticks = self.clipped_start_ticks + len(self.log_probs)
         
