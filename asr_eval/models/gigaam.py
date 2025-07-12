@@ -1,13 +1,18 @@
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any, cast, override
 import warnings
 
+import gigaam
 from gigaam.model import GigaAMASR, SAMPLE_RATE, LONGFORM_THRESHOLD
 from gigaam.decoding import CTCGreedyDecoding
 import torch
 from torch.nn.utils.rnn import pad_sequence
 import numpy as np
 import numpy.typing as npt
+
+from asr_eval.ctc.base import ctc_mapping
+from asr_eval.ctc.chunking import average_logp_windows, chunked_ctc_prediction
+from asr_eval.models.base import AUDIO_TYPE, ASREvalWrapper
 
 
 FREQ = 25  # GigaAM2 encoder outputs per second
@@ -96,3 +101,33 @@ def encode(model: GigaAMASR, text: str) -> list[int]:
             raise GigaAMEncodeError(f'Cannot encode char "{char}": does not exist in vocab')
         tokens.append(model.decoding.tokenizer.vocab.index(char))
     return tokens
+
+
+class GigaAMWrapper(ASREvalWrapper):
+    def __init__(self, **kwargs: Any):
+        self.kwargs = kwargs
+        self.model: GigaAMASR | None = None
+        
+    def _forward(self, waveform: AUDIO_TYPE) -> npt.NDArray[np.floating[Any]]:
+        assert self.model is not None
+        return transcribe_with_gigaam_ctc(self.model, [waveform])[0].log_probs
+    
+    @override
+    def __call__(self, waveforms: list[AUDIO_TYPE]) -> list[str]:
+        self.model = self.model or cast(GigaAMASR, gigaam.load_model('ctc', device='cuda'))
+        texts: list[str] = []
+        for waveform in waveforms:
+            predicted_windows = chunked_ctc_prediction(
+                waveform=waveform,
+                ctc_model=self._forward,
+                model_tick_size_sec=1 / FREQ,
+                segment_size_sec=30,
+                segment_shift_sec=6,
+                sampling_rate=SAMPLE_RATE,
+            )
+            merged_log_probs = average_logp_windows(predicted_windows)
+            labels = cast(list[int], merged_log_probs.argmax(axis=-1, keepdims=False).tolist())
+            tokens = ctc_mapping(labels, self.model.decoding.blank_id)
+            texts.append(decode(self.model, tokens))
+            
+        return texts

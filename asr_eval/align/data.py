@@ -221,6 +221,19 @@ class MatchesList:
             total_true_len=self.total_true_len + _true_len(match),
             score = self.score + match.score
         )
+    
+    def n_errors_with_insertions_tolerance(self, max_insertions: int = 4) -> int:
+        n_errors = 0
+        n_prev_insertions = 0
+        for match in self.matches:
+            if match.status != 'insertion':
+                n_errors += n_prev_insertions
+                n_prev_insertions = 0
+                n_errors += match.score.n_word_errors
+            else:
+                n_prev_insertions = min(4, n_prev_insertions + len(match.pred))
+        n_errors += n_prev_insertions
+        return n_errors
 
 
 def _true_len(match: Match) -> int:
