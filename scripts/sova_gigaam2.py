@@ -12,7 +12,7 @@ import numpy as np
 import numpy.typing as npt
 
 sys.path.append("/userspace/soa/asr-eval")
-from asr_eval.models.gigaam import transcribe_with_gigaam_ctc
+from asr_eval.models.gigaam_wrapper import transcribe_with_gigaam_ctc
 
 
 model = typing.cast(GigaAMASR, gigaam.load_model('ctc', device='cuda'))

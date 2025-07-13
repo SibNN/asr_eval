@@ -8,7 +8,7 @@ import librosa
 import numpy as np
 import numpy.typing as npt
 
-from asr_eval.models.gigaam import transcribe_with_gigaam_ctc, decode
+from asr_eval.models.gigaam_wrapper import transcribe_with_gigaam_ctc, decode
 from asr_eval.ctc.base import ctc_mapping
 
 

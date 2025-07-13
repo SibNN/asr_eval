@@ -7,7 +7,7 @@ import librosa
 
 from asr_eval.streaming.caller import receive_full_transcription
 from asr_eval.streaming.model import TranscriptionChunk, prepare_audio_format
-from asr_eval.models.speechbrain import SpeechbrainStreaming
+from asr_eval.models.speechbrain_wrapper import SpeechbrainStreaming
 from asr_eval.streaming.sender import StreamingAudioSender
 
 

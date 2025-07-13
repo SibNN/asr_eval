@@ -12,7 +12,7 @@ from asr_eval.datasets.recording import Recording
 from asr_eval.align.timings import fill_word_timings_inplace
 from asr_eval.align.parsing import parse_multivariant_string, colorize_parsed_string
 from asr_eval.align.plots import draw_timed_transcription
-from asr_eval.models.vosk_streaming import VoskStreaming
+from asr_eval.models.vosk_streaming_wrapper import VoskStreaming
 from asr_eval.streaming.evaluation import default_evaluation_pipeline
 from asr_eval.streaming.plots import (
     partial_alignments_plot,

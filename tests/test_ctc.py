@@ -6,7 +6,7 @@ import gigaam
 from gigaam.model import GigaAMASR
 import numpy as np
 
-from asr_eval.models.gigaam import transcribe_with_gigaam_ctc, decode
+from asr_eval.models.gigaam_wrapper import transcribe_with_gigaam_ctc, decode
 from asr_eval.ctc.base import ctc_mapping
 from asr_eval.ctc.forced_alignment import recursion_forced_alignment, forced_alignment
 

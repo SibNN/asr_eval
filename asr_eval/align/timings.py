@@ -13,7 +13,7 @@ from asr_eval.align.data import Token, MultiVariant, Anything
 from asr_eval.align.parsing import split_text_into_tokens
 from asr_eval.ctc.base import ctc_mapping
 from asr_eval.ctc.forced_alignment import forced_alignment
-from asr_eval.models.gigaam import FREQ, decode, encode, transcribe_with_gigaam_ctc, GigaAMEncodeError
+from asr_eval.models.gigaam_wrapper import FREQ, decode, encode, transcribe_with_gigaam_ctc, GigaAMEncodeError
 from asr_eval.utils.misc import self_product_nonequal
 
 @dataclass
