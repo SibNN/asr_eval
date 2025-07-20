@@ -8,25 +8,25 @@ from gigaam.decoding import CTCGreedyDecoding
 import torch
 from torch.nn.utils.rnn import pad_sequence
 import numpy as np
-import numpy.typing as npt
 
-from asr_eval.ctc.base import ctc_mapping
-from asr_eval.ctc.chunking import average_logp_windows, chunked_ctc_prediction
-from asr_eval.models.base import AUDIO_TYPE, ASREvalWrapper
+from ..ctc.base import ctc_mapping
+from ..ctc.chunking import average_logp_windows, chunked_ctc_prediction
+from .base import ASREvalWrapper
+from ..utils.types import FLOATS, INTS
 
 
 FREQ = 25  # GigaAM2 encoder outputs per second
 
 @dataclass
 class GigaamCTCOutputs:
-    encoded: npt.NDArray[np.float32 | np.float16]
-    log_probs: npt.NDArray[np.float32 | np.float16]  # exp(log_probs) sums to 1
+    encoded: FLOATS
+    log_probs: FLOATS  # exp(log_probs) sums to 1
     text: str
     
 @torch.inference_mode()
 def transcribe_with_gigaam_ctc(
     model: GigaAMASR,
-    waveforms: list[npt.NDArray[np.floating[Any]]],
+    waveforms: list[FLOATS],
 ) -> list[GigaamCTCOutputs]:
     '''
     Pass through Gigaam encoder, gigaam head, then decode and return all the results.
@@ -77,7 +77,7 @@ def transcribe_with_gigaam_ctc(
     
     return results
 
-def decode(model: GigaAMASR, tokens: list[int] | npt.NDArray[np.int64]) -> str:
+def decode(model: GigaAMASR, tokens: list[int] | INTS) -> str:
     if isinstance(tokens, np.ndarray):
         assert tokens.ndim == 1, 'pass a single sample, not a batch'
         tokens = tokens.tolist()
@@ -108,12 +108,12 @@ class GigaAMWrapper(ASREvalWrapper):
         self.kwargs = kwargs
         self.model: GigaAMASR | None = None
         
-    def _forward(self, waveform: AUDIO_TYPE) -> npt.NDArray[np.floating[Any]]:
+    def _forward(self, waveform: FLOATS) -> FLOATS:
         assert self.model is not None
         return transcribe_with_gigaam_ctc(self.model, [waveform])[0].log_probs
     
     @override
-    def __call__(self, waveforms: list[AUDIO_TYPE]) -> list[str]:
+    def __call__(self, waveforms: list[FLOATS]) -> list[str]:
         self.model = self.model or cast(GigaAMASR, gigaam.load_model('ctc', device='cuda'))
         texts: list[str] = []
         for waveform in waveforms:

@@ -9,8 +9,8 @@ import numpy as np
 import numpy.typing as npt
 
 
-from asr_eval.streaming.buffer import ID_TYPE
-from asr_eval.streaming.model import (
+from .buffer import ID_TYPE
+from .model import (
     InputChunk,
     OutputChunk,
     Signal,
@@ -19,13 +19,13 @@ from asr_eval.streaming.model import (
     check_consistency,
     prepare_audio_format,
 )
-from asr_eval.streaming.sender import BaseStreamingAudioSender, Cutoff, StreamingAudioSender
-from asr_eval.streaming.caller import receive_full_transcription
-from asr_eval.align.data import Match, MatchesList, MultiVariant, Token
-from asr_eval.align.parsing import split_text_into_tokens
-from asr_eval.align.partial import align_partial
-from asr_eval.datasets.recording import Recording
-from asr_eval.utils.misc import new_uid
+from .sender import BaseStreamingAudioSender, Cutoff, StreamingAudioSender
+from .caller import receive_full_transcription
+from ..align.data import Match, MatchesList, MultiVariant, Token
+from ..align.parsing import split_text_into_tokens
+from ..align.partial import align_partial
+from ..datasets.recording import Recording
+from ..utils.misc import new_uid
 
 
 @dataclass(kw_only=True)
@@ -179,20 +179,20 @@ class PartialAlignment:
         # process head
         for i, match in enumerate(head):
             if match.status == 'correct':
-                for token in match.true:
-                    results.append(StreamingASRErrorPosition(
-                        start_time=token.start_time,
-                        end_time=token.end_time,
-                        processed_time=self.audio_seconds_processed,
-                        status=match.status,
-                    ))
+                assert match.true is not None
+                results.append(StreamingASRErrorPosition(
+                    start_time=match.true.start_time,
+                    end_time=match.true.end_time,
+                    processed_time=self.audio_seconds_processed,
+                    status=match.status,
+                ))
             elif match.status == 'insertion':
                 left_pos = max(
-                    [0] + [token.end_time for match2 in head[:i] for token in match2.true]
+                    [0] + [match2.true.end_time for match2 in head[:i] if match2.true is not None]
                 )
                 right_pos = min(
                     [self.audio_seconds_processed]
-                    + [token.start_time for match2 in head[i + 1:] for token in match2.true]
+                    + [match2.true.start_time for match2 in head[i + 1:] if match2.true is not None]
                 )
                 results.append(StreamingASRErrorPosition(
                     start_time=left_pos,
@@ -201,23 +201,23 @@ class PartialAlignment:
                     status=match.status,
                 ))
             else:
-                for token in match.true:
-                    results.append(StreamingASRErrorPosition(
-                        start_time=token.start_time,
-                        end_time=token.end_time,
-                        processed_time=self.audio_seconds_processed,
-                        status=match.status,
-                    ))
+                assert match.true is not None
+                results.append(StreamingASRErrorPosition(
+                    start_time=match.true.start_time,
+                    end_time=match.true.end_time,
+                    processed_time=self.audio_seconds_processed,
+                    status=match.status,
+                ))
         
         # process tail
         for match in tail:
-            for token in match.true:
-                results.append(StreamingASRErrorPosition(
-                    start_time=token.start_time,
-                    end_time=token.end_time,
-                    processed_time=self.audio_seconds_processed,
-                    status='not_yet',
-                ))
+            assert match.true is not None
+            results.append(StreamingASRErrorPosition(
+                start_time=match.true.start_time,
+                end_time=match.true.end_time,
+                processed_time=self.audio_seconds_processed,
+                status='not_yet',
+            ))
         
         return results
 

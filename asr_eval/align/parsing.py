@@ -7,18 +7,8 @@ from typing import Literal, cast
 
 import razdel
 
-from asr_eval.align.data import Anything, Token, MultiVariant
-from asr_eval.utils.formatting import Formatting, FormattingSpan, apply_ansi_formatting
-    
-
-# def _strip_and_locate(text: str, strip: str) -> tuple[str, int, int]:
-#     '''
-#     strips a word, return 1) the result, 2) start delta, 3) end delta (negative)
-#     '''
-#     stripped = text.strip(strip)
-#     d_start = text.find(stripped)  # will be 0 if stripped is empty
-#     d_end = -(len(text) - d_start - len(stripped))
-#     return stripped, d_start, d_end
+from .data import Anything, Token, MultiVariant
+from ..utils.formatting import Formatting, FormattingSpan, apply_ansi_formatting
 
 
 def razdel_split_text_into_tokens(text: str) -> list[Token]:
@@ -54,6 +44,7 @@ def razdel_split_text_into_tokens(text: str) -> list[Token]:
             break
     
     return tokens
+
 
 
 def regexp_split_text_into_tokens(text: str, patterns: dict[str, str]):
@@ -218,7 +209,7 @@ def parse_multivariant_string(
                         options_raw.append((repeated, start_pos))
                 elif (match2 := re.match(r'(\w+)\<(\w+)\>', option_text.strip())) is not None:
                     # forms like Facebook<е>
-                    # TODO: ambiuous: need to add empty option to {Facebook<е>} ??
+                    # TODO: ambiguous: need to add empty option to {Facebook<е>} ??
                     # TODO: handle this in single-variant blocks
                     base, suffix = match2.groups()
                     options_raw.append((f'{base}', start_pos))

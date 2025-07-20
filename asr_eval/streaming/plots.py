@@ -5,9 +5,14 @@ import numpy as np
 import numpy.typing as npt
 import matplotlib.pyplot as plt
 
-from asr_eval.align.plots import draw_timed_transcription
-from asr_eval.streaming.model import InputChunk, OutputChunk, Signal
-from asr_eval.streaming.evaluation import PartialAlignment, RecordingStreamingEvaluation, get_audio_seconds_processed, get_audio_seconds_sent
+from ..align.plots import draw_timed_transcription
+from .model import InputChunk, OutputChunk, Signal
+from .evaluation import (
+    PartialAlignment,
+    RecordingStreamingEvaluation,
+    get_audio_seconds_processed,
+    get_audio_seconds_sent,
+)
 
 
 def draw_partial_alignment(

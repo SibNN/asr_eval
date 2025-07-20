@@ -1,8 +1,10 @@
 from typing import Literal, override, cast
 
+import torch
 from transformers import pipeline, WhisperForConditionalGeneration, WhisperProcessor # type: ignore
 
-from asr_eval.models.base import ASREvalWrapper, AUDIO_TYPE
+from .base import ASREvalWrapper
+from ..utils.types import FLOATS
 
 
 class WhisperLongformWrapper(ASREvalWrapper):
@@ -33,7 +35,7 @@ class WhisperLongformWrapper(ASREvalWrapper):
             _pipeline = pipeline(
                 'automatic-speech-recognition',
                 model=self.model_name,
-                device='cuda:0',
+                device='cuda:0' if torch.cuda.is_available() else 'cpu',
                 model_kwargs={'attn_implementation': 'sdpa'},
             )
             self.model = cast(WhisperForConditionalGeneration, _pipeline.model) # type: ignore
@@ -45,7 +47,7 @@ class WhisperLongformWrapper(ASREvalWrapper):
             }
     
     @override
-    def __call__(self, waveforms: list[AUDIO_TYPE]) -> list[str]:
+    def __call__(self, waveforms: list[FLOATS]) -> list[str]:
         self._maybe_instantiate()
         texts: list[str] = []
         # https://github.com/huggingface/transformers/pull/27658
@@ -59,7 +61,7 @@ class WhisperLongformWrapper(ASREvalWrapper):
                 sampling_rate=16_000
             )
             result = self.model.generate( # type: ignore
-                **inputs.to('cuda'), # type: ignore
+                **inputs.to(self.model.device), # type: ignore
                 condition_on_prev_tokens=self.condition_on_prev_tokens,
                 # temperature=(0.0, 0.2, 0.4, 0.6, 0.8, 1.0),
                 temperature=0, # for determinism

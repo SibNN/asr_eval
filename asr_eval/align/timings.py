@@ -9,12 +9,12 @@ import numpy as np
 import numpy.typing as npt
 from gigaam.model import GigaAMASR
 
-from asr_eval.align.data import Token, MultiVariant, Anything
-from asr_eval.align.parsing import split_text_into_tokens
-from asr_eval.ctc.base import ctc_mapping
-from asr_eval.ctc.forced_alignment import forced_alignment
-from asr_eval.models.gigaam_wrapper import FREQ, decode, encode, transcribe_with_gigaam_ctc, GigaAMEncodeError
-from asr_eval.utils.misc import self_product_nonequal
+from .data import Token, MultiVariant, Anything
+from .parsing import split_text_into_tokens
+from ..ctc.base import ctc_mapping
+from ..ctc.forced_alignment import forced_alignment
+from ..models.gigaam_wrapper import FREQ, decode, encode, transcribe_with_gigaam_ctc, GigaAMEncodeError
+from ..utils.misc import self_product_nonequal
 
 @dataclass
 class _TokenEncoded:

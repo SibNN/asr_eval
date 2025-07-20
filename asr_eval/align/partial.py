@@ -1,5 +1,5 @@
-from asr_eval.align.data import MatchesList, MultiVariant, Token
-from asr_eval.align.recursive import align
+from .data import MatchesList, MultiVariant, Token
+from .recursive import align
 
 
 def align_partial(

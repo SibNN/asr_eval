@@ -4,7 +4,8 @@ from typing import override
 
 from transformers import Pipeline
 
-from asr_eval.models.base import AUDIO_TYPE, ASREvalWrapper
+from .base import ASREvalWrapper
+from ..utils.types import FLOATS
 
 
 class LegacyPisetsWrapper(ASREvalWrapper):
@@ -39,7 +40,7 @@ class LegacyPisetsWrapper(ASREvalWrapper):
         sys.path.pop()
     
     @override
-    def __call__(self, waveforms: list[AUDIO_TYPE]) -> list[str]:
+    def __call__(self, waveforms: list[FLOATS]) -> list[str]:
         if self.segmenter is None:
             self.instantiate()
         assert self.segmenter is not None

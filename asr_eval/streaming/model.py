@@ -12,8 +12,9 @@ from typing import Any, Literal, Self, Sequence, TypeVar, override
 import numpy as np
 import numpy.typing as npt
 
-from asr_eval.streaming.buffer import ID_TYPE, StreamingQueue
-from asr_eval.utils.misc import new_uid
+from .buffer import ID_TYPE, StreamingQueue
+from ..utils.misc import new_uid
+from ..utils.types import FLOATS, INTS
 
 
 class Signal(Enum):
@@ -27,7 +28,7 @@ class Exit(Exception):
 
 
 # Audio stream that is chunkable using slices.
-AUDIO_CHUNK_TYPE = npt.NDArray[Any] | bytes | str
+AUDIO_CHUNK_TYPE = FLOATS | INTS | bytes | str
     
 
 @dataclass(kw_only=True)

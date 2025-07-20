@@ -2,8 +2,8 @@ from itertools import pairwise
 
 import matplotlib.pyplot as plt
 
-from asr_eval.align.data import Anything, MultiVariant, Token
-from asr_eval.utils.plots import draw_bezier, draw_line_with_ticks
+from .data import Anything, MultiVariant, Token
+from ..utils.plots import draw_bezier, draw_line_with_ticks
 
 
 def draw_timed_transcription(

@@ -7,8 +7,8 @@ from typing import Literal, Self, override
 
 import numpy as np
 
-from asr_eval.streaming.buffer import ID_TYPE
-from asr_eval.streaming.model import AUDIO_CHUNK_TYPE, InputBuffer, InputChunk, Signal
+from .buffer import ID_TYPE
+from .model import AUDIO_CHUNK_TYPE, InputBuffer, InputChunk, Signal
 
 
 @dataclass(slots=True)
@@ -32,14 +32,6 @@ class Cutoff:
     t_real: float
     t_audio: float
     arr_pos: int
-
-
-# @dataclass(slots=True)
-# class DelayInfo:
-#     was_wakeup: bool
-#     wait_start_time: float
-#     intended_delay: float
-#     wait_end_time: float
 
 
 @dataclass(kw_only=True)

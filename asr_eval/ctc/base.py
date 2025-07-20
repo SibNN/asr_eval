@@ -20,29 +20,3 @@ def ctc_mapping(symbols, blank): # type: ignore
     ```
     '''
     return [key for key, _group in groupby(symbols) if key != blank] # type: ignore
-
-# def visualize(
-#     waveform: npt.NDArray[np.floating[Any]],
-#     symbols: list[str | int],
-#     n_seconds: float | None = None,
-#     figsize: tuple[float, float] = (15, 2),
-#     sampling_rate: int = 16_000,
-#     tokens_freq: float = 25.0,
-# ):
-#     if n_seconds is None:
-#         n_seconds = len(waveform) / sampling_rate
-#     else:
-#         n_seconds = min(n_seconds, len(waveform) / sampling_rate)
-        
-#     waveform = waveform[:int(sampling_rate * n_seconds)]
-#     ticks = np.arange(0, sampling_rate * n_seconds, int(sampling_rate / tokens_freq))
-    
-#     plt.figure(figsize=figsize) # type: ignore
-#     plt.plot(waveform) # type: ignore
-#     plt.xlim(0, n_seconds * sampling_rate) # type: ignore
-#     plt.gca().set_xticks(ticks) # type: ignore
-#     plt.gca().set_xticklabels(symbols) # type: ignore
-#     plt.yticks([]) # type: ignore
-#     plt.show() # type: ignore
-    
-#     IPython.display.display(IPython.display.Audio(waveform, rate=sampling_rate)) # type: ignore

@@ -6,8 +6,8 @@ import numpy as np
 import speechbrain.inference.ASR
 from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
 
-from asr_eval.streaming.buffer import ID_TYPE
-from asr_eval.streaming.model import OutputChunk, StreamingASR, Signal, TranscriptionChunk
+from ..streaming.buffer import ID_TYPE
+from ..streaming.model import OutputChunk, StreamingASR, Signal, TranscriptionChunk
 
 
 class SpeechbrainStreaming(StreamingASR):

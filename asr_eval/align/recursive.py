@@ -4,7 +4,7 @@ from functools import cache
 
 import nltk
 
-from asr_eval.align.data import Anything, Token, MultiVariant, Match, MatchesList, AlignmentScore
+from .data import Anything, Token, MultiVariant, Match, MatchesList, AlignmentScore
 
 
 @cache
@@ -12,7 +12,7 @@ def _char_edit_distance(true: str, pred: str) -> int:
     return nltk.edit_distance(true, pred) # type: ignore
 
 
-def match_from_pair(true: list[Token], pred: list[Token]) -> Match:
+def match_from_pair(true: Token | None, pred: Token | None) -> Match:
     """
     Constructs `Match` object and fill `status` and `score` fields.
     
@@ -23,27 +23,31 @@ def match_from_pair(true: list[Token], pred: list[Token]) -> Match:
     
     This is a helper function that `align()` uses to find an optimal alignment.
     """
-    assert len(true) > 0 or len(pred) > 0
-    is_anything = len(true) == 1 and isinstance(true[0].value, Anything)
-    if [t.value for t in true] == [t.value for t in pred] or is_anything:
+    T = true is not None
+    P = pred is not None
+    assert T or P
+    
+    is_anything = T and isinstance(true.value, Anything)
+    if is_anything or (T and P and true.value == pred.value):
         status = 'correct'
-    elif len(pred) == 0:
+    elif P:
         status = 'deletion'
-    elif len(true) == 0:
+    elif T:
         status = 'insertion'
     else:
         status = 'replacement'
+    
     return Match(
         true=true,
         pred=pred,
         status=status,
         score=AlignmentScore(
-            n_word_errors=0 if status == 'correct' else max(len(true), len(pred)),
-            n_correct=len(true) if status == 'correct' and not is_anything else 0,
+            n_word_errors=0 if status == 'correct' else 1,
+            n_correct=int(T) if status == 'correct' and not is_anything else 0,
             n_char_errors=_char_edit_distance(
-                ' '.join(str(t.value) for t in true),
-                ' '.join(str(t.value) for t in pred)
-            ) if not is_anything else 0,
+                str(true.value) if T else '',
+                str(pred.value) if P else '',
+            ) if (not is_anything and status != 'correct') else 0,
         ),
     )
     
@@ -99,22 +103,22 @@ def align(
             _matches: list[Match] = []
             for token in _true:
                 if len(shortest := select_shortest_multi_variants([token])):
-                    _matches.append(match_from_pair(shortest, []))
+                    _matches += [match_from_pair(t, None) for t in shortest]
             return MatchesList.from_list(_matches)
         elif len(_pred) > 0 and len(_true) == 0:
             return MatchesList.from_list([
-                match_from_pair([], [token])
+                match_from_pair(None, token)
                 for token in _pred
             ])
         elif not isinstance(_true[0], MultiVariant):
             options: list[MatchesList] = []
             current_match_options = [
                 # option 1: match true[0] with pred[0]
-                (1, 1, match_from_pair([_true[0]], [_pred[0]])),
+                (1, 1, match_from_pair(_true[0], _pred[0])),
                 # option 2: match pred[0] with nothing
-                (0, 1, match_from_pair([], [_pred[0]])),
+                (0, 1, match_from_pair(None, _pred[0])),
                 # option 3: match true[0] with nothing
-                (1, 0, match_from_pair([_true[0]], [])),
+                (1, 0, match_from_pair(_true[0], None)),
             ]
             for i, j, current_match in current_match_options:
                 new_true_pos = true_pos
@@ -139,7 +143,7 @@ def align(
                     _results.prepend(current_match)
                 )
             if isinstance(_true[0].value, Anything):
-                current_match = match_from_pair([_true[0]], [_pred[0]])
+                current_match = match_from_pair(_true[0], _pred[0])
                 options.append(
                     # option 4: match Anything with pred[0], but keep Anything in the true tokens
                     _align_recursive(

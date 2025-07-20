@@ -1,25 +1,25 @@
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
 
 import numpy as np
-import numpy.typing as npt
 import scipy
+
+from ..utils.types import FLOATS
 
 
 @dataclass(init=False)
 class LogProbsWindow:
     clipped_start_ticks: int
     clipped_end_ticks: int
-    log_probs: npt.NDArray[np.floating[Any]]
-    weights: npt.NDArray[np.floating[Any]]
+    log_probs: FLOATS
+    weights: FLOATS
     
     def __init__(
         self,
         start_time: float,  # can be negative
         end_time: float,
-        waveform: npt.NDArray[np.floating[Any]],
-        ctc_model: Callable[[npt.NDArray[np.floating[Any]]], npt.NDArray[np.floating[Any]]],
+        waveform: FLOATS,
+        ctc_model: Callable[[FLOATS], FLOATS],
         model_tick_size_sec: float,
         sampling_rate: int = 16_000,
     ):
@@ -54,7 +54,7 @@ class LogProbsWindow:
         self.weights /= self.weights.max()
 
 
-def average_logp_windows(windows: list[LogProbsWindow]) -> npt.NDArray[np.floating[Any]]:
+def average_logp_windows(windows: list[LogProbsWindow]) -> FLOATS:
     max_ticks = max(window.clipped_end_ticks for window in windows)
     
     sum_weights = np.zeros(max_ticks)
@@ -72,8 +72,8 @@ def average_logp_windows(windows: list[LogProbsWindow]) -> npt.NDArray[np.floati
 
 
 def chunked_ctc_prediction(
-    waveform: npt.NDArray[np.floating[Any]],
-    ctc_model: Callable[[npt.NDArray[np.floating[Any]]], npt.NDArray[np.floating[Any]]],
+    waveform: FLOATS,
+    ctc_model: Callable[[FLOATS], FLOATS],
     model_tick_size_sec: float,
     segment_size_sec: float = 30,
     segment_shift_sec: float = 6,
@@ -88,8 +88,8 @@ def chunked_ctc_prediction(
         start = center - segment_size_sec / 2  # can be negative
         end = center + segment_size_sec / 2
         windows.append(LogProbsWindow(
-            start_time=start,
-            end_time=end,
+            start_time=float(start),
+            end_time=float(end),
             waveform=waveform,
             ctc_model=ctc_model,
             model_tick_size_sec=model_tick_size_sec,

@@ -4,8 +4,6 @@ import math
 import sys
 from typing import Callable
 
-import numpy as np
-import numpy.typing as npt
 import torch
 from torch.nn.utils.rnn import pad_sequence
 from huggingface_hub import hf_hub_download # type: ignore
@@ -14,6 +12,8 @@ import kaldifeat
 from icefall import NgramLm
 from icefall.lm_wrapper import LmScorer
 from icefall.utils import AttributeDict
+
+from ..utils.types import FLOATS
 
 
 class VoskV54:
@@ -83,7 +83,7 @@ class VoskV54:
         self.modified_beam_search_LODR: Callable = modified_beam_search_LODR # type: ignore
         
     @torch.inference_mode()
-    def transcribe(self, waveforms: list[npt.NDArray[np.float64]]) -> list[str]:
+    def transcribe(self, waveforms: list[FLOATS]) -> list[str]:
         waveform_tensors = [torch.tensor(w, dtype=torch.float32).to(self.device) for w in waveforms]
         
         features = self.fbank(waveform_tensors)

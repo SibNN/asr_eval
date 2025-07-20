@@ -8,7 +8,7 @@ import numpy.typing as npt
 import torch
 import torchaudio
 
-from asr_eval.utils.misc import groupby_into_spans
+from ..utils.misc import groupby_into_spans
 
 
 def forced_alignment(

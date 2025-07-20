@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any, Literal, cast
+import uuid
 
 import numpy as np
-
-from asr_eval.utils.misc import new_uid
 
 
 @dataclass(slots=True)
@@ -35,7 +34,7 @@ class Token:
     - `type` is either "word", or "punct" (see `split_text_into_tokens`), or any user-defined types
     """
     value: str | Anything
-    uid: str = field(default_factory=new_uid)
+    uid: str = field(default_factory=lambda: str(uuid.uuid4()))
     start_pos: int = 0
     end_pos: int = 0
     start_time: float = np.nan
@@ -173,14 +172,14 @@ class Match:
     Note that this class does not calculate or validate `status` or `score`, it only stores them.
     Use `match_from_pair()` to construct `Match` object and fill these fields.
     """
-    true: list[Token]
-    pred: list[Token]
+    true: Token | None
+    pred: Token | None
     status: Literal['correct', 'deletion', 'insertion', 'replacement']
     score: AlignmentScore
     
     def __repr__(self) -> str:
-        first = ' '.join([str(x) for x in self.true])
-        second = ' '.join([str(x) for x in self.pred])
+        first = str(self.true.value) if self.true is not None else ''
+        second = str(self.pred.value) if self.pred is not None else ''
         return f'Match({first}, {second})'
 
 
@@ -231,12 +230,13 @@ class MatchesList:
                 n_prev_insertions = 0
                 n_errors += match.score.n_word_errors
             else:
-                n_prev_insertions = min(4, n_prev_insertions + len(match.pred))
+                n_prev_insertions = min(max_insertions, n_prev_insertions + int(match.pred is not None))
         n_errors += n_prev_insertions
         return n_errors
 
 
 def _true_len(match: Match) -> int:
-    if len(match.true) == 1 and isinstance(match.true[0].value, Anything):
+    if match.true is not None and isinstance(match.true.value, Anything):
+        # "Anything" blocks does not increment true len!
         return 0
-    return len(match.true)
+    return int(match.true is not None)

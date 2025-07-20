@@ -4,7 +4,7 @@ from dataclasses import asdict, dataclass, field
 
 from termcolor import colored
 
-from asr_eval.utils.misc import groupby_into_spans
+from .misc import groupby_into_spans
 
 
 @dataclass
