@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, cast, override
+from typing import cast, override
 import warnings
 
 import gigaam
@@ -10,7 +10,7 @@ from torch.nn.utils.rnn import pad_sequence
 import numpy as np
 
 from ..ctc.base import ctc_mapping
-from ..ctc.chunking import average_logp_windows, chunked_ctc_prediction
+from ..segments.chunking import chunk_audio, average_segment_features
 from .base import ASREvalWrapper
 from ..utils.types import FLOATS, INTS
 
@@ -104,11 +104,10 @@ def encode(model: GigaAMASR, text: str) -> list[int]:
 
 
 class GigaAMWrapper(ASREvalWrapper):
-    def __init__(self, **kwargs: Any):
-        self.kwargs = kwargs
+    def __init__(self):
         self.model: GigaAMASR | None = None
         
-    def _forward(self, waveform: FLOATS) -> FLOATS:
+    def _single_forward(self, waveform: FLOATS) -> FLOATS:
         assert self.model is not None
         return transcribe_with_gigaam_ctc(self.model, [waveform])[0].log_probs
     
@@ -116,16 +115,20 @@ class GigaAMWrapper(ASREvalWrapper):
     def __call__(self, waveforms: list[FLOATS]) -> list[str]:
         self.model = self.model or cast(GigaAMASR, gigaam.load_model('ctc', device='cuda'))
         texts: list[str] = []
+        
         for waveform in waveforms:
-            predicted_windows = chunked_ctc_prediction(
-                waveform=waveform,
-                ctc_model=self._forward,
-                model_tick_size_sec=1 / FREQ,
-                segment_size_sec=30,
-                segment_shift_sec=6,
-                sampling_rate=SAMPLE_RATE,
+            segments = chunk_audio(
+                len(waveform) / SAMPLE_RATE,
+                segment_length=30,
+                segment_shift=10
             )
-            merged_log_probs = average_logp_windows(predicted_windows)
+            log_probs = [self._single_forward(waveform[segment.slice()]) for segment in segments]
+            merged_log_probs = average_segment_features(
+                segments=segments,
+                features=log_probs,
+                feature_tick_size=1 / FREQ,
+            )
+            
             labels = cast(list[int], merged_log_probs.argmax(axis=-1, keepdims=False).tolist())
             tokens = ctc_mapping(labels, self.model.decoding.blank_id)
             texts.append(decode(self.model, tokens))

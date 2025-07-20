@@ -17,6 +17,18 @@ class AudioSegment():
         assert self.end_time >= 0, f'End < 0 in the segment {self}'
         assert self.start_time <= self.end_time, f'Start > end in the segment {self}'
     
+    def start_pos(self, sampling_rate: int = 16_000) -> int:
+        return int(self.start_time * sampling_rate)
+    
+    def end_pos(self, sampling_rate: int = 16_000) -> int:
+        return int(self.end_time * sampling_rate)
+
+    def slice(self, sampling_rate: int = 16_000) -> slice[int]:
+        return slice(
+            self.start_pos(sampling_rate=sampling_rate),
+            self.end_pos(sampling_rate=sampling_rate),
+        )
+    
     @property
     def duration(self) -> float:
         return self.end_time - self.start_time

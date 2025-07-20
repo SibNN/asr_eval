@@ -9,7 +9,7 @@ from pyannote.audio.pipelines import SpeakerDiarization
 from pyannote.core.annotation import Annotation
 
 from asr_eval.utils.types import FLOATS
-from asr_eval.utils.audio_segment import AudioSegment
+from asr_eval.segments.segment import AudioSegment
 
 
 @dataclass(frozen=True)
