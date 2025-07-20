@@ -8,11 +8,10 @@ import torch
 from datasets import load_from_disk, Audio, Dataset # type: ignore
 import gigaam
 from gigaam.model import GigaAMASR
-import numpy as np
-import numpy.typing as npt
 
 sys.path.append("/userspace/soa/asr-eval")
 from asr_eval.models.gigaam_wrapper import transcribe_with_gigaam_ctc
+from asr_eval.utils.types import FLOATS
 
 
 model = typing.cast(GigaAMASR, gigaam.load_model('ctc', device='cuda'))
@@ -30,7 +29,7 @@ for sova_part_dir in sorted(sova_dir.glob('*-of-00500')):
     
     sova_part: Dataset = load_from_disk(sova_part_dir).cast_column('audio', Audio(sampling_rate=16_000)) # type: ignore
 
-    log_probs: list[npt.NDArray[np.float32 | np.float16]] = []
+    log_probs: list[FLOATS] = []
     texts: list[str] = []
     
     for batch_idx, batch in enumerate(sova_part.iter(batch_size=batch_size)): # type: ignore
@@ -45,7 +44,7 @@ for sova_part_dir in sorted(sova_dir.glob('*-of-00500')):
         )
         # break
     
-    Dataset.from_dict({
+    Dataset.from_dict({ # type: ignore
         'gigaam2_log_probs': log_probs,
         'gigaam2_texts': texts,
     }).save_to_disk(output_part_dir) # type: ignore
