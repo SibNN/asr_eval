@@ -9,6 +9,7 @@ import numpy as np
 from asr_eval.models.gigaam_wrapper import transcribe_with_gigaam_ctc, decode
 from asr_eval.ctc.base import ctc_mapping
 from asr_eval.ctc.forced_alignment import recursion_forced_alignment, forced_alignment
+from asr_eval.utils.types import FLOATS
 
 def test_ctc_mapping():
     assert ctc_mapping(list('____'), blank='_') == []
@@ -20,7 +21,7 @@ def test_ctc_mapping():
 
 @pytest.mark.filterwarnings('ignore::FutureWarning:', 'ignore::DeprecationWarning:')
 def test_forced_alignment():
-    waveform, _ = librosa.load('tests/testdata/podlodka_test_0.wav', sr=16_000) # type: ignore
+    waveform: FLOATS = librosa.load('tests/testdata/podlodka_test_0.wav', sr=16_000)[0] # type: ignore
     text = 'и поэтому использовать их в повседневности не получается мы вынуждены поступать зачастую интуитивно'
     
     model = typing.cast(GigaAMASR, gigaam.load_model('ctc', device='cpu'))

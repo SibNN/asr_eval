@@ -1,15 +1,14 @@
-from typing import Any, cast
+from typing import cast
 
 import pytest
 import gigaam
 from gigaam.model import GigaAMASR
 import torch
 import librosa
-import numpy as np
-import numpy.typing as npt
 
 from asr_eval.models.gigaam_wrapper import transcribe_with_gigaam_ctc, decode
 from asr_eval.ctc.base import ctc_mapping
+from asr_eval.utils.types import FLOATS
 
 
 @pytest.fixture
@@ -33,8 +32,7 @@ def test_prepare_audio_for_gigaam(model: GigaAMASR):
     waveform_torch_from_giaam, length = model.prepare_wav(audio_path)
 
     # load using librosa
-    waveform: npt.NDArray[np.floating[Any]]
-    waveform, _ = librosa.load(audio_path, sr=16_000) # type: ignore
+    waveform: FLOATS = librosa.load(audio_path, sr=16_000)[0] # type: ignore
     waveform_torch_from_librosa = (
         torch.tensor(waveform, dtype=model._dtype).to(model._device).unsqueeze(0) # pyright: ignore[reportPrivateUsage]
     )
@@ -61,7 +59,7 @@ def test_giggam(model: GigaAMASR):
     assert model.transcribe(audio_path1) == expected_text1
     assert model.transcribe(audio_path2) == expected_text2
 
-    waveforms: list[npt.NDArray[np.floating[Any]]] = [
+    waveforms: list[FLOATS] = [
         librosa.load(audio_path1, sr=16_000)[0], # type: ignore
         librosa.load(audio_path2, sr=16_000)[0], # type: ignore
     ]

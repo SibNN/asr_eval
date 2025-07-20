@@ -1,17 +1,17 @@
 import json
-from typing import TypedDict, Any
+from typing import TypedDict
 import wave
 
 import pytest
 import librosa
 import numpy as np
-import numpy.typing as npt
 from vosk import Model, KaldiRecognizer # type: ignore
 
 from asr_eval.streaming.model import TranscriptionChunk
 from asr_eval.streaming.caller import receive_full_transcription
 from asr_eval.models.vosk_streaming_wrapper import VoskStreaming
 from asr_eval.streaming.sender import StreamingAudioSender
+from asr_eval.utils.types import FLOATS
 
 @pytest.mark.parametrize('frames_per_chunk, prediction', [
     (4000, ['one zero zero zero one', 'nah no to i know', 'zero one eight zero three']),
@@ -50,8 +50,7 @@ def test_vosk_KaldiRecognizer(frames_per_chunk: int, prediction: list[str]):
 
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_vosk_wrapper():
-    waveform: npt.NDArray[np.floating[Any]]
-    waveform, _ = librosa.load('tests/testdata/vosk.wav', sr=16_000) # type: ignore
+    waveform: FLOATS = librosa.load('tests/testdata/vosk.wav', sr=16_000)[0] # type: ignore
     waveform_bytes = np.int16(waveform * 32768).tobytes()
 
     asr = VoskStreaming()
@@ -88,8 +87,7 @@ def test_vosk_wrapper():
 def test_vosk54_wrapper():
     from asr_eval.models.vosk54_wrapper import VoskV54
     
-    waveform: npt.NDArray[np.float64]
-    waveform, _ = librosa.load('tests/testdata/podlodka_test_0.wav', sr=16_000) # type: ignore
+    waveform: FLOATS = librosa.load('tests/testdata/podlodka_test_0.wav', sr=16_000)[0] # type: ignore
 
     model = VoskV54()
     texts = model.transcribe([waveform])

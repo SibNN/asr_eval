@@ -30,10 +30,14 @@ gigaam = ["gigaam[longform]"]
 vosk = ["vosk"]
 speechbrain = ["speechbrain"]
 nvidia-conformer = ["nemo_toolkit[all]"]
-all = ["asr_eval[dev,gigaam,vosk,speechbrain,nvidia-conformer]"]
+pyannote = ["pyannote.audio"]
+all = ["asr_eval[dev,gigaam,vosk,speechbrain,nvidia-conformer,pyannote]"]
 
 [tool.setuptools.packages.find]
 include = ["asr_eval"]
+
+[tool.setuptools.package-data]
+"asr_eval" = ["py.typed"]
 
 [project.urls]
 Repository = "https://gitlab.sibnn.ai/research/asr-eval"

@@ -1,19 +1,16 @@
-from typing import cast, Any
-
 import pytest
-import numpy as np
-import numpy.typing as npt
 import librosa
 
 from asr_eval.streaming.caller import receive_full_transcription
 from asr_eval.streaming.model import TranscriptionChunk, prepare_audio_format
 from asr_eval.models.speechbrain_wrapper import SpeechbrainStreaming
 from asr_eval.streaming.sender import StreamingAudioSender
+from asr_eval.utils.types import FLOATS
 
 
 @pytest.mark.filterwarnings('ignore::FutureWarning:', 'ignore::DeprecationWarning:')
 def test_speechbrain_streaming():
-    waveform = cast(npt.NDArray[np.floating[Any]], librosa.load('tests/testdata/vosk.wav', sr=16_000)[0]) # type: ignore
+    waveform: FLOATS = librosa.load('tests/testdata/vosk.wav', sr=16_000)[0] # type: ignore
     
     asr = SpeechbrainStreaming()
     asr.start_thread()

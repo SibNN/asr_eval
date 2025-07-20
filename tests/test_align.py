@@ -10,8 +10,8 @@ def test_edit_distance():
     rng = np.random.default_rng(0)
     
     for _ in range(100):
-        true = [str(x) for x in rng.integers(low=0, high=3, size=rng.integers(low=0, high=15))]
-        pred = [str(x) for x in rng.integers(low=0, high=3, size=rng.integers(low=0, high=15))]
+        true = [str(x) for x in rng.integers(low=0, high=3, size=rng.integers(low=0, high=15))] # type: ignore
+        pred = [str(x) for x in rng.integers(low=0, high=3, size=rng.integers(low=0, high=15))] # type: ignore
         assert (
             align([Token(x) for x in true], [Token(x) for x in pred]).score.n_word_errors
             == nltk.edit_distance(true, pred) # pyright: ignore[reportUnknownMemberType]
@@ -24,23 +24,21 @@ def test_align_recursive():
     true = parse_multivariant_string(true_text)
     pred = split_text_into_tokens(pred_text)
     matches_list = align(true, pred)
-    
-    print([
-        ([t.value for t in match.true], [t.value for t in match.pred])
-        for match in matches_list.matches
-    ])
 
     assert [
-        ([t.value for t in match.true], [t.value for t in match.pred])
+        (
+            match.true.value if match.true is not None else None,
+            match.pred.value if match.pred is not None else None,
+        )
         for match in matches_list.matches
     ] == [
-        (['a'], ['a']),
-        (['<*>'], []),
-        (['b'], ['b']),
-        (['c'], ['x']),
-        (['y'], ['y']),
-        (['a'], ['a']),
-        ([], ['a'])
+        ('a', 'a'),
+        ('<*>', None),
+        ('b', 'b'),
+        ('c', 'x'),
+        ('y', 'y'),
+        ('a', 'a'),
+        (None, 'a')
     ]
 
     for x in true:

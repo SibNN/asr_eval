@@ -1,12 +1,10 @@
-from typing import Any, cast
+from typing import cast
 from pathlib import Path
 
 import pytest
 import librosa
 import gigaam
 from gigaam.model import GigaAMASR
-import numpy as np
-import numpy.typing as npt
 
 from asr_eval.datasets.recording import Recording
 from asr_eval.align.timings import fill_word_timings_inplace
@@ -21,11 +19,12 @@ from asr_eval.streaming.plots import (
     latency_plot,
     show_last_alignments,
 )
+from asr_eval.utils.types import FLOATS
 
 
 @pytest.mark.filterwarnings('ignore::FutureWarning:', 'ignore::DeprecationWarning:')
 def test_evaluation():
-    waveform: npt.NDArray[np.floating[Any]] = librosa.load('tests/testdata/formula1.mp3', sr=16000)[0] # type: ignore
+    waveform: FLOATS = librosa.load('tests/testdata/formula1.mp3', sr=16000)[0] # type: ignore
     waveform += waveform[::-1] / 4  # add speech-like noise
     text = Path('tests/testdata/formula1.txt').read_text()
     
