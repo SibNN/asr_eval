@@ -52,7 +52,7 @@ class SpeakerDiarizationWrapper:
                     'min_duration_off': 0.0,
                 }
             }
-        )
+        ).to(torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
     
     def __call__(
         self, mono_sound: FLOATS, sampling_rate: int = 16_000
