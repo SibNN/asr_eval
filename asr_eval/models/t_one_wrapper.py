@@ -5,6 +5,8 @@ from tone import StreamingCTCPipeline
 
 from ..streaming.buffer import ID_TYPE
 from ..streaming.model import OutputChunk, StreamingASR, Signal, TranscriptionChunk
+from ..models.base import ASREvalWrapper
+from ..utils.types import FLOATS
 
 
 SAMPLING_RATE = 8000
@@ -44,3 +46,18 @@ class TOneStreaming(StreamingASR):
     @override
     def audio_type(self) -> Literal['float', 'int', 'bytes']:
         return 'int'
+
+
+class TOneWrapper(ASREvalWrapper):
+    @override
+    def __call__(self, waveforms: list[FLOATS]) -> list[str]:
+        self.pipeline = self.pipeline or StreamingCTCPipeline.from_hugging_face()
+        
+        texts: list[str] = []  # TODO update base class interface to also return timings
+        for waveform in waveforms:
+            if (maxval := np.abs(waveform).max()) > 0:
+                waveform /= maxval
+            utterances = self.pipeline.forward_offline((waveform * 32768).astype(np.int32))
+            texts.append(' '.join(x.text for x in utterances))
+        
+        return texts
