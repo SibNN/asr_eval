@@ -35,7 +35,7 @@ pip install -e .
 pip install -e .[all]
 ```
 
-This will install all the required optional dependencies listed below. Note that this will not install Vosk 0.54 and Pisets since they are not on PyPI.
+This will install all the required optional dependencies listed below. Note that this will not install Vosk 0.54, Pisets and T-One since they are not on PyPI.
 
 **Dev installation**
 
@@ -80,4 +80,10 @@ pip install k2==1.24.4.dev20250208+cuda12.4.torch2.5.1 -f https://k2-fsa.github.
 pip install git+https://github.com/lhotse-speech/lhotse
 sudo apt install cmake
 pip install git+https://github.com/k2-fsa/icefall
+```
+
+**T-One support**
+
+```
+pip install git+https://github.com/voicekit-team/T-one
 ```
