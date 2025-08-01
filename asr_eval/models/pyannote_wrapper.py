@@ -1,4 +1,4 @@
-from dataclasses import dataclass, replace
+from dataclasses import replace
 import operator
 from collections import defaultdict
 
@@ -8,13 +8,9 @@ import pandas as pd
 from pyannote.audio.pipelines import SpeakerDiarization
 from pyannote.core.annotation import Annotation
 
+from asr_eval.segments.segment import DiarizationSegment
 from asr_eval.utils.types import FLOATS
 from asr_eval.segments.segment import AudioSegment
-
-
-@dataclass(frozen=True)
-class DiarizationSegment(AudioSegment):
-    speaker_idx: int
 
 
 class SpeakerDiarizationWrapper:

@@ -4,11 +4,11 @@ from typing import override
 
 from transformers import Pipeline
 
-from .base import ASREvalWrapper
+from .base import Transcriber
 from ..utils.types import FLOATS
 
 
-class LegacyPisetsWrapper(ASREvalWrapper):
+class LegacyPisetsWrapper(Transcriber):
     def __init__(
         self,
         repo_dir: str | Path,
@@ -40,24 +40,21 @@ class LegacyPisetsWrapper(ASREvalWrapper):
         sys.path.pop()
     
     @override
-    def __call__(self, waveforms: list[FLOATS]) -> list[str]:
+    def transcribe(self, waveform: FLOATS) -> str:
         if self.segmenter is None:
             self.instantiate()
         assert self.segmenter is not None
         assert self.asr is not None
         
-        texts: list[str] = []
-        for waveform in waveforms:
-            segments: list[tuple[float, float, str]] = self.transcribe( # type: ignore
-                mono_sound=waveform,
-                segmenter=self.segmenter,
-                voice_activity_detector=(
-                    self.voice_activity_detector
-                    if self.use_vad
-                    else lambda _waveform: [{'label': 'speech'}]), # type: ignore
-                asr=self.asr,
-                min_segment_size=self.min_segment_size,
-                max_segment_size=self.max_segment_size,
-            )
-            texts.append(' '.join(text for _start, _end, text in segments)) # type: ignore
-        return texts
+        segments: list[tuple[float, float, str]] = self.transcribe( # type: ignore
+            mono_sound=waveform, # type: ignore
+            segmenter=self.segmenter, # type: ignore
+            voice_activity_detector=( # type: ignore
+                self.voice_activity_detector
+                if self.use_vad
+                else lambda _waveform: [{'label': 'speech'}]), # type: ignore
+            asr=self.asr, # type: ignore
+            min_segment_size=self.min_segment_size, # type: ignore
+            max_segment_size=self.max_segment_size, # type: ignore
+        )
+        return ' '.join(text for _start, _end, text in segments) # type: ignore

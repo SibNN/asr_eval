@@ -37,3 +37,13 @@ class AudioSegment():
         overlap_start = max(self.start_time, other.start_time)
         overlap_end = min(self.end_time, other.end_time)
         return max(0, overlap_end - overlap_start)
+
+
+@dataclass(frozen=True)
+class TimedText(AudioSegment):
+    text: str
+
+
+@dataclass(frozen=True)
+class DiarizationSegment(AudioSegment):
+    speaker_idx: int

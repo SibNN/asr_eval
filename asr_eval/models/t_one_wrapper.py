@@ -7,7 +7,7 @@ import torchaudio
 
 from ..streaming.buffer import ID_TYPE
 from ..streaming.model import OutputChunk, StreamingASR, Signal, TranscriptionChunk
-from ..models.base import ASREvalWrapper
+from ..models.base import Transcriber
 from ..utils.types import FLOATS
 
 
@@ -50,24 +50,20 @@ class TOneStreaming(StreamingASR):
         return 'int'
 
 
-class TOneWrapper(ASREvalWrapper):
+class TOneWrapper(Transcriber):
     def __init__(self):
         self.pipeline = None
     
     @override
-    def __call__(self, waveforms: list[FLOATS]) -> list[str]:
+    def transcribe(self, waveform: FLOATS) -> str:
         self.pipeline = self.pipeline or StreamingCTCPipeline.from_hugging_face()
         
-        texts: list[str] = []  # TODO update base class interface to also return timings and specify sampling rate
-        for waveform in waveforms:
-            waveform: FLOATS = torchaudio.functional.resample(
-                torch.tensor(waveform),
-                orig_freq=16_000,
-                new_freq=SAMPLING_RATE,
-            ).numpy() # type: ignore
-            if (maxval := np.abs(waveform).max()) > 0:
-                waveform /= maxval
-            utterances = self.pipeline.forward_offline((waveform * 32768).astype(np.int32))
-            texts.append(' '.join(x.text for x in utterances))  # we can use x.start_time, x.end_time
-        
-        return texts
+        waveform = torchaudio.functional.resample(
+            torch.tensor(waveform),
+            orig_freq=16_000,
+            new_freq=SAMPLING_RATE,
+        ).numpy() # type: ignore
+        if (maxval := np.abs(waveform).max()) > 0:
+            waveform /= maxval
+        utterances = self.pipeline.forward_offline((waveform * 32768).astype(np.int32))
+        return ' '.join(x.text for x in utterances)  # we can use x.start_time, x.end_time

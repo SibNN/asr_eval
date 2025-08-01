@@ -2,7 +2,7 @@ from functools import partial
 from pathlib import Path
 import math
 import sys
-from typing import Callable
+from typing import Callable, override
 
 import torch
 from torch.nn.utils.rnn import pad_sequence
@@ -13,10 +13,11 @@ from icefall import NgramLm
 from icefall.lm_wrapper import LmScorer
 from icefall.utils import AttributeDict
 
+from .base import Transcriber
 from ..utils.types import FLOATS
 
 
-class VoskV54:
+class VoskV54(Transcriber):
     def __init__(self, device: str | torch.device = 'cpu'):
         # adopted from https://huggingface.co/alphacep/vosk-model-ru/blob/main/decode.py
         # beam search code taken from icefall/egs/librispeech/ASR/pruned_transducer_stateless2/beam_search.py
@@ -81,9 +82,13 @@ class VoskV54:
 
         from decode import modified_beam_search_LODR # type: ignore
         self.modified_beam_search_LODR: Callable = modified_beam_search_LODR # type: ignore
+    
+    @override
+    def transcribe(self, waveform: FLOATS) -> str:
+        return self.batch_transcribe([waveform])[0]
         
     @torch.inference_mode()
-    def transcribe(self, waveforms: list[FLOATS]) -> list[str]:
+    def batch_transcribe(self, waveforms: list[FLOATS]) -> list[str]:
         waveform_tensors = [torch.tensor(w, dtype=torch.float32).to(self.device) for w in waveforms]
         
         features = self.fbank(waveform_tensors)
