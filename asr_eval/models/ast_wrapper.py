@@ -34,7 +34,7 @@ class AudioSpectrogramTransformer:
         inputs = inputs.to(self.device) # type: ignore
         return self.model(**inputs).logits.detach().cpu().numpy()
     
-    def predict_on_long_audio(
+    def predict_longform(
         self,
         waveform: FLOATS,
         batch_size: int = 32,

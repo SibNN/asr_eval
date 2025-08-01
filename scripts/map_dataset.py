@@ -145,7 +145,7 @@ if __name__ == '__main__':
 
                 if args.ast:
                     with catchtime('\tAST', disable=not args.verbose):
-                        sample['ast'] = ast.predict_on_long_audio(
+                        sample['ast'] = ast.predict_longform(
                             waveform,
                             batch_size=int(args.ast_batch_size),
                             sampling_rate=sr,
