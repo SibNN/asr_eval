@@ -3,13 +3,14 @@ from typing import Literal, cast, override
 import warnings
 
 import gigaam
-from gigaam.vad_utils import segment_audio as gigaam_segment_audio
 from gigaam.model import GigaAMASR, SAMPLE_RATE, LONGFORM_THRESHOLD
 from gigaam.decoding import CTCGreedyDecoding
 import torch
 from torch.nn.utils.rnn import pad_sequence
 import numpy as np
 from typing import Literal
+
+from .pyannote_segmenter import PyannoteSegmenter
 from ..ctc.base import ctc_mapping
 from ..segments.chunking import chunk_audio, average_segment_features
 from .base import Transcriber
@@ -18,11 +19,27 @@ from ..utils.types import FLOATS, INTS
 SAMPLING_RATE = 16000
 FREQ = 25  # GigaAM2 encoder outputs per second
 
+
+def transcribe_with_gigaam(model: GigaAMASR, waveform: FLOATS) -> str:
+    '''
+    Forward for RNNT or CTC model, returns text
+    '''
+    wav = (
+        torch.tensor(waveform)
+        .to(model._device)  # pyright:ignore[reportPrivateUsage]
+        .to(model._dtype)  # pyright:ignore[reportPrivateUsage]
+        .unsqueeze(0)
+    )
+    length = torch.full([1], wav.shape[-1], device=model._device)  # pyright:ignore[reportPrivateUsage]
+    encoded, encoded_len = model.forward(wav, length)
+    return model.decoding.decode(model.head, encoded, encoded_len)[0]
+
 @dataclass
 class GigaamCTCOutputs:
     encoded: FLOATS
     log_probs: FLOATS  # exp(log_probs) sums to 1
     text: str
+    
     
 @torch.inference_mode()
 def transcribe_with_gigaam_ctc(
@@ -30,7 +47,7 @@ def transcribe_with_gigaam_ctc(
     waveforms: list[FLOATS],
 ) -> list[GigaamCTCOutputs]:
     '''
-    Pass through Gigaam encoder, gigaam head, then decode and return all the results.
+    Pass through Gigaam encoder, gigaam CTC head, then decode and return all the results.
     Sampling rate should be equal to gigaam.preprocess.SAMPLE_RATE == 16_000.
     '''
     assert isinstance(model.decoding, CTCGreedyDecoding)
@@ -104,40 +121,36 @@ def encode(model: GigaAMASR, text: str) -> list[int]:
     return tokens
 
 
-class GigaAMWrapper(Transcriber):
-    longform_mode: Literal['vad', 'uniform']
-
-    def __init__(
-        self,
-        longform_mode: Literal['vad', 'uniform'] = 'vad',
-    ):
-        self.model: GigaAMASR | None = None
-        self.longform_mode = longform_mode
-        
-    def _single_forward(self, waveform: FLOATS) -> str:
-        assert self.model is not None
-        wav = (
-            torch.tensor(waveform)
-            .to(self.model._device)  # pyright:ignore[reportPrivateUsage]
-            .to(self.model._dtype)  # pyright:ignore[reportPrivateUsage]
-            .unsqueeze(0)
-        )
-        length = torch.full([1], wav.shape[-1], device=self.model._device)  # pyright:ignore[reportPrivateUsage]
-        encoded, encoded_len = self.model.forward(wav, length)
-        return self.model.decoding.decode(self.model.head, encoded, encoded_len)[0]
+class GigaAMLongformVAD(Transcriber):
+    # TODO make more general class
+    def __init__(self, head_type: Literal['ctc', 'rnnt'] = 'ctc'):
+        self.model = cast(GigaAMASR, gigaam.load_model(head_type, device='cuda'))
     
-    def _single_forward_ctc(self, waveform: FLOATS) -> FLOATS:
-        assert self.model is not None
-        return transcribe_with_gigaam_ctc(self.model, [waveform])[0].log_probs
+    @override
+    def transcribe(self, waveform: FLOATS) -> str:
+        transcriptions = [
+            transcribe_with_gigaam(model, waveform[seg.slice()]) # type: ignore
+            for seg in PyannoteSegmenter()(waveform)
+        ]
+        return ' '.join(transcriptions)
+    
 
-    def transcribe_longform_uniform(self, waveform: FLOATS) -> str:
-        assert self.model is not None
+class GigaAMLongformUniform(Transcriber):
+    # TODO make more general class
+    def __init__(self):
+        self.model = cast(GigaAMASR, gigaam.load_model('ctc', device='cuda'))
+    
+    @override
+    def transcribe(self, waveform: FLOATS) -> str:
         segments = chunk_audio(
             len(waveform) / SAMPLE_RATE,
             segment_length=30,
             segment_shift=10
         )
-        log_probs = [self._single_forward_ctc(waveform[segment.slice()]) for segment in segments]
+        log_probs = [
+            transcribe_with_gigaam_ctc(self.model, [waveform[segment.slice()]])[0].log_probs
+            for segment in segments
+        ]
         merged_log_probs = average_segment_features(
             segments=segments,
             features=log_probs,
@@ -147,38 +160,3 @@ class GigaAMWrapper(Transcriber):
         labels = cast(list[int], merged_log_probs.argmax(axis=-1, keepdims=False).tolist())
         tokens = ctc_mapping(labels, self.model.decoding.blank_id)
         return decode(self.model, tokens)
-
-    def transcribe_longform_vad(self, waveform: FLOATS) -> str:
-        assert self.model is not None
-        segments_tensors: list[torch.Tensor]
-        _boundaries: list[tuple[float, float]]
-
-        maxval = np.abs(waveform).max()
-        if maxval > 0:
-            waveform /= maxval
-        
-        torch_int_waveform = torch.tensor(waveform * 32768, dtype=torch.int16).clone()
-        segments_tensors, _boundaries = gigaam_segment_audio(
-            torch_int_waveform,
-            SAMPLE_RATE,
-            max_duration=22.,
-            min_duration=15.,
-            new_chunk_threshold=0.2,
-            device=self.model._device,  # pyright:ignore[reportPrivateUsage]
-        )
-        print(_boundaries)
-        print([x.shape for x in segments_tensors])
-        transcriptions = [
-            self._single_forward(seg.numpy()) # type: ignore
-            for seg in segments_tensors
-        ]
-        return ' '.join(transcriptions)
-
-    @override
-    def transcribe(self, waveform: FLOATS) -> str:
-        self.model = self.model or cast(GigaAMASR, gigaam.load_model('ctc', device='cuda'))
-        match self.longform_mode:
-            case 'vad':
-                return self.transcribe_longform_vad(waveform)
-            case 'uniform':
-                return self.transcribe_longform_uniform(waveform)

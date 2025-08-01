@@ -13,6 +13,9 @@ class PyannoteSegmenter(Segmenter):
     def __call__(self, waveform: FLOATS) -> list[AudioSegment]:
         '''
         VAD-based longform audio segmenter based on Pyannote wrapper from GigaAM package
+        
+        No model loading in __init__ because _segment_audio uses global model object
+        and loads it on the first call.
         '''
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         _, boundaries = _segment_audio(
