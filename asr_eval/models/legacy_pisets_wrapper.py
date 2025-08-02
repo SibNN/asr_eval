@@ -17,14 +17,10 @@ class LegacyPisetsWrapper(Transcriber):
         use_vad: bool = False,
     ):
         self.repo_dir = repo_dir
-        self.segmenter: Pipeline | None = None
-        self.voice_activity_detector: Pipeline | None = None
-        self.asr: Pipeline | None = None
         self.min_segment_size = min_segment_size
         self.max_segment_size = max_segment_size
         self.use_vad = use_vad
-    
-    def instantiate(self):
+        
         sys.path.append(str(self.repo_dir))
         from asr.asr import ( # type: ignore
             transcribe, # type: ignore
@@ -32,20 +28,17 @@ class LegacyPisetsWrapper(Transcriber):
             initialize_model_for_speech_classification, # type: ignore
             initialize_model_for_speech_recognition, # type: ignore
         )
-        self.segmenter = initialize_model_for_speech_segmentation('ru')
+        
+        self.segmenter: Pipeline = initialize_model_for_speech_segmentation('ru')
         if self.use_vad:
-            self.voice_activity_detector = initialize_model_for_speech_classification()
-        self.asr = initialize_model_for_speech_recognition('ru')
+            self.voice_activity_detector: Pipeline = initialize_model_for_speech_classification()
+        self.asr: Pipeline = initialize_model_for_speech_recognition('ru')
         self.transcribe = transcribe # type: ignore
+        
         sys.path.pop()
     
     @override
     def transcribe(self, waveform: FLOATS) -> str:
-        if self.segmenter is None:
-            self.instantiate()
-        assert self.segmenter is not None
-        assert self.asr is not None
-        
         segments: list[tuple[float, float, str]] = self.transcribe( # type: ignore
             mono_sound=waveform, # type: ignore
             segmenter=self.segmenter, # type: ignore

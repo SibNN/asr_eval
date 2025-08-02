@@ -17,26 +17,21 @@ class WhisperLongformWrapper(Transcriber):
         self.model_name = model_name
         self.lang = lang
         self.condition_on_prev_tokens = condition_on_prev_tokens
-        self.whisper_processor = None
-        self.model = None
         
-    def _maybe_instantiate(self):
-        if self.model is None:
-            self.whisper_processor = cast(WhisperProcessor, WhisperProcessor.from_pretrained( # type: ignore
-                self.model_name,
-                language='Russian' if self.lang == 'ru' else 'English', # how this is used? maybe 'ru', 'en'?
-                task='transcribe',
-            ))
-            
-            self.model = WhisperForConditionalGeneration.from_pretrained( # type: ignore
-                self.model_name,
-                attn_implementation='sdpa',
-                torch_dtype=torch.float32
-            ).to(self.device) # type: ignore
+        self.whisper_processor = cast(WhisperProcessor, WhisperProcessor.from_pretrained( # type: ignore
+            self.model_name,
+            language='Russian' if self.lang == 'ru' else 'English', # how this is used? maybe 'ru', 'en'?
+            task='transcribe',
+        ))
+        
+        self.model = WhisperForConditionalGeneration.from_pretrained( # type: ignore
+            self.model_name,
+            attn_implementation='sdpa',
+            torch_dtype=torch.float32
+        ).to(self.device) # type: ignore
     
     @override
     def transcribe(self, waveform: FLOATS) -> str:
-        self._maybe_instantiate()
         # https://github.com/huggingface/transformers/pull/27658
         inputs = self.whisper_processor( # type: ignore
             waveform,

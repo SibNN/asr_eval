@@ -52,12 +52,10 @@ class TOneStreaming(StreamingASR):
 
 class TOneWrapper(Transcriber):
     def __init__(self):
-        self.pipeline = None
+        self.pipeline = StreamingCTCPipeline.from_hugging_face()
     
     @override
     def transcribe(self, waveform: FLOATS) -> str:
-        self.pipeline = self.pipeline or StreamingCTCPipeline.from_hugging_face()
-        
         waveform = torchaudio.functional.resample(
             torch.tensor(waveform),
             orig_freq=16_000,
