@@ -13,7 +13,7 @@ from .data import Token, MultiVariant, Anything
 from .parsing import split_text_into_tokens
 from ..ctc.base import ctc_mapping
 from ..ctc.forced_alignment import forced_alignment
-from ..models.gigaam_wrapper import FREQ, decode, encode, transcribe_with_gigaam_ctc, GigaAMEncodeError
+from ..models.gigaam_wrapper import FREQ, gigaam_decode, gigaam_encode, transcribe_with_gigaam_ctc, GigaAMEncodeError
 from ..utils.misc import self_product_nonequal
 
 @dataclass
@@ -27,7 +27,7 @@ class _TokenEncoded:
             tokens = 'anything'
         else:
             try:
-                tokens = encode(model, token.value)
+                tokens = gigaam_encode(model, token.value)
             except GigaAMEncodeError:
                 tokens = 'not_possible'
         return _TokenEncoded(ref=token, idxs=tokens)
@@ -286,10 +286,10 @@ def get_word_timings_simple(
                 text = text.replace(char, '')
         tokens, _probs, _spans = forced_alignment(
             outputs.log_probs,
-            encode(model, text),
+            gigaam_encode(model, text),
             blank_id=model.decoding.blank_id
         )
-    letter_per_frame = decode(model, tokens)
+    letter_per_frame = gigaam_decode(model, tokens)
     word_timings = [
         Token(
             value=''.join(ctc_mapping(list(match.group()), blank='_')),

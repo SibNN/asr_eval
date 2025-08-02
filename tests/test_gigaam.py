@@ -6,7 +6,7 @@ from gigaam.model import GigaAMASR
 import torch
 import librosa
 
-from asr_eval.models.gigaam_wrapper import transcribe_with_gigaam_ctc, decode
+from asr_eval.models.gigaam_wrapper import transcribe_with_gigaam_ctc, gigaam_decode
 from asr_eval.ctc.base import ctc_mapping
 from asr_eval.utils.types import FLOATS
 
@@ -72,4 +72,4 @@ def test_giggam(model: GigaAMASR):
         (output2.log_probs, expected_text2),
     ]:
         tokens = ctc_mapping(cast(list[int], log_probs.argmax(axis=1).tolist()), blank=model.decoding.blank_id)
-        assert decode(model, tokens) == expected_text
+        assert gigaam_decode(model, tokens) == expected_text

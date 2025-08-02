@@ -1,12 +1,13 @@
 import re
-from typing import override
+from typing import Literal, override
 
-from .base import TimedTranscriber, Transcriber, Segmenter, ContextualTranscriber
+from ..segments.chunking import average_segment_features, chunk_audio
+from .base import CTC, TimedTranscriber, Transcriber, Segmenter, ContextualTranscriber
 from ..segments.segment import TimedText
 from ..utils.types import FLOATS
 
 
-class LongformTranscriber(TimedTranscriber):
+class LongformTranscriberVAD(TimedTranscriber):
     def __init__(
         self,
         shortform_model: Transcriber,
@@ -27,6 +28,57 @@ class LongformTranscriber(TimedTranscriber):
         ]
 
 
+class LongformCTC(CTC):
+    def __init__(
+        self,
+        shortform_model: CTC,
+        segment_length: float = 30,
+        segment_shift: float = 10,
+        averaging_weights: Literal['beta', 'uniform'] = 'beta',
+    ):
+        self.shortform_model = shortform_model
+        self.segment_length = segment_length
+        self.segment_shift = segment_shift
+        self.averaging_weights: Literal['beta', 'uniform'] = averaging_weights
+    
+    @override
+    def ctc_log_probs(self, waveforms: list[FLOATS]) -> list[FLOATS]:
+        return [self._merge_log_probs(waveform) for waveform in waveforms]
+    
+    @property
+    @override
+    def blank_id(self) -> int:
+        return self.shortform_model.blank_id
+    
+    @property
+    @override
+    def tick_size(self) -> float:
+        return self.shortform_model.tick_size
+    
+    @override
+    def decode(self, token: int) -> str:
+        return self.shortform_model.decode(token)
+    
+    def _merge_log_probs(self, waveform: FLOATS) -> FLOATS:
+        segments = chunk_audio(
+            len(waveform) / 16_000,
+            segment_length=self.segment_length,
+            segment_shift=self.segment_shift,
+        )
+        log_probs = [
+            # TODO batching
+            self.shortform_model.ctc_log_probs([waveform[segment.slice()]])[0]
+            for segment in segments
+        ]
+        merged_log_probs = average_segment_features(
+            segments=segments,
+            features=log_probs,
+            feature_tick_size=self.tick_size,
+            averaging_weights=self.averaging_weights,
+        )
+        return merged_log_probs
+
+
 class ContextualLongformTranscriber(TimedTranscriber):
     def __init__(
         self,
@@ -45,7 +97,7 @@ class ContextualLongformTranscriber(TimedTranscriber):
         segments = self.segmenter(waveform)
         
         transcriptions: list[TimedText] = []
-        for i, segment in enumerate(segments):
+        for segment in segments:
             history = ' '.join(t.text for t in transcriptions)
             if self.max_history_words is not None:
                 words = list(re.finditer(r'\w+', history))

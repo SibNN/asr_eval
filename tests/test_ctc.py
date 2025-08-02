@@ -6,7 +6,7 @@ import gigaam
 from gigaam.model import GigaAMASR
 import numpy as np
 
-from asr_eval.models.gigaam_wrapper import transcribe_with_gigaam_ctc, decode
+from asr_eval.models.gigaam_wrapper import transcribe_with_gigaam_ctc, gigaam_decode
 from asr_eval.ctc.base import ctc_mapping
 from asr_eval.ctc.forced_alignment import recursion_forced_alignment, forced_alignment
 from asr_eval.utils.types import FLOATS
@@ -36,7 +36,7 @@ def test_forced_alignment():
     assert np.allclose(p1, p2)
     assert tokens1 == tokens2
     
-    assert decode(model, ctc_mapping(tokens1, blank=model.decoding.blank_id)) == text
+    assert gigaam_decode(model, ctc_mapping(tokens1, blank=model.decoding.blank_id)) == text
     
     # use 0 as blank token
     
