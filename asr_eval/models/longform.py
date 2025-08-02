@@ -7,7 +7,7 @@ from ..segments.segment import TimedText
 from ..utils.types import FLOATS
 
 
-class LongformTranscriberVAD(TimedTranscriber):
+class LongformVAD(TimedTranscriber):
     def __init__(
         self,
         shortform_model: Transcriber,
@@ -79,7 +79,7 @@ class LongformCTC(CTC):
         return merged_log_probs
 
 
-class ContextualLongformTranscriber(TimedTranscriber):
+class ContextualLongformVAD(TimedTranscriber):
     def __init__(
         self,
         shortform_model: ContextualTranscriber,
