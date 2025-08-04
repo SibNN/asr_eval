@@ -4,7 +4,7 @@ from typing import override
 
 from transformers import Pipeline
 
-from .base import Transcriber
+from .base.interfaces import Transcriber
 from ..utils.types import FLOATS
 
 

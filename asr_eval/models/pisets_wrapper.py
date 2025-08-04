@@ -1,7 +1,7 @@
 from typing import Any, override
 from pisets import Pisets
 
-from .base import Transcriber
+from .base.interfaces import Transcriber
 from ..utils.types import FLOATS
 
 

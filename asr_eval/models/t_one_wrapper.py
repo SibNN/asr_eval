@@ -7,7 +7,7 @@ import torchaudio
 
 from ..streaming.buffer import ID_TYPE
 from ..streaming.model import OutputChunk, StreamingASR, Signal, TranscriptionChunk
-from ..models.base import Transcriber
+from .base.interfaces import Transcriber
 from ..utils.types import FLOATS
 
 

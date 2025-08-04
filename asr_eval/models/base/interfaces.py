@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
 from typing import cast, override
 
-from ..ctc.base import ctc_mapping
-from ..segments.segment import AudioSegment, TimedText
-from ..utils.types import FLOATS
+from ...ctc.base import ctc_mapping
+from ...segments.segment import AudioSegment, TimedText
+from ...utils.types import FLOATS
 
 
 class Segmenter(ABC):

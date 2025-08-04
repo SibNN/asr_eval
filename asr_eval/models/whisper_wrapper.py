@@ -3,7 +3,7 @@ from typing import Literal, override, cast
 import torch
 from transformers import WhisperForConditionalGeneration, WhisperProcessor
 
-from .base import Transcriber
+from .base.interfaces import Transcriber
 from ..utils.types import FLOATS
 
 

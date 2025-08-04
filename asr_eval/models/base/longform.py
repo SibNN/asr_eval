@@ -1,10 +1,10 @@
 import re
 from typing import Literal, override
 
-from ..segments.chunking import average_segment_features, chunk_audio
-from .base import CTC, TimedTranscriber, Transcriber, Segmenter, ContextualTranscriber
-from ..segments.segment import TimedText
-from ..utils.types import FLOATS
+from ...segments.chunking import average_segment_features, chunk_audio
+from .interfaces import CTC, TimedTranscriber, Transcriber, Segmenter, ContextualTranscriber
+from ...segments.segment import TimedText
+from ...utils.types import FLOATS
 
 
 class LongformVAD(TimedTranscriber):

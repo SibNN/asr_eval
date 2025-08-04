@@ -10,7 +10,7 @@ import torch
 from torch.nn.utils.rnn import pad_sequence
 import numpy as np
 
-from .base import CTC, Transcriber
+from .base.interfaces import CTC, Transcriber
 from ..utils.types import FLOATS, INTS
 
 

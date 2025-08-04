@@ -2,7 +2,7 @@ from typing import override
 import torch
 from gigaam.vad_utils import segment_audio as _segment_audio
 
-from asr_eval.models.base import Segmenter
+from asr_eval.models.base.interfaces import Segmenter
 
 from ..segments.segment import AudioSegment
 from ..utils.types import FLOATS

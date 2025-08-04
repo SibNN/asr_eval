@@ -13,7 +13,7 @@ from icefall import NgramLm
 from icefall.lm_wrapper import LmScorer
 from icefall.utils import AttributeDict
 
-from .base import Transcriber
+from .base.interfaces import Transcriber
 from ..utils.types import FLOATS
 
 
