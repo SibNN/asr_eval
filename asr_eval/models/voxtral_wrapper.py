@@ -26,6 +26,8 @@ class VoxtralWrapper(APITranscriber):
     `encode_transcription` method of `mistral_common.tokens.tokenizers.instruct.InstructTokenizerV7`
     tokenizer. It starts from <bos>, adds audio, adds f"lang:{request.language}" substring and
     a special token [TRANSCRIBE].
+    
+    Authors: Vasily Kudryavtsev & Oleg Sedukhin
     '''
     def __init__(
         self,
