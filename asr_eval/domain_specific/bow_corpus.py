@@ -6,7 +6,7 @@ from tqdm.auto import tqdm
 from asr_eval.linguistics.linguistics import word_freq, lemmatize_ru
 
 
-def prepare_domain_specific_corpus(
+def prepare_domain_specific_bag_of_words_corpus(
     corpus: str,
     pattern: str = r'\w+',
     lemmatize: Literal['add', 'replace', 'no'] = 'add',

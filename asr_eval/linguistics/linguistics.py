@@ -92,6 +92,8 @@ def try_inflect_ru(word: str, original_word: str) -> tuple[str, Literal['ok', 'o
     if parsed_new.tag.gender != parsed_orig.tag.gender: # type: ignore
         needed_grammemes -= {'masc', 'femn', 'neut'}
     # trying to inflect with the updated tags
+    
+    print(needed_grammemes)
     if (inflected := parsed_new.inflect(needed_grammemes)): # type: ignore
         return inflected.word, 'ok_manually' # type: ignore
     
