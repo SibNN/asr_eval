@@ -11,6 +11,7 @@ from mistral_common.audio import Audio
 from pydantic_extra_types.language_code import LanguageAlpha2
 
 from .interfaces import Transcriber
+from ...utils.server import ServerAsSubprocess
 from ...utils.audio_ops import waveform_to_bytes
 from ...utils.types import FLOATS
 
@@ -19,8 +20,12 @@ class APITranscriber(Transcriber):
     '''
     A connector to OpenAI API for audio LLMs. Runs via `client.audio.transcriptions.create`.
     This class wraps api_transcribe() to implement Transcriber interface.
+    See api_transcribe() docstring for chunking_strategy and temperature params.
     
-    Example:
+    This class also allows to auto-start a local VLLM server. To do this, subclass this class
+    and define vllm_run_args(). See VoxtralWrapper as the example.
+    
+    Example with starting VLLM manually:
     
     1. Start a local VLLM server
 
@@ -42,19 +47,27 @@ class APITranscriber(Transcriber):
     
     waveform = speech_sample(repeats=5)
     transcriber.transcribe(waveform)
-    
-    See api_transcribe() docstring for chunking_strategy and temperature params.
     '''
     def __init__(
         self,
-        client: OpenAI,
         model_name: str = 'mistralai/Voxtral-Mini-3B-2507',
+        client: OpenAI | Literal['run_local_server'] = 'run_local_server',
         language: str | LanguageAlpha2 = 'ru',
         chunking_strategy: Literal['auto'] | ChunkingStrategyVadConfig | NotGiven = NOT_GIVEN,
         temperature: float = 0.7,
     ):
-        self.client = client
+        if client == 'run_local_server':
+            self.vllm_proc = ServerAsSubprocess(
+                self.vllm_run_args() + ['--host', '127.0.0.1', '--port', '8001'],
+                ready_message='Application startup complete',
+                verbose=True,
+            )
+            client = OpenAI(api_key='EMPTY', base_url='http://localhost:8001/v1')
+        else:
+            self.vllm_proc = None
+        
         self.model_name = model_name
+        self.client = client
         self.language = language
         self.chunking_strategy: Literal['auto'] | ChunkingStrategyVadConfig | NotGiven = chunking_strategy
         self.temperature = temperature
@@ -71,6 +84,17 @@ class APITranscriber(Transcriber):
             
         )
         return text
+    
+    def vllm_run_args(self) -> list[str]:
+        return [
+            'vllm',
+            'serve',
+            self.model_name,
+        ]
+    
+    def stop_vllm_server(self):
+        assert self.vllm_proc
+        self.vllm_proc.stop()
 
   
 def api_transcribe(
