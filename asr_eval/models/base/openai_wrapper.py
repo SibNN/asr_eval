@@ -53,14 +53,16 @@ class APITranscriber(Transcriber):
         model_name: str = 'mistralai/Voxtral-Mini-3B-2507',
         client: OpenAI | Literal['run_local_server'] = 'run_local_server',
         language: str | LanguageAlpha2 = 'ru',
+        prompt: str | None = None,
         chunking_strategy: Literal['auto'] | ChunkingStrategyVadConfig | NotGiven = NOT_GIVEN,
         temperature: float = 0.7,
+        local_server_verbose: bool = False,
     ):
         if client == 'run_local_server':
             self.vllm_proc = ServerAsSubprocess(
                 self.vllm_run_args() + ['--host', '127.0.0.1', '--port', '8001'],
                 ready_message='Application startup complete',
-                verbose=True,
+                verbose=local_server_verbose,
             )
             client = OpenAI(api_key='EMPTY', base_url='http://localhost:8001/v1')
         else:
@@ -69,6 +71,7 @@ class APITranscriber(Transcriber):
         self.model_name = model_name
         self.client = client
         self.language = language
+        self.prompt = prompt
         self.chunking_strategy: Literal['auto'] | ChunkingStrategyVadConfig | NotGiven = chunking_strategy
         self.temperature = temperature
     
@@ -79,6 +82,7 @@ class APITranscriber(Transcriber):
             waveform=waveform,
             language=self.language,
             model_name=self.model_name,
+            prompt=self.prompt,
             chunking_strategy=self.chunking_strategy,
             temperature=self.temperature,
             
@@ -102,6 +106,7 @@ def api_transcribe(
     waveform: FLOATS,
     model_name: str,
     language: str | LanguageAlpha2 = 'en',
+    prompt: str | None = None,
     chunking_strategy: Literal['auto'] | ChunkingStrategyVadConfig | NotGiven = NOT_GIVEN,
     temperature: float = 0.7,
 ) -> tuple[str, list[Logprob] | None]:
@@ -134,6 +139,7 @@ def api_transcribe(
     file = io.BytesIO(waveform_to_bytes(waveform, sampling_rate=16_000, format='flac'))
     response: Transcription = client.audio.transcriptions.create(
         file=file,
+        prompt=prompt if prompt is not None else NOT_GIVEN,
         temperature=temperature,
         model=model_name,
         language=LanguageAlpha2(language),

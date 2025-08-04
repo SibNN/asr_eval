@@ -21,6 +21,11 @@ class VoxtralWrapper(APITranscriber):
     According to VoxtralEncoderModel.prepare_inputs_for_conv, the Voxtral pipeline splits a long audio
     into non-overlapping chunks, then processes each chunk via Whisper and concatenate the outputs.
     So, the LLM sees the whole long audio at once.
+    
+    According to `vllm.model_executor.models.voxtral.get_generation_prompt`, voxtral uses
+    `encode_transcription` method of `mistral_common.tokens.tokenizers.instruct.InstructTokenizerV7`
+    tokenizer. It starts from <bos>, adds audio, adds f"lang:{request.language}" substring and
+    a special token [TRANSCRIBE].
     '''
     def __init__(
         self,
@@ -28,13 +33,15 @@ class VoxtralWrapper(APITranscriber):
         client: OpenAI | Literal['run_local_server'] = 'run_local_server',
         language: str | LanguageAlpha2 = 'ru',
         temperature: float = 0.7,
+        local_server_verbose: bool = False,
     ):
         self.model_name = model_name
         super().__init__(
             client=client,
             model_name=model_name,
             language=language,
-            temperature=temperature
+            temperature=temperature,
+            local_server_verbose=local_server_verbose,
         )
     
     @override
