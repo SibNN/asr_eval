@@ -87,3 +87,15 @@ pip install git+https://github.com/k2-fsa/icefall
 ```
 pip install git+https://github.com/voicekit-team/T-one
 ```
+
+**Qwen support**
+
+```
+pip install -e .[qwen-audio]
+```
+
+Additionally to speed up inference you can run
+
+```
+pip install flash-attn --no-build-isolation
+```
