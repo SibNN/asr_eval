@@ -28,7 +28,7 @@ class WhisperLongformWrapper(Transcriber):
             self.model_name,
             attn_implementation='sdpa',
             torch_dtype=torch.float32
-        ).to(self.device) # type: ignore
+        ).cuda() # type: ignore
     
     @override
     def transcribe(self, waveform: FLOATS) -> str:
