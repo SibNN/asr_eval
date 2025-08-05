@@ -25,6 +25,13 @@ def apply_corrections(text: str, corrections: list[WordCorrection]) -> str:
 
 @dataclass
 class CorrectorLevenshtein(TranscriptionCorrector):
+    '''
+    Finds rare words in the transcription, searches for similar words in the
+    `domain_specific_bag_of_words` corpus, replaces if found and inflects accordingly.
+    
+    Author: Yana Fitkovskaya
+    Updated by: Oleg Sedukhin
+    '''
     domain_specific_bag_of_words: list[str]
     freq_threshold: float = 1
     distance_thresholds: list[float] = [0, 0, 0, 1, 1, 1, 2, 2, 2, 3]
@@ -35,13 +42,6 @@ class CorrectorLevenshtein(TranscriptionCorrector):
         return apply_corrections(transcription, corrections)
     
     def get_word_corrections(self, transcription: str) -> list[WordCorrection]:
-        '''
-        Finds rare words in the transcription, searches for similar words in the
-        `domain_specific_bag_of_words` corpus, replaces if found and inflects accordingly.
-        
-        Author: Yana Fitkovskaya
-        Updated by: Oleg Sedukhin
-        '''
         corrections: list[WordCorrection] = []
         
         for match in re.finditer(r'\w+', transcription):
