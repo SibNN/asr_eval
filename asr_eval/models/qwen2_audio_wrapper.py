@@ -4,10 +4,10 @@ import torch
 from transformers import Qwen2AudioForConditionalGeneration, Qwen2AudioProcessor
 
 from ..utils.types import FLOATS
-from .base.interfaces import Transcriber
+from .base.interfaces import ContextualTranscriber
 
 
-class Qwen2AudioWrapper(Transcriber):
+class Qwen2AudioWrapper(ContextualTranscriber):
     def __init__(self):
         self.processor = Qwen2AudioProcessor.from_pretrained( # type: ignore
             'Qwen/Qwen2-Audio-7B',
@@ -21,7 +21,9 @@ class Qwen2AudioWrapper(Transcriber):
         ).eval()
 
     @override
-    def transcribe(self, waveform: FLOATS) -> str:
+    def contextual_transcribe(
+        self, waveform: FLOATS, prev_transcription: str = ''
+    ) -> str:
         prompt = (
             'Verbatim and accurately transcribe the following audio recording into Russian'
             ' without adding comments, without correcting the speaker\'s mistakes, without'
@@ -29,6 +31,8 @@ class Qwen2AudioWrapper(Transcriber):
             ' losing words. Your answer must contain only the final transcription text in'
             ' Russian, without losing words or adding new words.'
         )
+        if prev_transcription:
+            prompt += f' The previous transcription was: "{prev_transcription}".'
         conversation = [{
             'role': 'user',
             'content': [{'type': 'text', 'text': prompt}, {'type': 'audio'}],

@@ -5,10 +5,10 @@ from transformers.models.gemma3n.modeling_gemma3n import Gemma3nForConditionalGe
 from transformers.models.gemma3n.processing_gemma3n import Gemma3nProcessor
 
 from ..utils.types import FLOATS
-from .base.interfaces import Transcriber
+from .base.interfaces import ContextualTranscriber
 
 
-class Gemma3nWrapper(Transcriber):
+class Gemma3nWrapper(ContextualTranscriber):
     def __init__(self):
         self.processor = cast(
             Gemma3nProcessor,
@@ -21,7 +21,9 @@ class Gemma3nWrapper(Transcriber):
         ).eval()
 
     @override
-    def transcribe(self, waveform: FLOATS) -> str:
+    def contextual_transcribe(
+        self, waveform: FLOATS, prev_transcription: str = ''
+    ) -> str:
         # processor calls self.feature_extractor(audio, ...), it trims audio to 30 seconds
         assert len(waveform) <= 16_000 * 30, 'Audio should be <= 30 seconds length'
         
@@ -30,6 +32,8 @@ class Gemma3nWrapper(Transcriber):
             ' начале нет речи - не думай, что её там вообще нет. Если нет речи - верни'
             ' пустую строку. Не комментируй.'
         )
+        if prev_transcription:
+            prompt += f' Транскрипция предыдущей части была следующей: "{prev_transcription}".'
         conversation = [{
             "role": "user",
             "content": [
