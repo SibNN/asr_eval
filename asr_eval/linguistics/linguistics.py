@@ -105,8 +105,6 @@ def try_inflect_ru(word: str, original_word: str) -> tuple[str, Literal['ok', 'o
     return word, 'fail'
 
 
-
-
 def split_text_into_sentences(
     text: str,
     language: Literal['russian', 'english'] = 'russian',
@@ -124,7 +122,7 @@ def split_text_into_sentences(
     If merge_smaller_than is specified, will try to merge sentences smaller than
     the specified value, without exceeding max_symbols.
     '''
-    nltk.downloader._downloader.download('punkt_tab', quiet=True) # type: ignore
+    nltk.download('punkt_tab', quiet=True) # type: ignore
     
     sentences: list[str] = []
     for sentence in nltk.sent_tokenize(text, language=language): # type: ignore
