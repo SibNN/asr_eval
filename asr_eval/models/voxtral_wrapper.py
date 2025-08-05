@@ -27,6 +27,9 @@ class VoxtralWrapper(APITranscriber):
     tokenizer. It starts from <bos>, adds audio, adds f"lang:{request.language}" substring and
     a special token [TRANSCRIBE].
     
+    Thus, there is a problem with using domain words in Voxtral, since such a prompt does not support
+    user instructions. There may be solutions, but this feature is not implemented in this wrapper yet.
+    
     Authors: Vasily Kudryavtsev & Oleg Sedukhin
     '''
     def __init__(
