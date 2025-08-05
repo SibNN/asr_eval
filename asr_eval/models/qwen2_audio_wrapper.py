@@ -1,7 +1,7 @@
 from typing import cast, override
 
 import torch
-from transformers import Qwen2AudioForConditionalGeneration, AutoProcessor
+from transformers import Qwen2AudioForConditionalGeneration, Qwen2AudioProcessor
 
 from ..utils.types import FLOATS
 from .base.interfaces import Transcriber
@@ -9,7 +9,7 @@ from .base.interfaces import Transcriber
 
 class Qwen2AudioWrapper(Transcriber):
     def __init__(self):
-        self.processor = AutoProcessor.from_pretrained( # type: ignore
+        self.processor = Qwen2AudioProcessor.from_pretrained( # type: ignore
             'Qwen/Qwen2-Audio-7B',
             trust_remote_code=True,
         )
@@ -38,18 +38,24 @@ class Qwen2AudioWrapper(Transcriber):
         )
 
         inputs = self.processor( # type: ignore
-            text=[prompt], audios=[waveform], return_tensors="pt", padding=True
+            text=[prompt], audios=[waveform], return_tensors='pt', padding=True
         ).to(self.model.device)
 
         generate_ids = self.model.generate( # type: ignore
-            **inputs, max_new_tokens=1024, do_sample=False, temperature=0.0 # type: ignore
+            **inputs,
+            max_new_tokens=1024,
+            do_sample=False,
+            temperature=0.0,
         )
 
+        # TODO can this be done automatically?
         input_token_len = inputs.input_ids.shape[1] # type: ignore
-        output_ids = generate_ids[:, input_token_len:] # type: ignore
+        generate_ids = generate_ids[:, input_token_len:] # type: ignore
         
         text = cast(str, self.processor.batch_decode( # type: ignore
-            output_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False
+            generate_ids,
+            skip_special_tokens=True,
+            clean_up_tokenization_spaces=True,
         )[0]).strip()
         
         return text
