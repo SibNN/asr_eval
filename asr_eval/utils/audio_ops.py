@@ -4,6 +4,7 @@ import tempfile
 from typing import Iterator
 from contextlib import contextmanager
 
+import pydub
 import librosa
 import soundfile as sf
 import numpy as np
@@ -20,6 +21,11 @@ def waveform_to_bytes(waveform: FLOATS, sampling_rate: int = 16_000, format: str
     sf.write(buffer := io.BytesIO(), waveform, samplerate=sampling_rate, format=format) # type: ignore
     buffer.seek(0)
     return buffer.read()
+
+def waveform_to_pydub(waveform: FLOATS, sampling_rate: int = 16_000) -> pydub.AudioSegment:
+    bytes = waveform_to_bytes(waveform)
+    buffer = io.BytesIO(bytes)
+    return pydub.AudioSegment.from_file(buffer) # type: ignore
 
 
 @contextmanager
