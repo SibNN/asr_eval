@@ -95,6 +95,7 @@ class TimedTranscriberPipeline(Pipeline):
 
 # TODO better check language for each transcriber
 # TODO check if we need VAD for Vosk54
+# TODO cast column for datasets
 
 
 class _(TranscriberPipeline, register_as='whisper-tiny'):
