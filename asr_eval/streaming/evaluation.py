@@ -24,7 +24,7 @@ from .caller import receive_full_transcription
 from ..align.data import Match, MatchesList, MultiVariant, Token
 from ..align.parsing import split_text_into_tokens
 from ..align.partial import align_partial
-from ..datasets.recording import Recording
+from ..bench.recording import Recording
 from ..utils.misc import new_uid
 
 

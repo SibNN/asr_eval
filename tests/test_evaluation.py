@@ -6,7 +6,7 @@ import librosa
 import gigaam
 from gigaam.model import GigaAMASR
 
-from asr_eval.datasets.recording import Recording
+from asr_eval.bench.recording import Recording
 from asr_eval.align.timings import fill_word_timings_inplace
 from asr_eval.align.parsing import parse_multivariant_string, colorize_parsed_string
 from asr_eval.align.plots import draw_timed_transcription

@@ -19,11 +19,11 @@ from ..models.voxtral_wrapper import VoxtralWrapper
 from ..models.whisper_wrapper import WhisperLongformWrapper
 from ..models.yandex_speechkit_wrapper import YandexSpeechKitWrapper
 from ..models.base.interfaces import TimedTranscriber, Transcriber
-from ..datasets.datasets import AudioSample
+from .datasets import AudioSample
 from ..utils.serializing import save_to_json
 
 
-pipelines: dict[str, type[Pipeline]] = {}
+pipelines_registry: dict[str, type[Pipeline]] = {}
 
 
 class Pipeline(ABC):
@@ -40,8 +40,8 @@ class Pipeline(ABC):
     def __init_subclass__(cls, register_as: str | None = None, **kwargs: Any):
         super().__init_subclass__(**kwargs)
         if register_as:
-            assert register_as not in pipelines
-            pipelines[register_as] = cls
+            assert register_as not in pipelines_registry
+            pipelines_registry[register_as] = cls
             cls.name = register_as
 
 
