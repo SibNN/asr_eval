@@ -11,7 +11,7 @@ from .base.interfaces import Transcriber
 QWEN_AUDIO_LANGUAGES = Literal['en', 'zh', 'de', 'es', 'fr', 'it', 'ja', 'ko']
 
 class QwenAudioWrapper(Transcriber):
-    def __init__(self, lang: QWEN_AUDIO_LANGUAGES = 'en', audio_lang_unknown: bool = False):
+    def __init__(self, language: QWEN_AUDIO_LANGUAGES = 'en', audio_lang_unknown: bool = False):
         self.tokenizer = AutoTokenizer.from_pretrained( # type: ignore
             'Qwen/Qwen-Audio',
             trust_remote_code=True,
@@ -23,10 +23,10 @@ class QwenAudioWrapper(Transcriber):
             bf16=True,
         ).eval()
         
-        audio_lang = 'unknown' if audio_lang_unknown else lang
+        audio_lang = 'unknown' if audio_lang_unknown else language
         self.instruct_tokens = (
             f'<|startoftranscription|><|{audio_lang}|><|transcribe|>'
-            f'<|{lang}|><|notimestamps|><|wo_itn|>'
+            f'<|{language}|><|notimestamps|><|wo_itn|>'
         )
     
     @override
