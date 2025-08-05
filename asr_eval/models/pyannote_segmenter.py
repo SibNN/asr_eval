@@ -16,6 +16,8 @@ class PyannoteSegmenter(Segmenter):
         
         No model loading in __init__ because _segment_audio uses global model object
         and loads it on the first call.
+        
+        The params are taken from transcribe_longform method from gigaam package. 
         '''
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         _, boundaries = _segment_audio(
