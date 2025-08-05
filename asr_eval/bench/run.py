@@ -32,7 +32,7 @@ def run_pipeline(
         ):
             continue
         
-        dataset = datasets_registry[dataset_name]().shuffle(0)
+        dataset = datasets_registry[dataset_name]()
         
         if max_samples is not None and len(dataset) > max_samples:
             dataset = dataset.take(max_samples)

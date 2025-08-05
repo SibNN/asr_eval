@@ -31,6 +31,7 @@ def load_multivariant_v1_200() -> Dataset:
     return (
         load_from_disk('/asr_datasets/multivariant_v1_200')
         .cast_column('audio', Audio(sampling_rate=16_000)) # type: ignore
+        .shuffle(0)
     )
 
 @register_dataset('youtube-lectures')
@@ -42,6 +43,7 @@ def load_youtube_lectures() -> Dataset:
     return (
         load_from_disk('/asr_datasets/long_audio_youtube_lectures')
         .cast_column('audio', Audio(sampling_rate=16_000)) # type: ignore
+        .shuffle(0)
     )
 
 @register_dataset('golos-farfield')
@@ -49,6 +51,7 @@ def load_golos_farfield() -> Dataset:
     return (
         load_dataset('bond005/sberdevices_golos_100h_farfield', split='test')
         .cast_column('audio', Audio(sampling_rate=16_000)) # type: ignore
+        .shuffle(0)
     )
 
 @register_dataset('rulibrispeech')
@@ -56,6 +59,7 @@ def load_rulibrispeech() -> Dataset:
     return (
         load_dataset('bond005/rulibrispeech', split='test')
         .cast_column('audio', Audio(sampling_rate=16_000)) # type: ignore
+        .shuffle(0)
     )
 
 @register_dataset('podlodka')
@@ -63,6 +67,7 @@ def load_podlodka() -> Dataset:
     return (
         load_dataset('bond005/podlodka_speech', split='test')
         .cast_column('audio', Audio(sampling_rate=16_000)) # type: ignore
+        .shuffle(0)
     )
 
 @register_dataset('podlodka-full')
@@ -80,13 +85,14 @@ def load_podlodka_full() -> Dataset:
             load_dataset('bond005/podlodka_speech', split='validation')
             .cast_column('audio', Audio(sampling_rate=16_000)) # type: ignore
         ),
-    ])
+    ]).shuffle(0)
 
 @register_dataset('sova-rudevices')
 def load_sova_rudevices() -> Dataset:
     return (
         load_dataset('bond005/sova_rudevices', split='test')
         .cast_column('audio', Audio(sampling_rate=16_000)) # type: ignore
+        .shuffle(0)
     )
 
 @register_dataset('resd')
@@ -96,6 +102,7 @@ def load_resd() -> Dataset:
         .rename_column('text', 'transcription')
         .rename_column('speech', 'audio')
         .cast_column('audio', Audio(sampling_rate=16_000)) # type: ignore
+        .shuffle(0)
     )
 
 @register_dataset('fleurs')
@@ -110,6 +117,7 @@ def load_fleurs() -> Dataset:
         .remove_columns('transcription')
         .rename_column('raw_transcription', 'transcription')
         .cast_column('audio', Audio(sampling_rate=16_000)) # type: ignore
+        .shuffle(0)
     )
 
 @register_dataset('speech-massive')
@@ -122,6 +130,7 @@ def load_speech_massive() -> Dataset:
         )
         .rename_column('utt', 'transcription')
         .cast_column('audio', Audio(sampling_rate=16_000)) # type: ignore
+        .shuffle(0)
     )
 
 @register_dataset('common-voice-17.0')
@@ -135,4 +144,5 @@ def load_common_voice_17_0() -> Dataset:
         )
         .rename_column('sentence', 'transcription')
         .cast_column('audio', Audio(sampling_rate=16_000)) # type: ignore
+        .shuffle(0)
     )
