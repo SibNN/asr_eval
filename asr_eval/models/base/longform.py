@@ -12,20 +12,26 @@ class LongformVAD(TimedTranscriber):
         self,
         shortform_model: Transcriber,
         segmenter: Segmenter,
+        min_sec: float = 30,
     ):
         self.shortform_model = shortform_model
         self.segmenter = segmenter
+        self.min_sec = min_sec
     
     @override
     def timed_transcribe(self, waveform: FLOATS) -> list[TimedText]:
-        return [
-            TimedText(
-                start_time=segment.start_time,
-                end_time=segment.end_time,
-                text=self.shortform_model.transcribe(waveform[segment.slice()]),
-            )
-            for segment in self.segmenter(waveform)
-        ]
+        audio_len = len(waveform) / 16_000
+        if audio_len < self.min_sec:
+            return [TimedText(0, audio_len, self.shortform_model.transcribe(waveform))]
+        else:
+            return [
+                TimedText(
+                    start_time=segment.start_time,
+                    end_time=segment.end_time,
+                    text=self.shortform_model.transcribe(waveform[segment.slice()]),
+                )
+                for segment in self.segmenter(waveform)
+            ]
 
 
 class LongformCTC(CTC):
@@ -86,33 +92,39 @@ class ContextualLongformVAD(TimedTranscriber):
         segmenter: Segmenter,
         pass_history: bool = True,
         max_history_words: int | None = 100,
+        min_sec: float = 30,
     ):
         self.shortform_model = shortform_model
         self.segmenter = segmenter
         self.pass_history = pass_history
         self.max_history_words = max_history_words
+        self.min_sec = min_sec
     
     @override
     def timed_transcribe(self, waveform: FLOATS) -> list[TimedText]:
-        segments = self.segmenter(waveform)
-        
-        transcriptions: list[TimedText] = []
-        for segment in segments:
-            history = ' '.join(t.text for t in transcriptions)
-            if self.max_history_words is not None:
-                words = list(re.finditer(r'\w+', history))
-                if len(words) > self.max_history_words:
-                    first_word = words[-self.max_history_words]
-                    history = history[first_word.start():]
+        audio_len = len(waveform) / 16_000
+        if audio_len < self.min_sec:
+            return [TimedText(0, audio_len, self.shortform_model.transcribe(waveform))]
+        else:
+            segments = self.segmenter(waveform)
+            
+            transcriptions: list[TimedText] = []
+            for segment in segments:
+                history = ' '.join(t.text for t in transcriptions)
+                if self.max_history_words is not None:
+                    words = list(re.finditer(r'\w+', history))
+                    if len(words) > self.max_history_words:
+                        first_word = words[-self.max_history_words]
+                        history = history[first_word.start():]
+                    
+                text = self.shortform_model.contextual_transcribe(
+                    waveform[segment.slice()], prev_transcription=history,
+                )
                 
-            text = self.shortform_model.contextual_transcribe(
-                waveform[segment.slice()], prev_transcription=history,
-            )
-            
-            transcriptions.append(TimedText(
-                start_time=segment.start_time,
-                end_time=segment.end_time,
-                text=text,
-            ))
-            
-        return transcriptions
+                transcriptions.append(TimedText(
+                    start_time=segment.start_time,
+                    end_time=segment.end_time,
+                    text=text,
+                ))
+                
+            return transcriptions
