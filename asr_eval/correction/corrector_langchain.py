@@ -1,5 +1,4 @@
 from contextlib import contextmanager
-import ssl
 from typing import Any, cast, override
 import warnings
 
@@ -14,14 +13,15 @@ from duckduckgo_search.exceptions import DuckDuckGoSearchException
 from .interfaces import TranscriptionCorrector
 
 
-def setup_ssl():
-    # This will disable certificate verification globally
-    try:
-        ssl._create_default_https_context = (  # pyright:ignore[reportPrivateUsage]
-            ssl._create_unverified_context  # pyright:ignore[reportPrivateUsage]
-        )
-    except AttributeError:
-        pass
+# def setup_ssl():
+#     import ssl
+#     # This will disable certificate verification globally
+#     try:
+#         ssl._create_default_https_context = (  # pyright:ignore[reportPrivateUsage]
+#             ssl._create_unverified_context  # pyright:ignore[reportPrivateUsage]
+#         )
+#     except AttributeError:
+#         pass
 
 
 AGENT_SYSTEM_PROMPT_RU = '''\
@@ -44,6 +44,12 @@ AGEMT_PROMPT_RU = '''\
 
 
 class CorrectorLangchain(TranscriptionCorrector):
+    '''
+    An agent that corrects a transcription, may use DuckDuckGo search.
+    
+    Author: Timur Rafikov
+    Updated by: Oleg Sedukhin
+    '''
     def __init__(
         self,
         api_key: str,
