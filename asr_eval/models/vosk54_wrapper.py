@@ -18,7 +18,7 @@ from ..utils.types import FLOATS
 
 
 class VoskV54(Transcriber):
-    def __init__(self, device: str | torch.device = 'cpu'):
+    def __init__(self, device: str | torch.device = 'cuda'):
         # adopted from https://huggingface.co/alphacep/vosk-model-ru/blob/main/decode.py
         # beam search code taken from icefall/egs/librispeech/ASR/pruned_transducer_stateless2/beam_search.py
         
