@@ -99,3 +99,7 @@ Additionally to speed up inference you can run
 ```
 pip install flash-attn --no-build-isolation
 ```
+
+**Yandex text-to-speech support (Yandex API v3)**
+
+See asr_eval.tts.yandex_speechkit.YandexSpeechKitWrapper docstring for installation instructions.

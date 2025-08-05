@@ -22,11 +22,28 @@ def waveform_to_bytes(waveform: FLOATS, sampling_rate: int = 16_000, format: str
     buffer.seek(0)
     return buffer.read()
 
+
 def waveform_to_pydub(waveform: FLOATS, sampling_rate: int = 16_000) -> pydub.AudioSegment:
     bytes = waveform_to_bytes(waveform)
     buffer = io.BytesIO(bytes)
     return pydub.AudioSegment.from_file(buffer) # type: ignore
 
+
+def merge_synthetic_speech(
+    waveforms: list[FLOATS],
+    sampling_rate: int = 16_000,
+    pause_range: tuple[float, float] = (0.2, 1.2),
+    random_seed: int | None = None,
+) -> FLOATS:
+    segments: list[FLOATS] = []
+    rng = np.random.default_rng(random_seed)
+    for i, waveform in enumerate(waveforms):
+        segments.append(waveform)
+        if i != len(waveforms) - 1:
+            pause_size = int(rng.uniform(*pause_range) * sampling_rate)
+            segments.append(np.zeros(pause_size))
+    
+    return np.concatenate(segments)
 
 @contextmanager
 def waveform_as_file(waveform: FLOATS) -> Iterator[Path]:

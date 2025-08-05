@@ -1,9 +1,12 @@
 from typing import Literal
+from itertools import pairwise
+import re
 
 import wordfreq
 from pymorphy3 import MorphAnalyzer
 from pymorphy3.analyzer import Parse
 from pymystem3 import Mystem  # pip install pymystem3
+import nltk
 
 
 def word_freq(word: str, lang: str = 'ru') -> float:
@@ -100,3 +103,98 @@ def try_inflect_ru(word: str, original_word: str) -> tuple[str, Literal['ok', 'o
     ## option 3: return unchanged
     
     return word, 'fail'
+
+
+
+
+def split_text_into_sentences(
+    text: str,
+    language: Literal['russian', 'english'] = 'russian',
+    max_symbols: int | None = None,
+    merge_smaller_than: int | None = None,
+) -> list[str]:
+    '''
+    Split text into sentences using nltk.
+    
+    If some sentence has more than max_symbols symbols, will split it further
+    by space symbols so that each part has no more than `max_symbols` symbols.
+    If a single word has more than `max_symbols` symbols, it will be kept as is
+    (no truncation or dividing a word into parts).
+    
+    If merge_smaller_than is specified, will try to merge sentences smaller than
+    the specified value, without exceeding max_symbols.
+    '''
+    nltk.downloader._downloader.download('punkt_tab', quiet=True) # type: ignore
+    
+    sentences: list[str] = []
+    for sentence in nltk.sent_tokenize(text, language=language): # type: ignore
+        sentence = sentence.strip()
+        if max_symbols is not None and len(sentence) > max_symbols:
+            sentences += split_text_by_space(sentence, max_symbols=max_symbols)
+        else:
+            sentences.append(sentence)
+    
+    if merge_smaller_than is not None:
+        assert max_symbols is not None, (
+            'Setting min_symbols is meaningless without setting max_symbols'
+        )
+        while True:
+            sentences, was_merged = _text_iterative_merge_step(
+                sentences, merge_smaller_than=merge_smaller_than, max_part_size=max_symbols,
+            )
+            if not was_merged:
+                break
+    
+    return sentences
+
+
+def split_text_by_space(text: str, max_symbols: int) -> list[str]:
+    '''
+    Split text into parts by space symbols so that each part has no more
+    than `max_symbols` symbols. If a single word has more than `max_symbols`
+    symbols, it will be kept as is (no truncation or dividing a word into parts).
+    '''
+    parts: list[list[re.Match[str]]] = []
+    for word_match in re.finditer(r'[^\s]+', text):
+        if len(parts) > 0 and word_match.end() - parts[-1][0].start() < max_symbols:
+            # add to the existing part
+            parts[-1].append(word_match)
+        else:
+            # start a new part
+            parts.append([word_match])
+    
+    return [
+        text[part[0].start() : part[-1].end()]
+        for part in parts
+    ]
+    
+    
+def _text_iterative_merge_step(
+    parts: list[str], max_part_size: int, merge_smaller_than: int | None = None,
+) -> tuple[list[str], bool]:
+    if len(parts) < 2:
+        return parts, False
+    
+    # preparing candidate splits
+    candidates_and_scores: list[tuple[int, float]] = []
+    for i, (part1, part2) in enumerate(pairwise(parts)):
+        merged_len = len(part1) + len(part2) + 1
+        if merged_len <= max_part_size and (
+            merge_smaller_than is None
+            or len(part1) < merge_smaller_than
+            or len(part2) < merge_smaller_than
+        ):
+            candidates_and_scores.append((i, merged_len))
+    
+    if not candidates_and_scores:
+        return parts, False
+    
+    # find two consecutive segments with the smallest total length
+    best_i, _ = min(candidates_and_scores, key=lambda x: x[1])
+    
+    head = parts[:best_i]
+    part1 = parts[best_i]
+    part2 = parts[best_i + 1]
+    tail = parts[best_i + 2:]
+
+    return head + [part1 + ' ' + part2] + tail, True
