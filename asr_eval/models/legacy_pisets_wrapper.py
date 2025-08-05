@@ -1,14 +1,15 @@
 from pathlib import Path
 import sys
-from typing import override
+from typing import override, cast
 
 from transformers import Pipeline
 
-from .base.interfaces import Transcriber
+from ..segments.segment import TimedText
+from .base.interfaces import TimedTranscriber
 from ..utils.types import FLOATS
 
 
-class LegacyPisetsWrapper(Transcriber):
+class LegacyPisetsWrapper(TimedTranscriber):
     def __init__(
         self,
         repo_dir: str | Path,
@@ -38,8 +39,8 @@ class LegacyPisetsWrapper(Transcriber):
         sys.path.pop()
     
     @override
-    def transcribe(self, waveform: FLOATS) -> str:
-        segments: list[tuple[float, float, str]] = self.transcribe( # type: ignore
+    def timed_transcribe(self, waveform: FLOATS) -> list[TimedText]:
+        segments = cast(list[tuple[float, float, str]], self.transcribe( # type: ignore
             mono_sound=waveform, # type: ignore
             segmenter=self.segmenter, # type: ignore
             voice_activity_detector=( # type: ignore
@@ -49,5 +50,5 @@ class LegacyPisetsWrapper(Transcriber):
             asr=self.asr, # type: ignore
             min_segment_size=self.min_segment_size, # type: ignore
             max_segment_size=self.max_segment_size, # type: ignore
-        )
-        return ' '.join(text for _start, _end, text in segments) # type: ignore
+        ))
+        return [TimedText(start, end, text) for start, end, text in segments]
