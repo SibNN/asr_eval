@@ -12,9 +12,11 @@ class Gemma3nWrapper(ContextualTranscriber):
     '''
     Gemma3n transcriber.
     
+    If domain_text is specified, it is added into prompt with a note "may be related".
+    
     Authors: Timur Rafikov & Oleg Sedukhin
     '''
-    def __init__(self):
+    def __init__(self, domain_text: str = ''):
         self.processor = cast(
             Gemma3nProcessor,
             Gemma3nProcessor.from_pretrained('google/gemma-3n-E4B-it') # type: ignore
@@ -24,6 +26,7 @@ class Gemma3nWrapper(ContextualTranscriber):
             device_map='cuda',
             torch_dtype=torch.float16,
         ).eval()
+        self.domain_text = domain_text
 
     @override
     def contextual_transcribe(
@@ -37,6 +40,8 @@ class Gemma3nWrapper(ContextualTranscriber):
             ' начале нет речи - не думай, что её там вообще нет. Если нет речи - верни'
             ' пустую строку. Не комментируй.'
         )
+        if self.domain_text:
+            prompt += f' В речи могут встретиться слова из следующего текста: "{self.domain_text}".'
         if prev_transcription:
             prompt += f' Транскрипция предыдущей части была следующей: "{prev_transcription}".'
         conversation = [{

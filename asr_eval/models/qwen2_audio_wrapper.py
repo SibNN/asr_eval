@@ -11,9 +11,11 @@ class Qwen2AudioWrapper(ContextualTranscriber):
     '''
     Qwen2-Audio transcriber.
     
+    If domain_text is specified, it is added into prompt with a note "may be related".
+    
     Authors: Muharyam Baviev & Oleg Sedukhin
     '''
-    def __init__(self):
+    def __init__(self, domain_text: str = ''):
         self.processor = Qwen2AudioProcessor.from_pretrained( # type: ignore
             'Qwen/Qwen2-Audio-7B',
             trust_remote_code=True,
@@ -24,6 +26,7 @@ class Qwen2AudioWrapper(ContextualTranscriber):
             trust_remote_code=True,
             torch_dtype=torch.float16,
         ).eval()
+        self.domain_text = domain_text
 
     @override
     def contextual_transcribe(
@@ -36,6 +39,8 @@ class Qwen2AudioWrapper(ContextualTranscriber):
             ' losing words. Your answer must contain only the final transcription text in'
             ' Russian, without losing words or adding new words.'
         )
+        if self.domain_text:
+            prompt += f' Words from the following text may appear in text: "{self.domain_text}".'
         if prev_transcription:
             prompt += f' The previous transcription was: "{prev_transcription}".'
         conversation = [{
