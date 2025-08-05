@@ -38,6 +38,7 @@ qwen-audio = ["transformers_stream_generator", "transformers>4.32.0"]
 flamingo = ["whisper", "pytorchvideo", "deepspeed", "transformers<4.48.0"]
 gemma = ["transformers>=4.54.0"]
 langchain = ["langchain", "langchain-openai", "langchain-community", "duckduckgo-search"]
+wiki_search = ["wikipedia-api", "scikit-learn", "requests-cache"]
 
 [tool.setuptools.packages.find]
 include = ["asr_eval"]
