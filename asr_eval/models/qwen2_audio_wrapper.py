@@ -8,6 +8,11 @@ from .base.interfaces import ContextualTranscriber
 
 
 class Qwen2AudioWrapper(ContextualTranscriber):
+    '''
+    Qwen2-Audio transcriber.
+    
+    Authors: Muharyam Baviev & Oleg Sedukhin
+    '''
     def __init__(self):
         self.processor = Qwen2AudioProcessor.from_pretrained( # type: ignore
             'Qwen/Qwen2-Audio-7B',

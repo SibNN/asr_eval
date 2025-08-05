@@ -9,6 +9,11 @@ from .base.interfaces import ContextualTranscriber
 
 
 class Gemma3nWrapper(ContextualTranscriber):
+    '''
+    Gemma3n transcriber.
+    
+    Authors: Timur Rafikov & Oleg Sedukhin
+    '''
     def __init__(self):
         self.processor = cast(
             Gemma3nProcessor,
