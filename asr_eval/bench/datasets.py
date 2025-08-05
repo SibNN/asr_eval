@@ -14,10 +14,11 @@ class AudioSample(TypedDict):
     transcription: str
 
 
-datasets_registry: dict[str, Callable[[], Dataset]]
+datasets_registry: dict[str, Callable[[], Dataset]] = {}
 
 
 def register_dataset(name: str):
+    global datasets_registry
     def decorator(fn: Callable[[], Dataset]):
         assert name not in datasets_registry
         datasets_registry[name] = fn
