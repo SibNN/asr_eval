@@ -1,5 +1,17 @@
-from typing import cast
+from typing import TypedDict, cast
 from datasets import load_dataset, load_from_disk, Dataset, concatenate_datasets # type: ignore
+
+from ..utils.types import FLOATS # type: ignore
+
+
+class AudioData(TypedDict):
+    array: FLOATS
+    sampling_rate: int
+
+
+class AudioSample(TypedDict):
+    audio: AudioData
+    transcription: str
 
 
 # A standardized set of ASR test datasets

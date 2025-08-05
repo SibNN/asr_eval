@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
-import numpy as np
-import numpy.typing as npt
 from gigaam.model import GigaAMASR
 
+from .datasets import AudioSample
+from ..utils.types import FLOATS
 from ..align.data import Token, MultiVariant
 from ..align.parsing import parse_multivariant_string
 from ..align.timings import fill_word_timings_inplace
@@ -14,6 +13,7 @@ from ..align.timings import fill_word_timings_inplace
 
 @dataclass
 class Recording:
+    # A legacy class TODO remove?
     """
     An audio sample to test ASR systems. May refer to a huggingface dataset sample.
     
@@ -24,7 +24,7 @@ class Recording:
     """
     transcription: str
     transcription_words: list[Token | MultiVariant]
-    waveform: npt.NDArray[np.floating[Any]] | None = None
+    waveform: FLOATS | None = None
     
     hf_dataset_name: str | None = None
     hf_dataset_split: str | None = None
@@ -39,7 +39,7 @@ class Recording:
     @classmethod
     def from_sample(
         cls,
-        sample: dict[str, Any],
+        sample: AudioSample,
         name: str | None = None,
         split: str | None = None,
         index: int | None = None,
