@@ -1,4 +1,4 @@
-from typing import Any, cast, override
+from typing import Any, Literal, cast, override
 
 import torch
 from transformers.models.gemma3n.modeling_gemma3n import Gemma3nForConditionalGeneration
@@ -16,7 +16,7 @@ class Gemma3nWrapper(ContextualTranscriber):
     
     Authors: Timur Rafikov & Oleg Sedukhin
     '''
-    def __init__(self, domain_text: str = ''):
+    def __init__(self, lang: Literal['en', 'ru'] = 'ru', domain_text: str = ''):
         self.processor = cast(
             Gemma3nProcessor,
             Gemma3nProcessor.from_pretrained('google/gemma-3n-E4B-it') # type: ignore
@@ -27,6 +27,7 @@ class Gemma3nWrapper(ContextualTranscriber):
             torch_dtype=torch.float16,
         ).eval()
         self.domain_text = domain_text
+        self.lang: Literal['en', 'ru'] = lang
 
     @override
     def contextual_transcribe(
@@ -35,15 +36,27 @@ class Gemma3nWrapper(ContextualTranscriber):
         # processor calls self.feature_extractor(audio, ...), it trims audio to 30 seconds
         assert len(waveform) <= 16_000 * 30, 'Audio should be <= 30 seconds length'
         
-        prompt = (
-            'Транскрибируй только русскую речь из аудио. Проанализируй ВСЁ аудио, если в'
-            ' начале нет речи - не думай, что её там вообще нет. Если нет речи - верни'
-            ' пустую строку. Не комментируй.'
-        )
-        if self.domain_text:
-            prompt += f' В речи могут встретиться слова из следующего текста: "{self.domain_text}".'
-        if prev_transcription:
-            prompt += f' Транскрипция предыдущей части была следующей: "{prev_transcription}".'
+        match self.lang:
+            case 'en':
+                prompt = (
+                    'Transcribe only English speech from audio. Analyze ALL audio, if there is no'
+                    ' speech at the beginning - don\'t assume that there is none at all. If there'
+                    ' is no speech - return an empty string. Do not add any comments.'
+                )
+                if self.domain_text:
+                    prompt += f' The speech may contain words from the following text: "{self.domain_text}".'
+                if prev_transcription:
+                    prompt += f' The transcription of the previous part was as follows: "{prev_transcription}".'
+            case 'ru':
+                prompt = (
+                    'Транскрибируй только русскую речь из аудио. Проанализируй ВСЁ аудио, если в'
+                    ' начале нет речи - не думай, что её там вообще нет. Если нет речи - верни'
+                    ' пустую строку. Не комментируй.'
+                )
+                if self.domain_text:
+                    prompt += f' В речи могут встретиться слова из следующего текста: "{self.domain_text}".'
+                if prev_transcription:
+                    prompt += f' Транскрипция предыдущей части была следующей: "{prev_transcription}".'
         conversation = [{
             "role": "user",
             "content": [
