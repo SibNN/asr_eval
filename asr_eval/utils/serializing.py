@@ -4,6 +4,7 @@ import copy
 from enum import Enum
 import json
 from pathlib import Path
+import tempfile
 from typing import Any, cast
 from abc import ABC, abstractmethod
 from dataclasses import fields, _is_dataclass_instance, _ATOMIC_TYPES # type: ignore
@@ -32,17 +33,18 @@ def save_to_json(obj: Any, path: str | Path, indent: int = 4):
     Serializes an hierarchical structure of dataclasses/lists/dicts to a json-compatible dict
     (see `serialize_object`) and then saves to a .json file. Can be loaded back with
     `load_from_json`.
+    
+    If exception or keyboard interrupt happens during saving, the file will not br created.
     """
     path = Path(path)
-    try:
-        path.parent.mkdir(exist_ok=True, parents=True)
-        path.write_text(
+    path.parent.mkdir(exist_ok=True, parents=True)
+    with tempfile.NamedTemporaryFile(mode='w', delete=True) as temp_file_info:
+        temp_path = Path(temp_file_info.name)
+        temp_path.write_text(
             json.dumps(serialize_object(obj), indent=indent, ensure_ascii=False),
             encoding='utf-8',
         )
-    except KeyboardInterrupt as e:
-        path.unlink(missing_ok=True)
-        raise e
+        temp_path.rename(path)
 
 
 def load_from_json(path: str | Path) -> Any:
