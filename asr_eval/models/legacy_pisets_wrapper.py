@@ -34,13 +34,13 @@ class LegacyPisetsWrapper(TimedTranscriber):
         if self.use_vad:
             self.voice_activity_detector: Pipeline = initialize_model_for_speech_classification()
         self.asr: Pipeline = initialize_model_for_speech_recognition('ru')
-        self.transcribe = transcribe # type: ignore
+        self.pisets_transcribe = transcribe # type: ignore
         
         sys.path.pop()
     
     @override
     def timed_transcribe(self, waveform: FLOATS) -> list[TimedText]:
-        segments = cast(list[tuple[float, float, str]], self.transcribe( # type: ignore
+        segments = cast(list[tuple[float, float, str]], self.pisets_transcribe( # type: ignore
             mono_sound=waveform, # type: ignore
             segmenter=self.segmenter, # type: ignore
             voice_activity_detector=( # type: ignore
