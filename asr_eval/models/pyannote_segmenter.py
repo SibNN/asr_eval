@@ -30,7 +30,8 @@ class PyannoteSegmenter(Segmenter):
         and the second is longer than max_duration.
         
         This wrapper addresses this by 1) removing chunks shorter than 0.1 sec, and
-        2) performs a uniform split of chunks longer than max_duration
+        2) performs a uniform split of chunks longer than max_duration (keeps the
+        segments only 0.5 seconds long or more).
         '''
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         _, boundaries = _segment_audio(
@@ -55,7 +56,9 @@ class PyannoteSegmenter(Segmenter):
                 for delta in np.arange(0, segment.duration, self.max_duration):
                     subsegment_start = segment.start_time + float(delta)
                     subsegment_end = min(subsegment_start + self.max_duration, segment.end_time)
-                    segments.append(AudioSegment(subsegment_start, subsegment_end))
+                    subsegment = AudioSegment(subsegment_start, subsegment_end)
+                    if subsegment.duration > 0.5:
+                        segments.append(subsegment)
             else:
                 segments.append(segment)
         
