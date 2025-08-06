@@ -41,7 +41,8 @@ class ServerAsSubprocess:
         def logger_fn():
             while self._readline() is not None:
                 pass
-        self.logger_thread = threading.Thread(target=logger_fn)
+        # use daemon=True so that the logger_thread stops when main the thread stops
+        self.logger_thread = threading.Thread(target=logger_fn, daemon=True)
         self.logger_thread.start()
         
     def _readline(self) -> str | None:
@@ -59,3 +60,7 @@ class ServerAsSubprocess:
         self.process.send_signal(signal.SIGINT)
         self.process.wait()
         print('Server exited')
+    
+    def __del__(self):
+        if self.process:
+            self.stop()
