@@ -63,5 +63,5 @@ class TOneWrapper(Transcriber):
         ).numpy() # type: ignore
         if (maxval := np.abs(waveform).max()) > 0:
             waveform /= maxval
-        utterances = self.pipeline.forward_offline((waveform * 32768).astype(np.int32))
+        utterances = self.pipeline.forward_offline((waveform * 32767).astype(np.int32))
         return ' '.join(x.text for x in utterances)  # we can use x.start_time, x.end_time

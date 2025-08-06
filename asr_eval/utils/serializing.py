@@ -36,7 +36,10 @@ def save_to_json(obj: Any, path: str | Path, indent: int = 4):
     path = Path(path)
     try:
         path.parent.mkdir(exist_ok=True, parents=True)
-        path.write_text(json.dumps(serialize_object(obj), indent=indent, ensure_ascii=False))
+        path.write_text(
+            json.dumps(serialize_object(obj), indent=indent, ensure_ascii=False),
+            encoding='utf-8',
+        )
     except KeyboardInterrupt as e:
         path.unlink(missing_ok=True)
         raise e
