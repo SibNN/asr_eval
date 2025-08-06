@@ -49,7 +49,7 @@ class PyannoteSegmenter(Segmenter):
                 continue
             elif segment.duration > self.max_duration:
                 warnings.warn(
-                    f'Warning! Segment is too large ({segment.duration:.1f} sec)'
+                    f'Segment is too large ({segment.duration:.1f} sec)'
                     ', splitting uniformly',
                 )
                 for delta in np.arange(0, segment.duration, self.max_duration):
