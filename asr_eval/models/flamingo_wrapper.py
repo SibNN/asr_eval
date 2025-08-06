@@ -40,6 +40,6 @@ class FlamingoWrapper(Transcriber):
                 case 'ru':
                     prompt = 'Транскрибируй аудио на русском языке. Текст должен быть на русском языке.'
             return self.model.generate_content( # type: ignore
-                [sound, f'<sound>\n{prompt}'],
+                [sound, prompt],
                 generation_config=self.model.default_generation_config, # type: ignore
             )
