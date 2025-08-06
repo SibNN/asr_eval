@@ -23,21 +23,14 @@ dependencies = [
     "torch",
     "torchcodec",
     "dash",
+    "pydub",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest", "pytest-cov", "coverage[toml]", "sphinx"]
-gigaam = ["gigaam[longform]"]
-vosk = ["vosk"]
 speechbrain = ["speechbrain"]
 nvidia-conformer = ["nemo_toolkit[all]"]
-pyannote = ["pyannote.audio"]
 linguistics = ["wordfreq", "pymorphy3", "pymystem3", "Levenshtein"]
-api = ["openai", "mistral_common", "pydantic_extra_types", "yandex-speechkit"]
-vllm = ["vllm[audio]"]
-qwen-audio = ["transformers_stream_generator", "transformers>4.32.0"]
-flamingo = ["whisper", "pytorchvideo", "deepspeed", "transformers<4.48.0"]
-gemma = ["transformers>=4.54.0"]
 langchain = ["langchain", "langchain-openai", "langchain-community", "duckduckgo-search"]
 wiki_search = ["wikipedia-api", "scikit-learn", "requests-cache"]
 
