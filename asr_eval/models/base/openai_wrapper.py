@@ -1,3 +1,4 @@
+import sys
 from typing import Any, Literal, cast, override
 import io
 
@@ -91,7 +92,7 @@ class APITranscriber(Transcriber):
     
     def vllm_run_args(self) -> list[str]:
         return [
-            'vllm',
+            sys.executable.removesuffix('/python') + '/vllm',
             'serve',
             self.model_name,
         ]

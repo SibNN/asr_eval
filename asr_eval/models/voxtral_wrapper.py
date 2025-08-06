@@ -1,3 +1,4 @@
+import sys
 from typing import Literal, override
 from openai import OpenAI
 from pydantic_extra_types.language_code import LanguageAlpha2
@@ -52,7 +53,7 @@ class VoxtralWrapper(APITranscriber):
     @override
     def vllm_run_args(self) -> list[str]:
         return [
-            'vllm',
+            sys.executable.removesuffix('/python') + '/vllm',
             'serve',
             self.model_name,
             '--tokenizer_mode',
