@@ -45,6 +45,7 @@ def run_pipeline(
             # lazy pipeline instantiation
             pipeline_obj = pipeline_obj or pipeline_cls()
             
+            print('running', pipeline_name, dataset_name, i)
             pipeline_obj.run_on_dataset_sample(
                 dataset_name, i, sample, root_dir, dir / str(i)
             )

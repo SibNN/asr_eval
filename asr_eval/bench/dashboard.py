@@ -1,3 +1,4 @@
+import re
 from typing import cast
 import dash
 from dash import dcc, html, Input, Output
@@ -63,11 +64,29 @@ def run_dashboard():
     app.run(debug=False, host='0.0.0.0', port=8050, use_reloader=False) # type: ignore
 
 
+def colorize_uppercase(text: str) -> list[html.Span]:
+    # temporary solution to mark errors in color
+    spans: list[html.Span] = []
+    uppercase_words = list(re.finditer(r'[A-ZА-Я]+', text))
+    
+    pos = 0
+    for i, word in enumerate(uppercase_words):
+        if word.start() > pos:
+            spans.append(html.Span(text[pos:word.start()]))
+        spans.append(html.Span(word.group().lower(), style={'background-color': '#FF9C9C'}))
+        pos = word.end()
+        
+    if pos < len(text):
+        spans.append(html.Span(text[pos:]))
+        
+    return spans
+
+
 def string_to_paragraph(text: str) -> html.P:
     spans: list[Component] = []
     lines = text.splitlines()
     for i, line in enumerate(lines):
-        spans.append(html.Span(line))
+        spans += colorize_uppercase(line)
         if i != len(lines) - 1:
             spans.append(html.Br())
     return html.P(spans)
