@@ -1,16 +1,18 @@
+import argparse
 import re
 from typing import cast
 import dash
 from dash import dcc, html, Input, Output
 from dash.development.base_component import Component
+from requests_cache import Path
 
 from .evaluator import Evaluator
 from ..align.data import MatchesList, Token
 from ..align.multiple import multiple_transcriptions_alignment
 
 
-def run_dashboard():
-    evaluator = Evaluator(root_dir='tmp').load_results()
+def run_dashboard(root_dir: str | Path = 'outputs'):
+    evaluator = Evaluator(root_dir=root_dir).load_results()
     
     dataset_names = list(evaluator.df['dataset_name'].unique()) # type: ignore
     assert len(dataset_names)
@@ -90,3 +92,13 @@ def string_to_paragraph(text: str) -> html.P:
         if i != len(lines) - 1:
             spans.append(html.Br())
     return html.P(spans)
+
+
+if __name__ == '__main__':
+    # example: `python -m asr_eval.bench.dashboard`
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-r', '--root_dir', default='outputs', help='dir to load the results')
+    args = parser.parse_args()
+    
+    run_dashboard(root_dir=args.root_dir)
