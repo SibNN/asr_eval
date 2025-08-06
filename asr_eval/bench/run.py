@@ -1,9 +1,10 @@
+import argparse
 from collections.abc import Sequence
 from pathlib import Path
 from typing import cast
 
-from .pipelines import Pipeline, pipelines_registry
-from .datasets import AudioSample, datasets_registry
+from .pipelines import Pipeline, get_pipeline
+from .datasets import AudioSample, get_dataset
 
 
 def run_pipeline(
@@ -15,7 +16,7 @@ def run_pipeline(
     root_dir = Path(root_dir)
     
     # lazy pipeline instantiation
-    pipeline_cls = pipelines_registry[pipeline_name]
+    pipeline_cls = get_pipeline(pipeline_name)
     pipeline_obj: Pipeline | None = None
     
     for dataset_name in dataset_names: 
@@ -32,7 +33,7 @@ def run_pipeline(
         ):
             continue
         
-        dataset = datasets_registry[dataset_name]()
+        dataset = get_dataset(dataset_name)()
         
         if max_samples is not None and len(dataset) > max_samples:
             dataset = dataset.take(max_samples)
@@ -49,3 +50,22 @@ def run_pipeline(
             pipeline_obj.run_on_dataset_sample(
                 dataset_name, i, sample, root_dir, dir / str(i)
             )
+
+
+if __name__ == '__main__':
+    # example: `python -m asr_eval.bench.run -p whisper-tiny -d podlodka -m 1`
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-p', '--pipeline', nargs='+', required=True, help='pipeline names')
+    parser.add_argument('-d', '--dataset', nargs='+', required=True, help='dataset names')
+    parser.add_argument('-r', '--root_dir', default='outputs', help='dir to save the results')
+    parser.add_argument('-m', '--max_samples', type=int, required=False, help='max samples per dataset')
+    args = parser.parse_args()
+    
+    for name in args.pipeline:
+        run_pipeline(
+            pipeline_name=name,
+            dataset_names=args.dataset,
+            root_dir=args.root_dir,
+            max_samples=args.max_samples,
+        )
