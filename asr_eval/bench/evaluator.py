@@ -38,13 +38,24 @@ class Evaluator:
         self.df = pd.concat([self.df, new_df])
         return self
     
+    def get_ground_truth(
+        self, dataset_name: str, sample_idx: int
+    ) -> GROUND_TRUTH_TYPE:
+        if sample_idx not in self.ground_truths[dataset_name]:
+            dataset = self._get_dataset(dataset_name)
+            sample = cast(AudioSample, dataset[sample_idx])
+            self.ground_truths[dataset_name][sample_idx] = (
+                sample['transcription'], parse_multivariant_string(sample['transcription'])
+            )
+        return self.ground_truths[dataset_name][sample_idx]
+    
     def _predictions_to_df(self, predictions: dict[Path, _SamplePrediction]) -> pd.DataFrame:
         rows: list[dict[str, Any]] = []
         for path, pred in predictions.items():
             rows.append(row := cast(dict[str, Any], pred.copy()))
             row['path'] = path
             row['ground_truth'], row['ground_truth_words'] = (
-                self._get_ground_truth(pred['dataset_name'], pred['dataset_idx'])
+                self.get_ground_truth(pred['dataset_name'], pred['sample_idx'])
             )
         df = pd.DataFrame(columns=(
             ['path']
@@ -55,20 +66,9 @@ class Evaluator:
         return df
 
     def _load_result(self, path: Path) -> _SamplePrediction:
-        _, dataset_name, dataset_idx, _ = path.relative_to(self.root_dir).parts
-        _, ground_truth_words = self._get_ground_truth(dataset_name, int(dataset_idx))
+        _, dataset_name, sample_idx, _ = path.relative_to(self.root_dir).parts
+        _, ground_truth_words = self.get_ground_truth(dataset_name, int(sample_idx))
         return sample_prediction_from_file(path, ground_truth_words)
-    
-    def _get_ground_truth(
-        self, dataset_name: str, dataset_idx: int
-    ) -> GROUND_TRUTH_TYPE:
-        if dataset_idx not in self.ground_truths[dataset_name]:
-            dataset = self._get_dataset(dataset_name)
-            sample = cast(AudioSample, dataset[dataset_idx])
-            self.ground_truths[dataset_name][dataset_idx] = (
-                sample['transcription'], parse_multivariant_string(sample['transcription'])
-            )
-        return self.ground_truths[dataset_name][dataset_idx]
     
     def _get_dataset(self, dataset_name: str) -> Dataset:
         if dataset_name not in self._datasets_cache:
@@ -80,7 +80,7 @@ class _SamplePrediction(TypedDict):
     '''A result of running a Transcriber on a single sample'''
     pipeline_name: str
     dataset_name: str
-    dataset_idx: int
+    sample_idx: int
     transcription: str
     transcription_words: list[Token]
     alignment: MatchesList
@@ -107,7 +107,7 @@ def sample_prediction_from_file(
         obj: _SamplePrediction = {
             'pipeline_name': path.parts[-4],
             'dataset_name': path.parts[-3],
-            'dataset_idx': int(path.parts[-2]),
+            'sample_idx': int(path.parts[-2]),
             'transcription': transcription,
             'transcription_words': transcription_words,
             'alignment': alignment,
