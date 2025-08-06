@@ -35,7 +35,8 @@ pip install -e .[dev]
 
 ```
 python3.12 -m venv tmp/venv_whisper
-tmp/venv_whisper/bin/python -m pip install . transformers
+tmp/venv_whisper/bin/python -m pip install -e .
+tmp/venv_whisper/bin/python -m pip install transformers
 tmp/venv_whisper/bin/python -m asr_eval.bench.check whisper-large-v3
 ```
 
@@ -43,7 +44,9 @@ tmp/venv_whisper/bin/python -m asr_eval.bench.check whisper-large-v3
 
 ```
 python3.12 -m venv tmp/venv_gigaam
-tmp/venv_gigaam/bin/python -m pip install . gigaam pyannote.audio
+tmp/venv_gigaam/bin/python -m pip install -e .
+tmp/venv_gigaam/bin/python -m pip install gigaam pyannote.audio
+tmp/venv_gigaam/bin/python -m pip install onnxruntime==1.22.1
 tmp/venv_gigaam/bin/python -m asr_eval.bench.check gigaam-rnnt-vad
 ```
 
@@ -52,7 +55,8 @@ tmp/venv_gigaam/bin/python -m asr_eval.bench.check gigaam-rnnt-vad
 ```
 sudo apt install cmake
 python3.12 -m venv tmp/venv_vosk
-tmp/venv_vosk/bin/python -m pip install . vosk pyannote.audio sentencepiece torch==2.5.1 huggingface_hub
+tmp/venv_vosk/bin/python -m pip install -e .
+tmp/venv_vosk/bin/python -m pip install vosk pyannote.audio sentencepiece torch==2.5.1 huggingface_hub
 tmp/venv_vosk/bin/python -m pip install gigaam --no-dependencies  # for segmenting
 tmp/venv_vosk/bin/python -m pip install kaldifeat==1.25.5.dev20250203+cuda12.4.torch2.5.1 -f https://csukuangfj.github.io/kaldifeat/cuda.html
 tmp/venv_vosk/bin/python -m pip install k2==1.24.4.dev20250208+cuda12.4.torch2.5.1 -f https://k2-fsa.github.io/k2/cuda.html
@@ -65,7 +69,8 @@ tmp/venv_vosk/bin/python -m asr_eval.bench.check vosk-0.54-vad
 
 ```
 python3.12 -m venv tmp/venv_flamingo
-tmp/venv_flamingo/bin/python -m pip install . numpy==1.26.4 whisper accelerate==0.34.2 pytorchvideo==0.1.5 torchvision deepspeed==0.15.4 transformers==4.46.0 pyannote.audio opencv-python-headless==4.8.0.76 kaldiio
+tmp/venv_flamingo/bin/python -m pip install -e .
+tmp/venv_flamingo/bin/python -m pip install numpy==1.26.4 whisper accelerate==0.34.2 pytorchvideo==0.1.5 torchvision deepspeed==0.15.4 transformers==4.46.0 pyannote.audio opencv-python-headless==4.8.0.76 kaldiio loguru
 tmp/venv_flamingo/bin/python -m pip install gigaam --no-dependencies  # for segmenting
 tmp/venv_flamingo/bin/python -m asr_eval.bench.check flamingo-ru-vad
 ```
@@ -75,7 +80,8 @@ tmp/venv_flamingo/bin/python -m asr_eval.bench.check flamingo-ru-vad
 ```
 export HF_TOKEN=...  # your token
 python3.12 -m venv tmp/venv_gemma3n
-tmp/venv_gemma3n/bin/python -m pip install . "transformers==4.54.1" pyannote.audio torchvision accelerate timm
+tmp/venv_gemma3n/bin/python -m pip install -e .
+tmp/venv_gemma3n/bin/python -m pip install "transformers==4.54.1" pyannote.audio torchvision accelerate timm
 tmp/venv_gemma3n/bin/python -m pip install gigaam --no-dependencies  # for segmenting
 tmp/venv_gemma3n/bin/python -m asr_eval.bench.check gemma3n-ru-vad
 ```
@@ -86,7 +92,8 @@ tmp/venv_gemma3n/bin/python -m asr_eval.bench.check gemma3n-ru-vad
 PISETS_DIR=...
 ASR_EVAL_DIR=...
 python3.12 -m venv tmp/venv_pisets
-tmp/venv_pisets/bin/python -m pip install . transformers
+tmp/venv_pisets/bin/python -m pip install -e .
+tmp/venv_pisets/bin/python -m pip install transformers
 git clone https://github.com/bond005/pisets tmp/pisets_legacy
 cd $PISETS_DIR
 $ASR_EVAL_DIR/tmp/venv_pisets/bin/python -m pip install .
@@ -99,7 +106,8 @@ tmp/venv_pisets/bin/python -m asr_eval.bench.check pisets-ru-whisper-large-v3
 
 ```
 python3.12 -m venv tmp/venv_qwen2audio
-tmp/venv_qwen2audio/bin/python -m pip install . transformers_stream_generator "transformers>4.32.0" pyannote.audio accelerate
+tmp/venv_qwen2audio/bin/python -m pip install -e .
+tmp/venv_qwen2audio/bin/python -m pip install transformers_stream_generator "transformers>4.32.0" pyannote.audio accelerate
 tmp/venv_qwen2audio/bin/python -m pip install gigaam --no-dependencies  # for segmenting
 tmp/venv_qwen2audio/bin/python -m pip install flash-attn --no-build-isolation
 tmp/venv_qwen2audio/bin/python -m asr_eval.bench.check qwen2-audio-vad
@@ -109,7 +117,8 @@ tmp/venv_qwen2audio/bin/python -m asr_eval.bench.check qwen2-audio-vad
 
 ```
 python3.12 -m venv tmp/venv_tone
-tmp/venv_tone/bin/python -m pip install . pyannote.audio
+tmp/venv_tone/bin/python -m pip install -e .
+tmp/venv_tone/bin/python -m pip install pyannote.audio
 tmp/venv_tone/bin/python -m pip install gigaam --no-dependencies  # for segmenting
 tmp/venv_tone/bin/python -m pip install git+https://github.com/voicekit-team/T-one
 tmp/venv_tone/bin/python -m asr_eval.bench.check t-one-vad
@@ -119,7 +128,8 @@ tmp/venv_tone/bin/python -m asr_eval.bench.check t-one-vad
 
 ```
 python3.12 -m venv tmp/venv_voxtral
-tmp/venv_voxtral/bin/python -m pip install . vllm[audio] openai mistral_common pydantic_extra_types
+tmp/venv_voxtral/bin/python -m pip install -e .
+tmp/venv_voxtral/bin/python -m pip install vllm[audio] openai mistral_common pydantic_extra_types
 tmp/venv_voxtral/bin/python -m asr_eval.bench.check voxtral-3B
 ```
 
@@ -130,6 +140,7 @@ See asr_eval.tts.yandex_speechkit.YandexSpeechKitWrapper docstring for installat
 ```
 export YANDEX_API_KEY=...  # koyr key
 python3.12 -m venv tmp/venv_yandex_speechkit
-tmp/venv_yandex_speechkit/bin/python -m pip install . yandex-speechkit
+tmp/venv_yandex_speechkit/bin/python -m pip install -e .
+tmp/venv_yandex_speechkit/bin/python -m pip install yandex-speechkit
 tmp/venv_yandex_speechkit/bin/python -m asr_eval.bench.check yandex-speechkit
 ```

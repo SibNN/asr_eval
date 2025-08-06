@@ -24,6 +24,7 @@ dependencies = [
     "torchcodec",
     "dash",
     "pydub",
+    "transformers",
 ]
 
 [project.optional-dependencies]
