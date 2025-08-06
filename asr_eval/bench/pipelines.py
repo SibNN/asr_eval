@@ -95,6 +95,11 @@ class _(TranscriberPipeline, register_as='whisper-tiny'):
         from ..models.whisper_wrapper import WhisperLongformWrapper
         return WhisperLongformWrapper('openai/whisper-tiny')
 
+class _(TranscriberPipeline, register_as='whisper-small'):
+    def init(self):
+        from ..models.whisper_wrapper import WhisperLongformWrapper
+        return WhisperLongformWrapper('openai/whisper-small')
+
 
 class _(TranscriberPipeline, register_as='whisper-large-v3'):
     def init(self):
