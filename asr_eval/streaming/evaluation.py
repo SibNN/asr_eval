@@ -22,7 +22,7 @@ from .model import (
 from .sender import BaseStreamingAudioSender, Cutoff, StreamingAudioSender
 from .caller import receive_full_transcription
 from ..align.data import Match, MatchesList, MultiVariant, Token
-from ..align.parsing import split_text_into_tokens
+from ..align.parsing import parse_single_variant_string
 from ..align.partial import align_partial
 from ..bench.recording import Recording
 from ..utils.misc import new_uid
@@ -286,7 +286,7 @@ def get_partial_alignments(
     partial_alignments: list[PartialAlignment] = []
     for i, output_chunk in enumerate(output_history):
         partial_alignments.append(PartialAlignment(
-            pred=split_text_into_tokens(TranscriptionChunk.join(output_history[:i + 1])),
+            pred=parse_single_variant_string(TranscriptionChunk.join(output_history[:i + 1])),
             alignment=None, # type: ignore
             at_time=output_chunk.put_timestamp,
             audio_seconds_sent=get_audio_seconds_sent(output_chunk.put_timestamp, input_history),

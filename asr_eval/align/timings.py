@@ -10,7 +10,7 @@ import numpy.typing as npt
 from gigaam.model import GigaAMASR
 
 from .data import Token, MultiVariant, Anything
-from .parsing import split_text_into_tokens
+from .parsing import parse_single_variant_string
 from ..ctc.base import ctc_mapping
 from ..ctc.forced_alignment import forced_alignment
 from ..models.gigaam_wrapper import FREQ, gigaam_decode, gigaam_encode, transcribe_with_gigaam_ctc, GigaAMEncodeError
@@ -301,7 +301,7 @@ def get_word_timings_simple(
 
     # fill positions
     if text is not None:
-        true_tokens_with_positions = split_text_into_tokens(text)
+        true_tokens_with_positions = parse_single_variant_string(text)
         for token_to_return, token_with_pos in zip(
             word_timings, true_tokens_with_positions, strict=True
         ):

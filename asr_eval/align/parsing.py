@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import replace
 import re
 import string
@@ -11,7 +12,7 @@ from .data import Anything, Token, MultiVariant
 from ..utils.formatting import Formatting, FormattingSpan, apply_ansi_formatting
 
 
-def razdel_split_text_into_tokens(text: str) -> list[Token]:
+def _razdel_split_text_into_tokens(text: str) -> list[Token]:
     tokens: list[Token] = []
     for word in razdel.tokenize(text):
         value = cast(str, word.text) # pyright:ignore[reportUnknownMemberType]
@@ -47,7 +48,7 @@ def razdel_split_text_into_tokens(text: str) -> list[Token]:
 
 
 
-def regexp_split_text_into_tokens(text: str, patterns: dict[str, str]):
+def _regexp_split_text_into_tokens(text: str, patterns: dict[str, str]):
     tokens: list[Token] = []
     pattern = '|'.join(f'(?P<{name}>{subpattern})' for name, subpattern in patterns.items())
     for match in re.finditer(re.compile(pattern, re.MULTILINE|re.DOTALL|re.UNICODE), text):
@@ -69,7 +70,7 @@ def regexp_split_text_into_tokens(text: str, patterns: dict[str, str]):
     return tokens
 
 
-def split_text_into_tokens(
+def _split_text_into_tokens(
     text: str,
     method: Literal['wordpunct_tokenize', 'space', 'razdel', 'asr_eval'] = 'asr_eval',
     drop_punct: bool = True,
@@ -81,7 +82,7 @@ def split_text_into_tokens(
     `parse_multivariant_string` docstring.
     """
     if method == 'razdel':
-        tokens = razdel_split_text_into_tokens(text)
+        tokens = _razdel_split_text_into_tokens(text)
     else:
         match method:
             case 'wordpunct_tokenize':
@@ -101,7 +102,7 @@ def split_text_into_tokens(
                 }
         if drop_punct:
             options.pop('punct', None)
-        tokens = regexp_split_text_into_tokens(text, options)
+        tokens = _regexp_split_text_into_tokens(text, options)
     
     for token in tokens:
         if not isinstance(token.value, Anything):
@@ -134,6 +135,24 @@ MULTIVARIANT_PATTERN = re.compile(
     '|'
     r'(?<=})([^{}]+?)(?={)'   # single variant
 )
+
+
+def parse_single_variant_string(
+    text: str,
+    method: Literal['wordpunct_tokenize', 'space', 'razdel', 'asr_eval'] = 'asr_eval',
+    drop_punct: bool = True,
+    lower: bool = True,
+    ru_tweaks: bool = True,
+) -> list[Token]:
+    result = _split_text_into_tokens(
+        text=text,
+        method=method,
+        drop_punct=drop_punct,
+        lower=lower,
+        ru_tweaks=ru_tweaks,
+    )
+    _assign_incremental_token_ids_inplace(result)
+    return result
 
 
 def parse_multivariant_string(
@@ -220,7 +239,7 @@ def parse_multivariant_string(
             
             options: list[list[Token]] = []
             for option_text, start_pos in options_raw:
-                option_tokens = split_text_into_tokens(
+                option_tokens = _split_text_into_tokens(
                     option_text,
                     method=method,
                     drop_punct=drop_punct, 
@@ -237,7 +256,7 @@ def parse_multivariant_string(
             result.append(MultiVariant(options=options, pos=(start, end)))
         else:
             result += _shift_tokens(
-                split_text_into_tokens(
+                _split_text_into_tokens(
                     text_part,
                     method=method,
                     drop_punct=drop_punct, 
@@ -247,7 +266,22 @@ def parse_multivariant_string(
                 shift=start
             )
     
+    _assign_incremental_token_ids_inplace(result)
     return result
+
+
+def _assign_incremental_token_ids_inplace(tokens: Sequence[Token | MultiVariant]):
+    i = 0
+    for x in tokens:
+        match x:
+            case Token():
+                x.uid = str(i)
+                i += 1
+            case MultiVariant():
+                for option in x.options:
+                    for token in option:
+                        token.uid = str(i)
+                        i += 1
 
 
 def _shift_tokens(tokens: list[Token], shift: int = 0) -> list[Token]:
