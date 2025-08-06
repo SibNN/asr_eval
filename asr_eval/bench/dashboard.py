@@ -1,6 +1,6 @@
 import argparse
 import re
-from typing import cast
+from typing import Literal, cast
 import dash
 from dash import dcc, html, Input, Output
 from dash.development.base_component import Component
@@ -15,16 +15,31 @@ def run_dashboard(root_dir: str | Path = 'outputs'):
     evaluator = Evaluator(root_dir=root_dir).load_results()
     
     dataset_names = list(evaluator.df['dataset_name'].unique()) # type: ignore
+    pipeline_names = list(evaluator.df['pipeline_name'].unique()) # type: ignore
     assert len(dataset_names)
     
     app = dash.Dash(__name__)
     
-    dropdown = dcc.Dropdown(
+    dataset_selector = dcc.Dropdown(
         id='dataset-selector',
         options=[{'label': name, 'value': name} for name in dataset_names],
         value=dataset_names[0],
         clearable=False,
     )
+    pipeline_selector = dcc.Dropdown(
+        id='pipeline-selector',
+        options=[{'label': name, 'value': name} for name in pipeline_names],
+        value=pipeline_names,
+        clearable=False,
+        multi=True,
+    )
+    sample_filter_selector = dcc.Dropdown(
+        id='sample-filter-selector',
+        options=[{'label': 'all', 'value': 'all'}, {'label': 'unequal', 'value': 'unequal'}],
+        value='all',
+        clearable=False,
+    )
+    selectors = html.Div([dataset_selector, pipeline_selector, sample_filter_selector])
     text_field = html.Div(
         id='multiple-alignments',
         style={
@@ -32,20 +47,38 @@ def run_dashboard(root_dir: str | Path = 'outputs'):
             'white-space': 'pre',
         }
     )
-    app.layout = html.Div([dropdown, text_field])
+    app.layout = html.Div([selectors, text_field])
     
     @app.callback( # type: ignore
         Output('multiple-alignments', 'children'),
-        [Input('dataset-selector', 'value')]
+        [
+            Input('dataset-selector', 'value'),
+            Input('pipeline-selector', 'value'),
+            Input('sample-filter-selector', 'value'),
+        ],
     )
-    def display_multiple_alignments(dataset_name: str) -> list[Component]:  # pyright:ignore[reportUnusedFunction]
+    def display_multiple_alignments(  # pyright:ignore[reportUnusedFunction]
+        dataset_name: str,
+        pipeline_names: list[str],
+        sample_filter: Literal['all', 'unequal'],
+    ) -> list[Component]:
         paragraphs: list[Component] = []
         
-        dataset_df = evaluator.df[evaluator.df['dataset_name'] == dataset_name]
+        dataset_df = evaluator.df[
+            (evaluator.df['dataset_name'] == dataset_name)
+            & evaluator.df['pipeline_name'].isin(pipeline_names) # type: ignore
+        ]
         dataset_df = dataset_df.sort_values('sample_idx') # type: ignore
         for sample_idx, sample_df in dataset_df.groupby('sample_idx'): # type: ignore
             sample_df = sample_df.sort_values('pipeline_name') # type: ignore
             _true_text, true_words = evaluator.get_ground_truth(dataset_name, int(sample_idx)) # type: ignore
+            
+            if sample_filter == 'unequal' and len(sample_df) == 2:
+                words1, words2 = cast(list[list[Token]], sample_df['transcription_words'].tolist())
+                text1 = ' '.join(str(w.value) for w in words1)
+                text2 = ' '.join(str(w.value) for w in words2)
+                if text1 == text2:
+                    continue
             
             for word in true_words:
                 assert isinstance(word, Token)
@@ -58,8 +91,13 @@ def run_dashboard(root_dir: str | Path = 'outputs'):
             
             _msa_df, msa_string = multiple_transcriptions_alignment(true_words, alignments)
             msa_string = msa_string.replace(' ', '\xa0')
-            print(msa_string)
-            paragraphs.append(string_to_paragraph(f'{sample_idx}\n{msa_string}'))
+            header, body = msa_string.split('\n', maxsplit=1)
+            # print(msa_string)
+            paragraphs.append(html.P(
+                [html.Span(str(sample_idx)), html.Br()]
+                + [html.Span(header, style={'font-weight': 'bold'}), html.Br()]
+                + string_to_spans(body)
+            ))
         
         return paragraphs
 
@@ -84,14 +122,14 @@ def colorize_uppercase(text: str) -> list[html.Span]:
     return spans
 
 
-def string_to_paragraph(text: str) -> html.P:
-    spans: list[Component] = []
+def string_to_spans(text: str) -> list[html.Span | html.Br]:
+    spans: list[html.Span | html.Br] = []
     lines = text.splitlines()
     for i, line in enumerate(lines):
         spans += colorize_uppercase(line)
         if i != len(lines) - 1:
             spans.append(html.Br())
-    return html.P(spans)
+    return spans
 
 
 if __name__ == '__main__':
