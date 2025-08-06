@@ -17,6 +17,12 @@ class AudioSample(TypedDict):
 datasets_registry: dict[str, Callable[[], Dataset]] = {}
 
 
+def get_dataset(name: str) -> Callable[[], Dataset]:
+    if name not in datasets_registry:
+        raise ValueError(f'Dataset does not exist: {name}')
+    return datasets_registry[name]
+
+
 def register_dataset(name: str):
     global datasets_registry
     def decorator(fn: Callable[[], Dataset]):

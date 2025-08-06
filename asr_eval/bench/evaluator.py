@@ -9,7 +9,7 @@ import pandas as pd
 from tqdm.auto import tqdm
 from datasets import Dataset
 
-from .datasets import AudioSample, datasets_registry
+from .datasets import AudioSample, get_dataset
 from ..align.parsing import parse_single_variant_string, parse_multivariant_string
 from ..align.recursive import align
 from ..align.data import MatchesList, Token, MultiVariant
@@ -72,7 +72,7 @@ class Evaluator:
     
     def _get_dataset(self, dataset_name: str) -> Dataset:
         if dataset_name not in self._datasets_cache:
-            self._datasets_cache[dataset_name] = datasets_registry[dataset_name]()
+            self._datasets_cache[dataset_name] = get_dataset(dataset_name)()
         return self._datasets_cache[dataset_name]
 
 

@@ -14,6 +14,12 @@ from ..utils.serializing import save_to_json
 pipelines_registry: dict[str, type[Pipeline]] = {}
 
 
+def get_pipeline(name: str) -> type[Pipeline]:
+    if name not in pipelines_registry:
+        raise ValueError(f'Pipeline does not exist: {name}')
+    return pipelines_registry[name]
+
+
 class Pipeline(ABC):
     FILENAME: str = ''
     
@@ -153,7 +159,7 @@ class _(TimedTranscriberPipeline, register_as='gemma3n-ru-vad-contextual'):
 class _(TimedTranscriberPipeline, register_as='pisets-legacy'):
     def init(self):
         from ..models.legacy_pisets_wrapper import LegacyPisetsWrapper
-        return LegacyPisetsWrapper(repo_dir='tmp/pisets')
+        return LegacyPisetsWrapper(repo_dir='tmp/pisets_legacy')
 
 
 class _(TimedTranscriberPipeline, register_as='pisets-ru-whisper-large-v3'):
@@ -188,7 +194,7 @@ class _(TimedTranscriberPipeline, register_as='vosk-0.54-vad'):
 class _(TranscriberPipeline, register_as='voxtral-3B'):
     def init(self):
         from ..models.voxtral_wrapper import VoxtralWrapper
-        return VoxtralWrapper('mistralai/Voxtral-Mini-3B-2507', language='ru')
+        return VoxtralWrapper('mistralai/Voxtral-Mini-3B-2507', language='ru', local_server_verbose=True)
 
 
 class _(TimedTranscriberPipeline, register_as='yandex-speechkit'):
