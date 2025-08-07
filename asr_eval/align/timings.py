@@ -2,19 +2,28 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Literal
 from itertools import pairwise
 
 import numpy as np
-import numpy.typing as npt
 from gigaam.model import GigaAMASR
 
+from ..utils.types import FLOATS
 from .data import Token, MultiVariant, Anything
 from .parsing import parse_single_variant_string
 from ..ctc.base import ctc_mapping
 from ..ctc.forced_alignment import forced_alignment
-from ..models.gigaam_wrapper import FREQ, gigaam_decode, gigaam_encode, transcribe_with_gigaam_ctc, GigaAMEncodeError
+from ..models.base.longform import LongformCTC
+from ..models.gigaam_wrapper import FREQ, GigaAMShortformCTC, gigaam_decode, gigaam_encode, GigaAMEncodeError
 from ..utils.misc import self_product_nonequal
+
+
+__all__ = [
+    'CannotFillTimings',
+    'fill_word_timings_inplace',
+    'get_word_timings_simple',
+]
+
 
 @dataclass
 class _TokenEncoded:
@@ -156,18 +165,28 @@ def _print_propagation(
     
 
 def fill_word_timings_inplace(
-    model: GigaAMASR,
-    waveform: npt.NDArray[np.floating[Any]],
+    model: GigaAMShortformCTC,
+    waveform: FLOATS,
     tokens: list[Token | MultiVariant],
     verbose: bool = False,
 ):
-    outputs = transcribe_with_gigaam_ctc(model, [waveform])[0]
+    '''
+    Given a Russian tokenized multivariant or single-variant transcription and the corresponding
+    audio, fills .start_time and .end_time for each Token using GigaAM CTC model.
+    
+    In each multivariant block, tries to find fully-Russian option and uses it as a baseline,
+    then tries to fill timings for other (possibly not Russian) options based on the baseline
+    option timings.
+    
+    Raises CannotFillTimings if this turns out to be impossible.
+    '''
+    log_probs = LongformCTC(model).ctc_log_probs([waveform])[0]
     finish_time = len(waveform) / 16_000
     
     encoded_multivariant = [
-        _TokenEncoded.from_token(x, model)
+        _TokenEncoded.from_token(x, model.model)
         if isinstance(x, Token)
-        else _MultiVariantEncoded.from_multivariant(x, model)
+        else _MultiVariantEncoded.from_multivariant(x, model.model)
         for x in tokens
     ]
 
@@ -195,9 +214,9 @@ def fill_word_timings_inplace(
     # do force alignment on baseline
     baseline_idxs: list[int] = sum([word.idxs for word in baseline], []) # type: ignore
     _idxs, _probs, spans = forced_alignment(
-        outputs.log_probs,
+        log_probs,
         baseline_idxs,
-        blank_id=model.decoding.blank_id,
+        blank_id=model.model.decoding.blank_id,
     )
     for word in baseline:
         spans_for_word = spans[:len(word.idxs)]
@@ -255,12 +274,14 @@ def fill_word_timings_inplace(
 
 
 def get_word_timings_simple(
-    model: GigaAMASR,
-    waveform: npt.NDArray[np.floating[Any]],
+    model: GigaAMShortformCTC,
+    waveform: FLOATS,
     text: str | None = None,
     normalize: bool = True,
 ) -> list[Token]:
     '''
+    A simplified version of `fill_word_timings_inplace`, accepts raw text as string, instead of
+    parsed text. Does not support multivariance.
 
     Using GigaAM CTC model, performs either a forced alignment or an argmax prediction, and returns
     a list of words and their timings in seconds:
@@ -274,10 +295,14 @@ def get_word_timings_simple(
         (Token('повседневности'), 1.6, 2.36),
         ...
     ]
+    
+    If text is not provided, uses GigaAM argmax predictions instead.
+    
+    Raises GigaAMEncodeError if cannot encode some letters in the text.
     '''
-    outputs = transcribe_with_gigaam_ctc(model, [waveform])[0]
+    log_probs = LongformCTC(model).ctc_log_probs([waveform])[0]
     if text is None:
-        tokens = outputs.log_probs.argmax(axis=1)
+        tokens = log_probs.argmax(axis=1)
     else:
         assert '{' not in text, 'Not implemented for multivariant texts'
         if normalize:
@@ -285,11 +310,11 @@ def get_word_timings_simple(
             for char in ('.', ',', '!', '?', ';', ':', '"', '(', ')', '«', '»', '—'):
                 text = text.replace(char, '')
         tokens, _probs, _spans = forced_alignment(
-            outputs.log_probs,
-            gigaam_encode(model, text),
-            blank_id=model.decoding.blank_id
+            log_probs,
+            gigaam_encode(model.model, text),
+            blank_id=model.model.decoding.blank_id
         )
-    letter_per_frame = gigaam_decode(model, tokens)
+    letter_per_frame = gigaam_decode(model.model, tokens)
     word_timings = [
         Token(
             value=''.join(ctc_mapping(list(match.group()), blank='_')),
