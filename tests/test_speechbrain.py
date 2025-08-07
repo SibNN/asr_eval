@@ -8,6 +8,7 @@ from asr_eval.streaming.sender import StreamingAudioSender
 from asr_eval.utils.types import FLOATS
 
 
+@pytest.mark.skip(reason='todo decide how to test optional dependencies')
 @pytest.mark.filterwarnings('ignore::FutureWarning:', 'ignore::DeprecationWarning:')
 def test_speechbrain_streaming():
     waveform: FLOATS = librosa.load('tests/testdata/vosk.wav', sr=16_000)[0] # type: ignore

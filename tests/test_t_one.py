@@ -10,6 +10,8 @@ from asr_eval.streaming.caller import receive_full_transcription
 from asr_eval.streaming.sender import StreamingAudioSender
 from asr_eval.utils.types import FLOATS
 
+
+@pytest.mark.skip(reason='todo decide how to test optional dependencies')
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_t_one():
     waveform: FLOATS = librosa.load('tests/testdata/formula1.mp3', sr=8_000)[0] # type: ignore

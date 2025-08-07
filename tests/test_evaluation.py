@@ -1,15 +1,13 @@
-from typing import cast
 from pathlib import Path
 
 import pytest
 import librosa
-import gigaam
-from gigaam.model import GigaAMASR
 
 from asr_eval.bench.recording import Recording
 from asr_eval.align.timings import fill_word_timings_inplace
 from asr_eval.align.parsing import parse_multivariant_string, colorize_parsed_string
 from asr_eval.align.plots import draw_timed_transcription
+from asr_eval.models.gigaam_wrapper import GigaAMShortformCTC
 from asr_eval.models.vosk_streaming_wrapper import VoskStreaming
 from asr_eval.streaming.evaluation import default_evaluation_pipeline
 from asr_eval.streaming.plots import (
@@ -22,6 +20,7 @@ from asr_eval.streaming.plots import (
 from asr_eval.utils.types import FLOATS
 
 
+@pytest.mark.skip(reason='todo decide how to test optional dependencies')
 @pytest.mark.filterwarnings('ignore::FutureWarning:', 'ignore::DeprecationWarning:')
 def test_evaluation():
     waveform: FLOATS = librosa.load('tests/testdata/formula1.mp3', sr=16000)[0] # type: ignore
@@ -32,7 +31,7 @@ def test_evaluation():
     tokens = parse_multivariant_string(text)
 
     # determine word timings
-    model = cast(GigaAMASR, gigaam.load_model('ctc', device='cuda'))
+    model = GigaAMShortformCTC()
     fill_word_timings_inplace(model, waveform, tokens)
     
     # plot should not raise an error
