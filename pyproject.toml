@@ -25,6 +25,7 @@ dependencies = [
     "dash",
     "pydub",
     "transformers",
+    "pydantic_extra_types",
 ]
 
 [project.optional-dependencies]

@@ -129,7 +129,7 @@ tmp/venv_tone/bin/python -m asr_eval.bench.check t-one-vad
 ```
 python3.12 -m venv tmp/venv_voxtral
 tmp/venv_voxtral/bin/python -m pip install -e .
-tmp/venv_voxtral/bin/python -m pip install vllm[audio] openai mistral_common pydantic_extra_types
+tmp/venv_voxtral/bin/python -m pip install vllm[audio] openai mistral_common
 tmp/venv_voxtral/bin/python -m asr_eval.bench.check voxtral-3B
 ```
 
