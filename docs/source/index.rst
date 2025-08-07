@@ -14,5 +14,8 @@ of ASR models and datasets (with focus on Russian speech).
    :caption: Contents:
 
    overview
+   installation
    streaming
+   framework
+   reproducing
    reference
