@@ -1,7 +1,5 @@
 from pathlib import Path
 
-import nemo.collections.asr as nemo_asr
-
 
 __all__ = [
     'NvidiaConformerWrapper',
@@ -15,6 +13,7 @@ class NvidiaConformerWrapper:
     TODO
     '''
     def __init__(self):
+        import nemo.collections.asr as nemo_asr
         self.model = nemo_asr.models.EncDecCTCModelBPE.from_pretrained( # type: ignore
             model_name="stt_ru_conformer_ctc_large"
         )

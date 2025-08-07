@@ -7,11 +7,6 @@ from typing import Callable, override
 import torch
 from torch.nn.utils.rnn import pad_sequence
 from huggingface_hub import hf_hub_download # type: ignore
-import sentencepiece as spm
-import kaldifeat
-from icefall import NgramLm
-from icefall.lm_wrapper import LmScorer
-from icefall.utils import AttributeDict
 
 from .base.interfaces import Transcriber
 from ..utils.types import FLOATS
@@ -29,6 +24,11 @@ class VoskV54(Transcriber):
     def __init__(self, device: str | torch.device = 'cuda'):
         # adopted from https://huggingface.co/alphacep/vosk-model-ru/blob/main/decode.py
         # beam search code taken from icefall/egs/librispeech/ASR/pruned_transducer_stateless2/beam_search.py
+        import sentencepiece as spm
+        import kaldifeat
+        from icefall import NgramLm
+        from icefall.lm_wrapper import LmScorer
+        from icefall.utils import AttributeDict
         
         download_vosk_file = partial(
             hf_hub_download,

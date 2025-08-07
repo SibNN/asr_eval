@@ -2,13 +2,7 @@ from contextlib import contextmanager
 from typing import Any, cast, override
 import warnings
 
-from langchain.agents import create_openai_tools_agent, AgentExecutor # type: ignore
-from langchain.tools import BaseTool, DuckDuckGoSearchRun
-from langchain_openai import ChatOpenAI
-from langchain.prompts import ChatPromptTemplate
-from langchain_core.runnables import Runnable
 from pydantic import SecretStr
-from duckduckgo_search.exceptions import DuckDuckGoSearchException
 
 from ..utils.types import FLOATS
 from .interfaces import TranscriptionCorrector
@@ -66,7 +60,16 @@ class CorrectorLangchain(TranscriptionCorrector):
         domain_specific_texts: str | None = None,
         use_web_search: bool = False,  # disabled by default, seems to work incorrectly (run with verbose=True)
     ):
+        from langchain.agents import create_openai_tools_agent, AgentExecutor # type: ignore
+        from langchain.tools import BaseTool, DuckDuckGoSearchRun
+        from langchain_openai import ChatOpenAI
+        from langchain.prompts import ChatPromptTemplate
+        from langchain_core.runnables import Runnable
+        from duckduckgo_search.exceptions import DuckDuckGoSearchException
+        self.DuckDuckGoSearchException = DuckDuckGoSearchException
+        
         # setup_ssl()
+        
         self.domain_specific_texts = domain_specific_texts
         self.llm = ChatOpenAI(
             api_key=SecretStr(api_key),
@@ -110,7 +113,7 @@ class CorrectorLangchain(TranscriptionCorrector):
                 result = self.agent_executor.invoke({
                     'input': AGEMT_PROMPT_RU.format(transcription=transcription)
                 })
-        except DuckDuckGoSearchException as e:
+        except self.DuckDuckGoSearchException as e:
             print(repr(e))
             self.tools.remove(self.search_tool)
             result = self.agent_executor.invoke({

@@ -1,10 +1,13 @@
+from __future__ import annotations
+
 from collections import defaultdict
-from typing import Literal, override
+from typing import TYPE_CHECKING, Literal, override
 
 import torch
 import numpy as np
-import speechbrain.inference.ASR
-from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
+
+if TYPE_CHECKING:
+    import speechbrain.inference.ASR
 
 from ..streaming.buffer import ID_TYPE
 from ..streaming.model import OutputChunk, StreamingASR, Signal, TranscriptionChunk
@@ -27,6 +30,10 @@ class SpeechbrainStreaming(StreamingASR):
         sampling_rate: int = 16_000,
     ):
         super().__init__(sampling_rate=sampling_rate)
+        
+        import speechbrain.inference.ASR # type: ignore
+        from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
+        
         self.config = DynChunkTrainConfig(24, 4)
         self.norm = True
         self.model = self.get_model()
@@ -36,6 +43,8 @@ class SpeechbrainStreaming(StreamingASR):
         )
     
     def get_model(self) -> speechbrain.inference.ASR.StreamingASR:
+        import speechbrain.inference.ASR
+        
         model = speechbrain.inference.ASR.StreamingASR.from_hparams( # type: ignore
             source="speechbrain/asr-streaming-conformer-gigaspeech",
         )

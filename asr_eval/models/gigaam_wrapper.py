@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from typing import cast, override
+from typing import TYPE_CHECKING, cast, override
 import warnings
-
-import gigaam
-from gigaam.model import GigaAMASR, SAMPLE_RATE, LONGFORM_THRESHOLD
-from gigaam.decoding import CTCGreedyDecoding
 import torch
 from torch.nn.utils.rnn import pad_sequence
 import numpy as np
+
+if TYPE_CHECKING:
+    from gigaam.model import GigaAMASR
 
 from .base.interfaces import CTC, Transcriber
 from ..utils.types import FLOATS, INTS
@@ -33,6 +32,13 @@ class GigaAMShortformBase(Transcriber):
     A base class for GigaAM, either CTC or RNNT. Requires subclassing.
     '''
     model: GigaAMASR
+    
+    def __init__(self):
+        from gigaam.model import SAMPLE_RATE, LONGFORM_THRESHOLD
+        from gigaam.decoding import CTCGreedyDecoding
+        self.SAMPLE_RATE = SAMPLE_RATE
+        self.LONGFORM_THRESHOLD = LONGFORM_THRESHOLD
+        self.CTCGreedyDecoding = CTCGreedyDecoding
 
     @override
     @torch.inference_mode()
@@ -54,7 +60,9 @@ class GigaAMShortformRNNT(GigaAMShortformBase):
     GigaAM2 RNNT model.
     '''
     def __init__(self):
-        self.model = cast(GigaAMASR, gigaam.load_model('rnnt', device='cuda'))
+        super().__init__()
+        import gigaam
+        self.model = gigaam.load_model('rnnt', device='cuda') # type: ignore
 
 
 class GigaAMShortformCTC(GigaAMShortformBase, CTC):
@@ -62,7 +70,9 @@ class GigaAMShortformCTC(GigaAMShortformBase, CTC):
     GigaAM2 CTC model.
     '''
     def __init__(self):
-        self.model = cast(GigaAMASR, gigaam.load_model('ctc', device='cuda'))
+        super().__init__()
+        import gigaam
+        self.model = gigaam.load_model('ctc', device='cuda') # type: ignore
     
     @override
     def transcribe(self, waveform: FLOATS) -> str:
@@ -86,10 +96,10 @@ class GigaAMShortformCTC(GigaAMShortformBase, CTC):
     @torch.inference_mode()
     def ctc_log_probs(self, waveforms: list[FLOATS]) -> list[FLOATS]:
         # Sampling rate should be equal to gigaam.preprocess.SAMPLE_RATE == 16_000.
-        assert isinstance(self.model.decoding, CTCGreedyDecoding)
+        assert isinstance(self.model.decoding, self.CTCGreedyDecoding)
         
         for waveform in waveforms:
-            if len(waveform) / SAMPLE_RATE > LONGFORM_THRESHOLD:
+            if len(waveform) / self.SAMPLE_RATE > self.LONGFORM_THRESHOLD:
                 warnings.warn("too long audio, GigaAMASR.transcribe() would throw an error", RuntimeWarning)
         
         waveform_tensors = [

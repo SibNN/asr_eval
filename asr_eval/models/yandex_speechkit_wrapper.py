@@ -1,8 +1,6 @@
-from typing import Literal, override
+from __future__ import annotations
 
-# Yandex SpeechKit imports
-from speechkit import model_repository, configure_credentials, creds
-from speechkit.stt import AudioProcessingType
+from typing import Literal, override
 
 from ..segments.segment import TimedText
 from .base.interfaces import TimedTranscriber
@@ -56,15 +54,18 @@ class YandexSpeechKitWrapper(TimedTranscriber):
         api_key: str,
         model: Literal['general', 'general:rc', 'general:deprecated'] = 'general',
         language: Literal['auto', 'ru-RU', 'en-US'] | str = 'ru-RU',
-        audio_processing: AudioProcessingType = AudioProcessingType.Full,
+        audio_processing: Literal['Full', 'Stream'] = 'Full',
         normalize: bool = False,
     ):
+        from speechkit import model_repository, configure_credentials, creds
+        from speechkit.stt import AudioProcessingType
+         
         configure_credentials(yandex_credentials=creds.YandexCredentials(api_key=api_key))
 
         self.model = model_repository.recognition_model()
         self.model.model = model
         self.model.language = language
-        self.model.audio_processing_type = audio_processing
+        self.model.audio_processing_type = AudioProcessingType[audio_processing]
         self.normalize = normalize
 
     @override

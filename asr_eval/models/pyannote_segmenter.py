@@ -2,7 +2,6 @@ from typing import override
 import warnings
 import numpy as np
 import torch
-from gigaam.vad_utils import segment_audio as _segment_audio
 
 from asr_eval.models.base.interfaces import Segmenter
 
@@ -35,11 +34,13 @@ class PyannoteSegmenter(Segmenter):
     def __init__(self, max_duration: float = 22, min_duration: float = 15):
         self.max_duration = float(max_duration)
         self.min_duration = float(min_duration)
+        from gigaam.vad_utils import segment_audio as _segment_audio
+        self._segment_audio = _segment_audio
     
     @override
-    def __call__(self, waveform: FLOATS, initial_threshold: float = 0.2) -> list[AudioSegment]:
+    def __call__(self, waveform: FLOATS) -> list[AudioSegment]:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        _, boundaries = _segment_audio(
+        _, boundaries = self._segment_audio(
             torch.tensor(waveform * 32768, dtype=torch.int16).clone(),
             16_000,
             max_duration=self.max_duration,

@@ -1,12 +1,14 @@
 from dataclasses import replace
 import operator
 from collections import defaultdict
+from typing import TYPE_CHECKING
 
 import torch
 import numpy as np
 import pandas as pd
-from pyannote.audio.pipelines import SpeakerDiarization
-from pyannote.core.annotation import Annotation
+
+if TYPE_CHECKING:
+    from pyannote.core.annotation import Annotation
 
 from asr_eval.segments.segment import DiarizationSegment
 from asr_eval.utils.types import FLOATS
@@ -28,13 +30,12 @@ class SpeakerDiarizationWrapper:
     Then specify your HF token in the environmental variable. For VS Code, you can just create
     .env file in the project dir with one line: HF_TOKEN=<your_token>
     '''
-    pipeline: SpeakerDiarization
-    
     def __init__(
         self,
         segmentation_batch_size: int = 256,
         embedding_batch_size: int = 128,
     ):
+        from pyannote.audio.pipelines import SpeakerDiarization
         self.pipeline = SpeakerDiarization(
             segmentation='pyannote/segmentation-3.0',
             segmentation_batch_size=segmentation_batch_size,

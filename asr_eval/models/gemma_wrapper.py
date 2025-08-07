@@ -1,8 +1,6 @@
 from typing import Any, Literal, cast, override
 
 import torch
-from transformers.models.gemma3n.modeling_gemma3n import Gemma3nForConditionalGeneration
-from transformers.models.gemma3n.processing_gemma3n import Gemma3nProcessor
 
 from ..utils.types import FLOATS
 from .base.interfaces import ContextualTranscriber
@@ -22,6 +20,8 @@ class Gemma3nWrapper(ContextualTranscriber):
     Authors: Timur Rafikov & Oleg Sedukhin
     '''
     def __init__(self, lang: Literal['en', 'ru'] = 'ru', domain_text: str = ''):
+        from transformers.models.gemma3n.modeling_gemma3n import Gemma3nForConditionalGeneration
+        from transformers.models.gemma3n.processing_gemma3n import Gemma3nProcessor
         self.processor = cast(
             Gemma3nProcessor,
             Gemma3nProcessor.from_pretrained('google/gemma-3n-E4B-it') # type: ignore

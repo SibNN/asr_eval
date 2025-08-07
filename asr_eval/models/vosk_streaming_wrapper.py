@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 from collections import defaultdict
 import json
-from typing import Literal, override, cast
+from typing import TYPE_CHECKING, Literal, override, cast
 
-from vosk import Model, KaldiRecognizer # type: ignore
+if TYPE_CHECKING:
+    from vosk import Model, KaldiRecognizer # type: ignore
 
 from ..streaming.buffer import ID_TYPE
 from ..streaming.model import AUDIO_CHUNK_TYPE, OutputChunk, StreamingASR, Signal, TranscriptionChunk
@@ -24,6 +27,9 @@ class VoskStreaming(StreamingASR):
         sampling_rate: int = 16_000,
         chunk_length_sec: float | None = None,
     ):
+        from vosk import Model, KaldiRecognizer # type: ignore
+        self.KaldiRecognizer = KaldiRecognizer
+
         super().__init__(sampling_rate=sampling_rate)
         self._model = Model(model_name=model_name)
         self._recognizers: dict[ID_TYPE, KaldiRecognizer] = defaultdict(self._make_kaldi_recognizer)
@@ -37,7 +43,7 @@ class VoskStreaming(StreamingASR):
     
     def _make_kaldi_recognizer(self) -> KaldiRecognizer:
         """Seems like we need to create one for each recording"""
-        return KaldiRecognizer(self._model, self.sampling_rate)
+        return self.KaldiRecognizer(self._model, self.sampling_rate)
     
     def _send_transcription_chunk(self, id: ID_TYPE, is_final: bool, seconds_processed: float):
         rec = self._recognizers[id]
