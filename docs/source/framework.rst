@@ -80,4 +80,4 @@ and pipeline B processed only a half of the dataset), and compares the pipelines
 
 .. code-block:: bash
 
-    python python -m asr_eval.bench.dashboard
+    python -m asr_eval.bench.dashboard
