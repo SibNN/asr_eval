@@ -25,10 +25,12 @@ class WhisperLongformWrapper(Transcriber):
         model_name: str = 'openai/whisper-large-v3',
         lang: Literal['ru', 'en'] = 'ru',
         condition_on_prev_tokens: bool = False,
+        temperature: float = 0,
     ):
         self.model_name = model_name
         self.lang = lang
         self.condition_on_prev_tokens = condition_on_prev_tokens
+        self.temperature = temperature
         
         self.whisper_processor = cast(WhisperProcessor, WhisperProcessor.from_pretrained( # type: ignore
             self.model_name,
@@ -57,8 +59,8 @@ class WhisperLongformWrapper(Transcriber):
             **inputs.to(self.model.device), # type: ignore
             condition_on_prev_tokens=self.condition_on_prev_tokens,
             # temperature=(0.0, 0.2, 0.4, 0.6, 0.8, 1.0),
-            temperature=0, # for determinism
-            do_sample=False,  # for determinism
+            temperature=self.temperature,
+            do_sample=self.temperature > 0,  # ?? OK?
             logprob_threshold=-1.0,
             compression_ratio_threshold=1.35,
             return_timestamps=True,  # required foir longform
