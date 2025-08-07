@@ -11,11 +11,20 @@ from .base.interfaces import Transcriber
 from ..utils.types import FLOATS
 
 
+__all__ = [
+    'TOneStreaming',
+    'TOneWrapper',
+]
+
+
 SAMPLING_RATE = 8000
 CHUNK_SIZE = StreamingCTCPipeline.CHUNK_SIZE  # A 300 ms slice of audio (2400 samples)
 
 
 class TOneStreaming(StreamingASR):
+    '''
+    A streaming wrapper for T-One model.
+    '''
     def __init__(self):
         super().__init__(sampling_rate=SAMPLING_RATE)
         self.pipeline = StreamingCTCPipeline.from_hugging_face()
@@ -51,6 +60,9 @@ class TOneStreaming(StreamingASR):
 
 
 class TOneWrapper(Transcriber):
+    '''
+    A non-streaming wrapper for T-One model.
+    '''
     def __init__(self):
         self.pipeline = StreamingCTCPipeline.from_hugging_face()
     

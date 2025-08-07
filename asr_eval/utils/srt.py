@@ -3,9 +3,14 @@ from datetime import timedelta
 import srt
 
 
+__all__ = [
+    'utterances_to_srt',
+]
+
+
 def utterances_to_srt(utterances: list[tuple[str, float, float]]) -> str:
     '''
-    Composes an SRT file.
+    Composes an SRT file contents from texts, start and end times.
     '''
     return srt.compose([ # type: ignore
         srt.Subtitle(

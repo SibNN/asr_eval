@@ -14,11 +14,24 @@ from .base.interfaces import CTC, Transcriber
 from ..utils.types import FLOATS, INTS
 
 
+__all__ = [
+    'GigaAMShortformBase',
+    'GigaAMShortformRNNT',
+    'GigaAMShortformCTC',
+    'GigaAMEncodeError',
+    'gigaam_encode',
+    'gigaam_decode',
+]
+
+
 SAMPLING_RATE = 16000
 FREQ = 25  # GigaAM2 encoder outputs per second
 
 
 class GigaAMShortformBase(Transcriber):
+    '''
+    A base class for GigaAM, either CTC or RNNT. Requires subclassing.
+    '''
     model: GigaAMASR
 
     @override
@@ -37,11 +50,17 @@ class GigaAMShortformBase(Transcriber):
 
 
 class GigaAMShortformRNNT(GigaAMShortformBase):
+    '''
+    GigaAM2 RNNT model.
+    '''
     def __init__(self):
         self.model = cast(GigaAMASR, gigaam.load_model('rnnt', device='cuda'))
 
 
 class GigaAMShortformCTC(GigaAMShortformBase, CTC):
+    '''
+    GigaAM2 CTC model.
+    '''
     def __init__(self):
         self.model = cast(GigaAMASR, gigaam.load_model('ctc', device='cuda'))
     
@@ -97,10 +116,16 @@ class GigaAMShortformCTC(GigaAMShortformBase, CTC):
 
 
 class GigaAMEncodeError(ValueError):
+    '''
+    Cannot encode a letter because it is does not exist in the GigaAM vocabulary.
+    '''
     pass
 
 
 def gigaam_encode(model: GigaAMASR, text: str) -> list[int]:
+    '''
+    Encodes the text into GigaAM tokens.
+    '''
     assert model.decoding.tokenizer.charwise
     tokens: list[int] = []
     for char in text:
@@ -111,6 +136,9 @@ def gigaam_encode(model: GigaAMASR, text: str) -> list[int]:
 
 
 def gigaam_decode(model: GigaAMASR, tokens: list[int] | INTS) -> str:
+    '''
+    Decodes a text from the GigaAM tokens.
+    '''
     if isinstance(tokens, np.ndarray):
         assert tokens.ndim == 1, 'pass a single sample, not a batch'
         tokens = tokens.tolist()

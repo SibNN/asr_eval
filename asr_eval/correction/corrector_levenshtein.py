@@ -1,22 +1,36 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import re
 from typing import cast, override
 
 import Levenshtein
 import numpy as np
 
+from ..utils.types import FLOATS
 from .interfaces import TranscriptionCorrector
 from ..linguistics.linguistics import lemmatize_ru, try_inflect_ru, word_freq
 
 
+__all__ = [
+    'WordCorrection',
+    'apply_corrections',
+    'CorrectorLevenshtein',
+]
+
+
 @dataclass
 class WordCorrection:
+    '''
+    A suggestion to replace `text[start:end]` with `correction`.
+    '''
     start: int
     end: int
     correction: str
 
 
 def apply_corrections(text: str, corrections: list[WordCorrection]) -> str:
+    '''
+    Apply the list of non-overlapping WordCorrection to the text.
+    '''
     corrections = sorted(corrections, key=lambda c: c.start)
     for c in corrections[::-1]:
         text = text[:c.start] + c.correction + text[c.end:]
@@ -34,10 +48,10 @@ class CorrectorLevenshtein(TranscriptionCorrector):
     '''
     domain_specific_bag_of_words: list[str]
     freq_threshold: float = 1
-    distance_thresholds: list[float] = [0, 0, 0, 1, 1, 1, 2, 2, 2, 3]
+    distance_thresholds: list[float] = field(default_factory=lambda: [0, 0, 0, 1, 1, 1, 2, 2, 2, 3])
     
     @override
-    def correct(self, transcription: str) -> str:
+    def correct(self, transcription: str, waveform: FLOATS | None = None) -> str:
         corrections = self.get_word_corrections(transcription)
         return apply_corrections(transcription, corrections)
     

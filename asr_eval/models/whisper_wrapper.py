@@ -7,7 +7,19 @@ from .base.interfaces import Transcriber
 from ..utils.types import FLOATS
 
 
+__all__ = [
+    'WhisperLongformWrapper',
+]
+
+
 class WhisperLongformWrapper(Transcriber):
+    '''
+    A wrapper for Whisper. Internally performs a long-form transcription and passes the previously
+    transcriber words each time.
+    
+    Since the transcription history is used internally in `WhisperForConditionalGeneration.generate`,
+    this class does not implement a ContextualTranscriber interface.
+    '''
     def __init__(
         self,
         model_name: str = 'openai/whisper-large-v3',

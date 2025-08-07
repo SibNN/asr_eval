@@ -13,6 +13,12 @@ from asr_eval.utils.types import FLOATS
 from asr_eval.segments.segment import AudioSegment
 
 
+__all__ = [
+    'SpeakerDiarizationWrapper',
+    'get_speaker_ratios',
+]
+
+
 class SpeakerDiarizationWrapper:
     '''
     To use this, you first need to accept conditions

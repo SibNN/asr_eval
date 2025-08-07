@@ -9,7 +9,15 @@ from asr_eval.segments.chunking import chunk_audio
 from asr_eval.utils.types import FLOATS
 
 
+__all__ = [
+    'AudioSpectrogramTransformer',
+]
+
+
 class AudioSpectrogramTransformer:
+    '''
+    An AudioSpectrogramTransformer (AST) able to recognize sound types.
+    '''
     def __init__(
         self,
         model_path: str = 'MIT/ast-finetuned-audioset-10-10-0.4593',

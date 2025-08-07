@@ -6,6 +6,11 @@ from pydantic_extra_types.language_code import LanguageAlpha2
 from .base.openai_wrapper import APITranscriber
 
 
+__all__ = [
+    'VoxtralWrapper',
+]
+
+
 class VoxtralWrapper(APITranscriber):
     '''
     Calls Voxtral via OpenAI API.

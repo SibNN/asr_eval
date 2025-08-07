@@ -4,6 +4,11 @@ from typing import overload
 from itertools import groupby
 
 
+__all__ = [
+    'ctc_mapping',
+]
+
+
 @overload
 def ctc_mapping(symbols: list[str], blank: str) -> list[str]: ...
 

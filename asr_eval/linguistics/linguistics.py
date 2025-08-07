@@ -9,6 +9,15 @@ from pymystem3 import Mystem  # pip install pymystem3
 import nltk
 
 
+__all__ = [
+    'word_freq',
+    'lemmatize_ru',
+    'try_inflect_ru',
+    'split_text_into_sentences',
+    'split_text_by_space',
+]
+
+
 def word_freq(word: str, lang: str = 'ru') -> float:
     '''
     Get a word frequency in the specified language, according to

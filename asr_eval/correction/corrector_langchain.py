@@ -10,7 +10,13 @@ from langchain_core.runnables import Runnable
 from pydantic import SecretStr
 from duckduckgo_search.exceptions import DuckDuckGoSearchException
 
+from ..utils.types import FLOATS
 from .interfaces import TranscriptionCorrector
+
+
+__all__ = [
+    'CorrectorLangchain',
+]
 
 
 # def setup_ssl():
@@ -98,9 +104,9 @@ class CorrectorLangchain(TranscriptionCorrector):
         )
     
     @override
-    def correct(self, transcription: str) -> str:
+    def correct(self, transcription: str, waveform: FLOATS | None = None) -> str:
         try:
-            with ignore_warnings_specially_for_duckduckgo():
+            with _ignore_warnings_specially_for_duckduckgo():
                 result = self.agent_executor.invoke({
                     'input': AGEMT_PROMPT_RU.format(transcription=transcription)
                 })
@@ -116,7 +122,7 @@ class CorrectorLangchain(TranscriptionCorrector):
     
 
 @contextmanager
-def ignore_warnings_specially_for_duckduckgo():
+def _ignore_warnings_specially_for_duckduckgo():
     # duckduckgo_search sets warnings.simplefilter('ignore') and then prints a warning
     # "This package (`duckduckgo_search`) has been renamed to `ddgs`! Use `pip install ddgs` instead."
     warnings.filterwarnings("ignore", message=r'.*has been renamed to `ddgs`.*')

@@ -10,8 +10,15 @@ from ..streaming.buffer import ID_TYPE
 from ..streaming.model import OutputChunk, StreamingASR, Signal, TranscriptionChunk
 
 
+__all__ = [
+    'SpeechbrainStreaming',
+]
+
+
 class SpeechbrainStreaming(StreamingASR):
     """
+    A asr-streaming-conformer-gigaspeech model.
+    
     Adopted from Gradio example from here:
     https://huggingface.co/speechbrain/asr-streaming-conformer-librispeech
     """

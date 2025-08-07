@@ -4,12 +4,23 @@ from datasets import Audio, load_dataset, load_from_disk, Dataset, concatenate_d
 from ..utils.types import FLOATS # type: ignore
 
 
+__all__ = [
+    'AudioData',
+    'AudioSample',
+    'datasets_registry',
+    'get_dataset',
+    'register_dataset',
+]
+
+
 class AudioData(TypedDict):
+    '''A typization for 'audio' field in HF datasets'''
     array: FLOATS
     sampling_rate: int
 
 
 class AudioSample(TypedDict):
+    '''A typization for audio-text samples in HF datasets'''
     audio: AudioData
     transcription: str
 
@@ -18,12 +29,18 @@ datasets_registry: dict[str, Callable[[], Dataset]] = {}
 
 
 def get_dataset(name: str) -> Callable[[], Dataset]:
+    '''
+    Get a registered ASR dataset. See the examples in the current file.
+    '''
     if name not in datasets_registry:
         raise ValueError(f'Dataset does not exist: {name}')
     return datasets_registry[name]
 
 
 def register_dataset(name: str):
+    '''
+    Register a new ASR dataset. See the examples in the current file.
+    '''
     global datasets_registry
     def decorator(fn: Callable[[], Dataset]):
         assert name not in datasets_registry

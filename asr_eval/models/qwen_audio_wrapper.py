@@ -8,9 +8,18 @@ from ..utils.types import FLOATS
 from .base.interfaces import Transcriber
 
 
+__all__ = [
+    'QWEN_AUDIO_LANGUAGES',
+    'QwenAudioWrapper',
+]
+
+
 QWEN_AUDIO_LANGUAGES = Literal['en', 'zh', 'de', 'es', 'fr', 'it', 'ja', 'ko']
 
 class QwenAudioWrapper(Transcriber):
+    '''
+    A wrapper for Qwen-Audio v1 (NOTE: not v2!)
+    '''
     def __init__(self, language: QWEN_AUDIO_LANGUAGES = 'en', audio_lang_unknown: bool = False):
         self.tokenizer = AutoTokenizer.from_pretrained( # type: ignore
             'Qwen/Qwen-Audio',

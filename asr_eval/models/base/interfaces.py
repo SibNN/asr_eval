@@ -6,7 +6,21 @@ from ...segments.segment import AudioSegment, TimedText
 from ...utils.types import FLOATS
 
 
+__all__ = [
+    'Segmenter',
+    'Transcriber',
+    'TimedTranscriber',
+    'CTC',
+    'ContextualTranscriber',
+]
+
+
 class Segmenter(ABC):
+    '''
+    Segments a long-form audio into chunks.
+    
+    Any parameters, such as max segment size, should go into a class constructor.
+    '''
     @abstractmethod
     def __call__(self, waveform: FLOATS) -> list[AudioSegment]: ...
 
@@ -20,6 +34,12 @@ class Transcriber(ABC):
 
 
 class TimedTranscriber(Transcriber):
+    '''
+    A timed transcriber (audio -> timed text chunks) to evaluate on any dataset.
+    
+    Given timed text chunks, the trancscription by default is generated
+    by concatenating them with space. Subclasses may override this.
+    '''
     @abstractmethod
     def timed_transcribe(self, waveform: FLOATS) -> list[TimedText]: ...
     
@@ -30,7 +50,7 @@ class TimedTranscriber(Transcriber):
 
 class CTC(Transcriber):
     '''
-    Converts audio into CTC log probas (should sum up to 1)
+    Converts audio into CTC log probs (should sum up to 1).
     '''
     @abstractmethod
     def ctc_log_probs(self, waveforms: list[FLOATS]) -> list[FLOATS]: ...
@@ -66,37 +86,3 @@ class ContextualTranscriber(Transcriber):
     @override
     def transcribe(self, waveform: FLOATS) -> str:
         return self.contextual_transcribe(waveform)
-
-
-
-
-
-# class ASREvalWrapper(ABC):
-#     @abstractmethod
-#     def __call__(self, waveforms: list[FLOATS]) -> list[str]:
-#         ...
-
-
-# class AbstractShortformAudioLLM(ASREvalWrapper):
-#     '''
-#     An example (TODO delete?)
-#     accepts `prev_transcription` and `domain_words` into `transcribe`
-#     '''
-#     @override
-#     def transcribe(
-#         self,
-#         waveform: FLOATS,
-#         prev_transcription: str | None = None,
-#         domain_words: str | None = None,
-#         **kwargs: Any,
-#     ) -> list[TimedText]:
-#         prompt = 'Recognize the audio {{audio}}.'
-#         if prev_transcription:
-#             prompt += f' The previous transcription was: {prev_transcription}.'
-#         if domain_words:
-#             prompt += f' The following text may be related: {domain_words}.'
-#         text = self.run_audio_llm_inference(prompt, waveform)
-#         return [TimedText(0, len(waveform) / 16_000, text)]
-    
-#     def run_audio_llm_inference(self, prompt: str, waveform: FLOATS) -> str:
-#         raise NotImplementedError()

@@ -7,6 +7,12 @@ from ..utils.types import FLOATS, INTS
 from .segment import AudioSegment
 
 
+__all__ = [
+    'chunk_audio',
+    'average_segment_features',
+]
+
+
 def chunk_audio(
     length: float,
     segment_length: float,
@@ -69,7 +75,7 @@ def average_segment_features(
     averaging_weights: Literal['beta', 'uniform'] = 'beta',
 ) -> FLOATS:
     '''
-    
+    Averages possibly overlapped features using beta of uniform weights. TODO document in details.
     '''
     assert len(segments)
     

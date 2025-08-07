@@ -7,6 +7,16 @@ import uuid
 import numpy as np
 
 
+__all__ = [
+    "Anything",
+    "Token",
+    "MultiVariant",
+    "AlignmentScore",
+    "Match",
+    "MatchesList",
+]
+
+
 @dataclass(slots=True)
 class Anything:
     """
@@ -91,6 +101,12 @@ class MultiVariant:
         end_times = [option[-1].end_time for option in self.options if len(option)]
         assert len(end_times), 'All options are empty in a MultiVariant block, should not happen'
         return np.max(end_times)
+
+
+def assert_single_variant(words: list[Token] | list[Token | MultiVariant]) -> list[Token]:
+    for word in words:
+        assert isinstance(word, Token)
+    return cast(list[Token], words)
 
 
 @dataclass(slots=True)

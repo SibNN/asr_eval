@@ -6,6 +6,11 @@ from .data import Anything, MultiVariant, Token
 from ..utils.plots import draw_bezier, draw_line_with_ticks
 
 
+__all__ = [
+    'draw_timed_transcription',
+]
+
+
 def draw_timed_transcription(
     transcription: list[Token | MultiVariant],
     y_pos: float = 0,
@@ -14,6 +19,9 @@ def draw_timed_transcription(
     ax: plt.Axes | None = None,
     graybox_y: tuple[float, float] | None = None,
 ):
+    '''
+    Draws a timed multivariant or single-variant transcription
+    '''
     ax = ax or plt.gca()
 
     if len(transcription) == 0:

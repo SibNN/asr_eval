@@ -6,6 +6,10 @@ from typing import cast
 from .pipelines import Pipeline, get_pipeline
 from .datasets import AudioSample, get_dataset
 
+__all__ = [
+    'run_pipeline',
+]
+
 
 def run_pipeline(
     pipeline_name: str,
@@ -13,6 +17,14 @@ def run_pipeline(
     root_dir: str | Path,
     max_samples: int | None = None,
 ):
+    '''
+    Runs a pipeline on a list of datasets. See asr_eval/bench/README.md for details.
+    
+    This function has also a command line interface:
+    
+    python -m asr_eval.bench.run -p PIPELINE [PIPELINE ...] \
+        -d DATASET [DATASET ...] [-r ROOT_DIR] [-m MAX_SAMPLES]
+    '''
     root_dir = Path(root_dir)
     
     # lazy pipeline instantiation

@@ -7,7 +7,22 @@ from ...segments.segment import TimedText
 from ...utils.types import FLOATS
 
 
+__all__ = [
+    'LongformVAD',
+    'LongformCTC',
+    'ContextualLongformVAD',
+]
+
+
 class LongformVAD(TimedTranscriber):
+    '''
+    A longform wrapper for a shortform model. Uses a given segmenter, such as
+    PyannoteSegmenter(), to segment into chunks, then applies a shortform model
+    to each chunk independently.
+    
+    If a shortform model is a TimedTranscriber, concatenates TimedText lists
+    for all chunks.
+    '''
     def __init__(
         self,
         shortform_model: Transcriber,
@@ -22,19 +37,33 @@ class LongformVAD(TimedTranscriber):
     def timed_transcribe(self, waveform: FLOATS) -> list[TimedText]:
         audio_len = len(waveform) / 16_000
         if audio_len < self.min_sec:
-            return [TimedText(0, audio_len, self.shortform_model.transcribe(waveform))]
+            if isinstance(self.shortform_model, TimedTranscriber):
+                return self.shortform_model.timed_transcribe(waveform)
+            else:
+                return [TimedText(0, audio_len, self.shortform_model.transcribe(waveform))]
         else:
-            return [
-                TimedText(
-                    start_time=segment.start_time,
-                    end_time=segment.end_time,
-                    text=self.shortform_model.transcribe(waveform[segment.slice()]),
-                )
-                for segment in self.segmenter(waveform)
-            ]
+            results: list[TimedText] = []
+            for segment in self.segmenter(waveform):
+                if isinstance(self.shortform_model, TimedTranscriber):
+                    results += self.shortform_model.timed_transcribe(waveform[segment.slice()])
+                else:
+                    results.append(TimedText(
+                        start_time=segment.start_time,
+                        end_time=segment.end_time,
+                        text=self.shortform_model.transcribe(waveform[segment.slice()]),
+                    ))
+            
+            return results
 
 
 class LongformCTC(CTC):
+    '''
+    A wrapper to apply a short-form CTC model to a long-form audio. Segments audio uniformly with
+    overlaps, then averages the logprobs for all segments.
+    
+    By default averages with beta-distributed weights (averaging_weights='beta'), since a model may
+    be less certain on the edges of the segment.
+    '''
     def __init__(
         self,
         shortform_model: CTC,
@@ -86,6 +115,12 @@ class LongformCTC(CTC):
 
 
 class ContextualLongformVAD(TimedTranscriber):
+    '''
+    Is similar LongformVAD, but each time passes the previously transcribed text, up
+    to the `max_history_words`, as a context for the next chunk when transcribing it.
+    
+    Requies a shortform model to be a ContextualTranscriber.
+    '''
     def __init__(
         self,
         shortform_model: ContextualTranscriber,

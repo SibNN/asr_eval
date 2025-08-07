@@ -3,6 +3,11 @@ import subprocess
 import threading
 
 
+__all__ = [
+    'ServerAsSubprocess',
+]
+
+
 class ServerAsSubprocess:
     '''
     The constructor runs a given command as a suprocess and waits until `ready_message`

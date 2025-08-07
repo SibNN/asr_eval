@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from gigaam.model import GigaAMASR
-
+from ..models.gigaam_wrapper import GigaAMShortformCTC
 from .datasets import AudioSample
 from ..utils.types import FLOATS
 from ..align.data import Token, MultiVariant
@@ -11,10 +10,16 @@ from ..align.parsing import parse_multivariant_string
 from ..align.timings import fill_word_timings_inplace
 
 
+__all__ = [
+    'Recording',
+]
+
+
 @dataclass
 class Recording:
-    # A legacy class TODO remove?
     """
+    NOTE: A legacy class, TODO remove?
+    
     An audio sample to test ASR systems. May refer to a huggingface dataset sample.
     
     This is useful because HF dataset samples themselves cannot keep transcriptions in form of
@@ -43,7 +48,7 @@ class Recording:
         name: str | None = None,
         split: str | None = None,
         index: int | None = None,
-        use_gigaam: GigaAMASR | None = None,
+        use_gigaam: GigaAMShortformCTC | None = None,
     ) -> Recording:
         assert sample['audio']['sampling_rate'] == 16_000
         waveform = sample['audio']['array']

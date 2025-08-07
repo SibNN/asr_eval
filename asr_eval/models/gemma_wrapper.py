@@ -8,6 +8,11 @@ from ..utils.types import FLOATS
 from .base.interfaces import ContextualTranscriber
 
 
+__all__ = [
+    'Gemma3nWrapper',
+]
+
+
 class Gemma3nWrapper(ContextualTranscriber):
     '''
     Gemma3n transcriber.

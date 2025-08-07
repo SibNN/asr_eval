@@ -17,6 +17,13 @@ from ...utils.audio_ops import waveform_to_bytes
 from ...utils.types import FLOATS
 
 
+__all__ = [
+    'APITranscriber',
+    'api_transcribe',
+    'ContentFilterException',
+]
+
+
 class APITranscriber(Transcriber):
     '''
     A connector to OpenAI API for audio LLMs. Runs via `client.audio.transcriptions.create`.
@@ -215,4 +222,7 @@ def api_chat_completion(
 
 
 class ContentFilterException(RuntimeError):
+    '''
+    An API model refused to generate due to the content policy.
+    '''
     pass

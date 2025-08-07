@@ -2,9 +2,21 @@ from .data import MatchesList, MultiVariant, Token
 from .recursive import align
 
 
+__all__ = [
+    "align_partial",
+    "get_starting_part",
+]
+
+
 def align_partial(
     true: list[Token | MultiVariant], pred: list[Token], time: float
 ) -> MatchesList:
+    '''
+    Aligns a starting part of `true` up to `time` agains `pred`. Requies
+    `true` to be timed.
+    
+    See details in the `get_starting_part` docstring.
+    '''
     return align(get_starting_part(true, time), pred)
 
 
@@ -56,85 +68,3 @@ def get_starting_part(
         return tokens_partial_stem + [MultiVariant(tokens_partial_tail_options)]
     else:
         return tokens_partial_stem
-
-
-# def get_tail_part(
-#     tokens: list[Token | MultiVariant], after_token_uid: str
-# ) -> list[Token | MultiVariant]:
-#     '''
-#     Returns a tail part of `tokens` starting from `after_token_uid` not inclusive.
-#     If `after_token_uid` is a part of a multivariant block, selects its option
-#     and prepends the remaining tokens (if any) to the result.
-#     '''
-#     result: list[Token | MultiVariant] = []
-#     for block in tokens[::-1]:
-#         match block:
-#             case Token():
-#                 if block.uid == after_token_uid:
-#                     break
-#             case MultiVariant():
-#                 found_option: list[Token] | None = None
-#                 for option in block.options:
-#                     if any(t.uid == after_token_uid for t in option):
-#                         found_option = option
-#                         break
-#                 if found_option is not None:
-#                     while found_option[0].uid != after_token_uid:
-#                         found_option = found_option[1:]
-#                     result = found_option[1:] + result
-#                     break
-                
-#         result.insert(0, block)
-    
-#     return result
-
-
-# def words_count(
-#     word_timings: Sequence[Token],
-#     time: float,
-# ) -> tuple[int, bool]:
-#     '''
-#     Given a list of Token with `.start_time` and `.end_time` filled, returns a tuple of:
-#     1. Number of full words in the time span [0, time]
-#     2. `in_word` flag: is the given time inside a word?
-#     '''
-#     count = 0
-#     in_word = False
-
-#     for token in word_timings:
-#         if token.end_time <= time:
-#             count += 1
-#         else:
-#             if token.start_time < time:
-#                 in_word = True
-#             break
-
-#     return count, in_word
-
-
-# def align_partial(
-#     true: list[Token],
-#     pred: list[Token],
-#     seconds_processed: float,
-# ) -> MatchesList:
-#     """
-#     Aligns `pred` with the beginning part of `true` up to `seconds_processed`.
-
-#     In `true`, timings for all tokens should be filled (.start_time and .end_time).
-    
-#     TODO adapt for multivariant case.
-#     """
-#     for token in true:
-#         assert token.is_timed
-
-#     n_true_words, in_true_word = words_count(true, seconds_processed)
-    
-#     true_partial = cast(list[Token | MultiVariant], true[:n_true_words])
-#     if in_true_word:
-#         last_word = true[n_true_words]
-#         true_partial.append(MultiVariant(
-#             options=[[last_word], []],
-#             pos=(last_word.start_pos, last_word.end_pos),
-#         ))
-    
-#     return align(true_partial, pred)

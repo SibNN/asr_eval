@@ -12,6 +12,13 @@ from .data import Anything, Token, MultiVariant
 from ..utils.formatting import Formatting, FormattingSpan, apply_ansi_formatting
 
 
+__all__ = [
+    "parse_single_variant_string",
+    "parse_multivariant_string",
+    "colorize_parsed_string",
+]
+
+
 def _razdel_split_text_into_tokens(text: str) -> list[Token]:
     tokens: list[Token] = []
     for word in razdel.tokenize(text):
@@ -144,6 +151,10 @@ def parse_single_variant_string(
     lower: bool = True,
     ru_tweaks: bool = True,
 ) -> list[Token]:
+    '''
+    Parses a string without multivariant blocks into a list of Token. See more details
+    in the `parse_multivariant_string` docstring.
+    '''
     result = _split_text_into_tokens(
         text=text,
         method=method,

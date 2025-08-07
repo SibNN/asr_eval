@@ -19,12 +19,20 @@ from ..utils.types import FLOATS
 from .interfaces import TranscriptionCorrector
 
 
-def vectors_cosine_similarity(vec1: FLOATS, vec2: FLOATS) -> float:
+__all__ = [
+    'TOPICS',
+    'WikiArticle',
+    'WikiRAGSuggestions',
+    'WikipediaTermRetriever',
+]
+
+
+def _vectors_cosine_similarity(vec1: FLOATS, vec2: FLOATS) -> float:
     return _cosine_similarity(vec1[None], vec2[None])[0, 0]
     
 
 
-def download_nltk_resources():
+def _download_nltk_resources():
     resources = ['punkt', 'stopwords', 'perluniprops', 'nonbreaking_prefixes', 'punkt_tab']
     for resource in resources:
         try:
@@ -40,6 +48,9 @@ TOPICS = [
 
 @dataclass
 class WikiArticle:
+    '''
+    A Wikipedia page for RAG purposes.
+    '''
     title: str
     text: str
     url: str
@@ -47,6 +58,11 @@ class WikiArticle:
 
 @dataclass
 class WikiRAGSuggestions:
+    '''
+    A list of suggestions returned by `WikipediaTermRetriever`.
+    
+    Work in progress.
+    '''
     original_text: str
     detected_topic: str
     query_terms: list[str]
@@ -56,7 +72,9 @@ class WikiRAGSuggestions:
 
 class WikipediaTermRetriever(TranscriptionCorrector):
     '''
-    A term retriever able to correct transcriptions.
+    A term retriever capable of correcting transcriptions.
+    
+    Work in progress.
     
     Author: Timur Rafikov
     Updated by: Oleg Sedukhin
@@ -68,7 +86,7 @@ class WikipediaTermRetriever(TranscriptionCorrector):
         score_threshold: float = 0.7,
         verbose: bool = False,
     ):
-        download_nltk_resources()
+        _download_nltk_resources()
         
         self.wiki = wikipediaapi.Wikipedia("MyRAGASR", lang)
         
@@ -95,7 +113,7 @@ class WikipediaTermRetriever(TranscriptionCorrector):
         
         
     @override
-    def correct(self, transcription: str) -> str:
+    def correct(self, transcription: str, waveform: FLOATS | None = None) -> str:
         suggestions = self.process_query(transcription, top_terms=10)
         
         for query_term, suggested_term, score in zip(
@@ -204,7 +222,7 @@ class WikipediaTermRetriever(TranscriptionCorrector):
             if term in term_index:
                 term_emb = term_index[term]
                 similarities = {
-                    other_term: vectors_cosine_similarity(term_emb, other_emb)
+                    other_term: _vectors_cosine_similarity(term_emb, other_emb)
                     for other_term, other_emb in term_index.items()
                     if term != other_term
                 }
@@ -219,7 +237,7 @@ class WikipediaTermRetriever(TranscriptionCorrector):
                 # Этап 1: Быстрый поиск по сходству строк (для опечаток)
                 for index_term in all_index_terms:
                     # Используем комбинацию семантического и строкового сходства
-                    semantic_sim = vectors_cosine_similarity(term_emb, term_index[index_term])
+                    semantic_sim = _vectors_cosine_similarity(term_emb, term_index[index_term])
                     fuzzy_sim = fuzz.ratio(term, index_term) / 100
                     combined_score = 0.6 * semantic_sim + 0.4 * fuzzy_sim
                     

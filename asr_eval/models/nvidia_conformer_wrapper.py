@@ -3,6 +3,11 @@ from pathlib import Path
 import nemo.collections.asr as nemo_asr
 
 
+__all__ = [
+    'NvidiaConformerWrapper',
+]
+
+
 class NvidiaConformerWrapper:
     '''
     A Russian non-streaming model

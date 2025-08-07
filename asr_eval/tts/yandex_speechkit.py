@@ -13,6 +13,11 @@ from asr_eval.utils.audio_ops import merge_synthetic_speech
 from ..utils.types import FLOATS
 
 
+__all__ = [
+    'yandex_text_to_speech',
+]
+
+
 VOICES = {
     'alena': ['good'],
     'ermil': ['neutral'],

@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from typing import Literal, Sequence, Any
+from typing import Literal, Sequence
 from dataclasses import dataclass
 import multiprocessing as mp
 import copy
 
 import numpy as np
-import numpy.typing as npt
 
-
+from ..utils.types import FLOATS
 from .buffer import ID_TYPE
 from .model import (
     InputChunk,
@@ -26,6 +25,18 @@ from ..align.parsing import parse_single_variant_string
 from ..align.partial import align_partial
 from ..bench.recording import Recording
 from ..utils.misc import new_uid
+
+
+__all__ = [
+    'RecordingStreamingEvaluation',
+    'default_evaluation_pipeline',
+    'PartialAlignment',
+    'StreamingASRErrorPosition',
+    'get_audio_seconds_sent',
+    'get_audio_seconds_processed',
+    'get_partial_alignments',
+    'remap_time',
+]
 
 
 @dataclass(kw_only=True)
@@ -77,7 +88,7 @@ def default_evaluation_pipeline(
     reset_timestamps: bool = True,
 ) -> RecordingStreamingEvaluation:
     '''
-    A default pipeline to evaluate
+    A default pipeline to evaluate. TODO document in details.
     '''
     assert recording.waveform is not None
     
@@ -224,6 +235,9 @@ class PartialAlignment:
 
 @dataclass
 class StreamingASRErrorPosition:
+    '''
+    An error position and type for streaming evaluation purposes.
+    '''
     start_time: float
     end_time: float
     processed_time: float
@@ -235,6 +249,10 @@ class StreamingASRErrorPosition:
     
     
 def get_audio_seconds_sent(time: float, input_chunks: Sequence[InputChunk]) -> float:
+    '''
+    Given a full history of input chunks, and a real-world `time`, finds the last
+    sent chunk before `time` and returns its .end_time. If no such chunks, returns 0.
+    '''
     input_chunks_sent = [
         input_chunk for input_chunk in input_chunks
         if input_chunk.put_timestamp < time
@@ -243,6 +261,10 @@ def get_audio_seconds_sent(time: float, input_chunks: Sequence[InputChunk]) -> f
     
     
 def get_audio_seconds_processed(time: float, output_chunks: Sequence[OutputChunk]) -> float:
+    '''
+    Given a full history of output chunks, and a real-world `time`, finds the last
+    sent chunk before `time` and returns its .seconds_processed. If no such chunks, returns 0.
+    '''
     output_chunks_sent = [
         output_chunk for output_chunk in output_chunks
         if output_chunk.put_timestamp < time
@@ -254,7 +276,7 @@ def get_partial_alignments(
     input_history: Sequence[InputChunk],
     output_history: Sequence[OutputChunk],
     true_word_timings: list[Token | MultiVariant],
-    timestamps: list[float] | npt.NDArray[np.integer[Any]] | None = None,
+    timestamps: list[float] | FLOATS | None = None,
     processes: int = 1,
 ) -> list[PartialAlignment]:
     """

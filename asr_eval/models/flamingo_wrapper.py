@@ -8,6 +8,11 @@ from ..utils.types import FLOATS
 from .base.interfaces import Transcriber
 
 
+__all__ = [
+    'FlamingoWrapper',
+]
+
+
 class FlamingoWrapper(Transcriber):
     '''
     Flamingo transcriber.

@@ -16,6 +16,15 @@ from hydra_zen.structured_configs._implementations import DefaultBuilds
 # _log.setLevel('FATAL')  # for get_obj messages on ImportError
 
 
+__all__ = [
+    'SerializableToDict',
+    'save_to_json',
+    'load_from_json',
+    'serialize_object',
+    'deserialize_object',
+]
+
+
 class SerializableToDict(ABC):
     """
     An interface to be able to serialize an object into a json-compatible dict with

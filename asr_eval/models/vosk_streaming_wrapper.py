@@ -9,7 +9,15 @@ from ..streaming.model import AUDIO_CHUNK_TYPE, OutputChunk, StreamingASR, Signa
 from ..utils.misc import new_uid
 
 
+__all__ = [
+    'VoskStreaming',
+]
+
+
 class VoskStreaming(StreamingASR):
+    '''
+    A wrapper for Vosk streaming model
+    '''
     def __init__(
         self,
         model_name: str = 'vosk-model-small-en-us-0.15',

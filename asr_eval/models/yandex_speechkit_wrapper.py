@@ -10,6 +10,11 @@ from ..utils.audio_ops import waveform_to_pydub
 from ..utils.types import FLOATS
 
 
+__all__ = [
+    'YandexSpeechKitWrapper',
+]
+
+
 class YandexSpeechKitWrapper(TimedTranscriber):
     """
     A wrapper for Yandex SpeechKit transcriber.

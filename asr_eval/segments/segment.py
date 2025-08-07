@@ -5,8 +5,18 @@ from dataclasses import dataclass
 import numpy as np
 
 
+__all__ = [
+    'AudioSegment',
+    'TimedText',
+    'DiarizationSegment',
+]
+
+
 @dataclass(frozen=True)
 class AudioSegment():
+    '''
+    An audio segment from .start_time to .end_time. Does not keep waveform or sampling_rate.
+    '''
     start_time: float
     end_time: float
         
@@ -41,9 +51,15 @@ class AudioSegment():
 
 @dataclass(frozen=True)
 class TimedText(AudioSegment):
+    '''
+    An AudioSegment with the corresponding text.
+    '''
     text: str
 
 
 @dataclass(frozen=True)
 class DiarizationSegment(AudioSegment):
+    '''
+    An AudioSegment with the corresponding speaker index.
+    '''
     speaker_idx: int

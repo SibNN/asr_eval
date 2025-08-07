@@ -7,7 +7,15 @@ from .base.interfaces import TimedTranscriber
 from ..utils.types import FLOATS
 
 
+__all__ = [
+    'PisetsWrapper',
+]
+
+
 class PisetsWrapper(TimedTranscriber):
+    '''
+    A Pisets wrapper (a `pisets` package, currently unreleased).
+    '''
     def __init__(self, **kwargs: Any):
         self.kwargs = kwargs
         self.pisets = Pisets(**self.kwargs)

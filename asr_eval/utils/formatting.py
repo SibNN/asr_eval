@@ -7,8 +7,19 @@ from termcolor import colored
 from .misc import groupby_into_spans
 
 
+__all__ = [
+    'Formatting',
+    'FormattingSpan',
+    'apply_ansi_formatting',
+]
+
+
 @dataclass
 class Formatting:
+    '''
+    An ansi text formatting attrubutes, such as "bold", "red" etc.
+    Example: Formatting(color='red', atts={'strike'})
+    '''
     color: str | None = None
     on_color: str | None = None
     attrs: set[str] = field(default_factory=set)
@@ -24,6 +35,10 @@ class Formatting:
 
 @dataclass
 class FormattingSpan:
+    '''
+    A Formatting with the corresponding start and end positions in the text.
+    Note that the positions are specified for the text before adding ansi color codes.
+    '''
     fmt: Formatting
     start: int
     end: int

@@ -10,29 +10,34 @@ from ..segments.segment import AudioSegment
 from ..utils.types import FLOATS
 
 
+__all__ = [
+    'PyannoteSegmenter',
+]
+
+
 class PyannoteSegmenter(Segmenter):
+    '''
+    VAD-based longform audio segmenter based on Pyannote wrapper from GigaAM package
+    
+    No model loading in __init__ because _segment_audio uses global model object
+    and loads it on the first call.
+    
+    The params are taken from transcribe_longform method from gigaam package. 
+    
+    Problem with gigaam.vad_utils.segment_audio is that it can return weird output,
+    for example, (0.0, 0.0), (0.03096875, 39.509) - the first chunk has zero length,
+    and the second is longer than max_duration.
+    
+    This wrapper addresses this by 1) removing chunks shorter than 0.1 sec, and
+    2) performs a uniform split of chunks longer than max_duration (keeps the
+    segments only 0.5 seconds long or more).
+    '''
     def __init__(self, max_duration: float = 22, min_duration: float = 15):
         self.max_duration = float(max_duration)
         self.min_duration = float(min_duration)
     
     @override
     def __call__(self, waveform: FLOATS, initial_threshold: float = 0.2) -> list[AudioSegment]:
-        '''
-        VAD-based longform audio segmenter based on Pyannote wrapper from GigaAM package
-        
-        No model loading in __init__ because _segment_audio uses global model object
-        and loads it on the first call.
-        
-        The params are taken from transcribe_longform method from gigaam package. 
-        
-        Problem with gigaam.vad_utils.segment_audio is that it can return weird output,
-        for example, (0.0, 0.0), (0.03096875, 39.509) - the first chunk has zero length,
-        and the second is longer than max_duration.
-        
-        This wrapper addresses this by 1) removing chunks shorter than 0.1 sec, and
-        2) performs a uniform split of chunks longer than max_duration (keeps the
-        segments only 0.5 seconds long or more).
-        '''
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         _, boundaries = _segment_audio(
             torch.tensor(waveform * 32768, dtype=torch.int16).clone(),

@@ -6,7 +6,17 @@ from itertools import groupby
 from collections.abc import Iterable
 
 
+__all__ = [
+    'new_uid',
+    'groupby_into_spans',
+    'self_product_nonequal',
+]
+
+
 def new_uid() -> str:
+    '''
+    A unique ids generator
+    '''
     return str(uuid.uuid4())
 
 
@@ -35,6 +45,10 @@ def groupby_into_spans(iterable: Iterable[T]) -> Iterable[tuple[T, int, int]]:
 
 
 def self_product_nonequal(iterable: Iterable[T], triangle: bool) -> Iterable[tuple[T, T]]:
+    '''
+    Given an iterable X, yields all elements from cartesian product X * X, excluding
+    the main diagonal. If `triangle=True`, also excludes the upper triangle.
+    '''
     for x1_idx, x1 in enumerate(iterable):
         for x2_idx, x2 in enumerate(iterable):
             if (

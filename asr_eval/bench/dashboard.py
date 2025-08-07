@@ -7,11 +7,21 @@ from dash.development.base_component import Component
 from requests_cache import Path
 
 from .evaluator import Evaluator
-from ..align.data import MatchesList, Token
+from ..align.data import MatchesList, Token, assert_single_variant
 from ..align.multiple import multiple_transcriptions_alignment
 
 
+__all__ = [
+    'run_dashboard',
+]
+
+
 def run_dashboard(root_dir: str | Path = 'outputs'):
+    '''
+    Runs an interactive dashboard to visualize the results of transcriber pipelines.
+    
+    See asr_eval/bench/README.md for details.
+    '''
     evaluator = Evaluator(root_dir=root_dir).load_results()
     
     dataset_names = list(evaluator.df['dataset_name'].unique()) # type: ignore
@@ -75,28 +85,20 @@ def run_dashboard(root_dir: str | Path = 'outputs'):
             
             if sample_filter == 'unequal' and len(sample_df) == 2:
                 words1, words2 = cast(list[list[Token]], sample_df['transcription_words'].tolist())
-                text1 = ' '.join(str(w.value) for w in words1)
-                text2 = ' '.join(str(w.value) for w in words2)
-                if text1 == text2:
+                normalized_text1 = ' '.join(str(w.value) for w in words1)
+                normalized_text2 = ' '.join(str(w.value) for w in words2)
+                if normalized_text1 == normalized_text2:
                     continue
             
-            for word in true_words:
-                assert isinstance(word, Token)
-            true_words = cast(list[Token], true_words)
-                
             alignments: dict[str, MatchesList] = {
                 row['pipeline_name']: row['alignment']
                 for i, row in sample_df.iterrows() # type: ignore
             }
             
-            _msa_df, msa_string = multiple_transcriptions_alignment(true_words, alignments)
-            msa_string = msa_string.replace(' ', '\xa0')
-            header, body = msa_string.split('\n', maxsplit=1)
-            # print(msa_string)
-            paragraphs.append(html.P(
-                [html.Span(str(sample_idx)), html.Br()]
-                + [html.Span(header, style={'font-weight': 'bold'}), html.Br()]
-                + string_to_spans(body)
+            paragraphs.append(_sample_to_paragraph(
+                sample_idx=int(sample_idx), # type: ignore
+                true_words=assert_single_variant(true_words),
+                alignments=alignments,
             ))
         
         return paragraphs
@@ -104,13 +106,29 @@ def run_dashboard(root_dir: str | Path = 'outputs'):
     app.run(debug=False, host='0.0.0.0', port=8050, use_reloader=False) # type: ignore
 
 
-def colorize_uppercase(text: str) -> list[html.Span]:
+def _sample_to_paragraph(
+    sample_idx: int,
+    true_words: list[Token],
+    alignments: dict[str, MatchesList],
+) -> html.P:
+    _msa_df, msa_string = multiple_transcriptions_alignment(true_words, alignments)
+    msa_string = msa_string.replace(' ', '\xa0')
+    header, body = msa_string.split('\n', maxsplit=1)
+    # print(msa_string)
+    return html.P(
+        [html.Span(str(sample_idx)), html.Br()]
+        + [html.Span(header, style={'font-weight': 'bold'}), html.Br()]
+        + _text_with_linebreaks_to_spans(body)
+    )
+
+
+def _colorize_uppercase(text: str) -> list[html.Span]:
     # temporary solution to mark errors in color
     spans: list[html.Span] = []
     uppercase_words = list(re.finditer(r'[A-ZА-Я]+', text))
     
     pos = 0
-    for i, word in enumerate(uppercase_words):
+    for word in uppercase_words:
         if word.start() > pos:
             spans.append(html.Span(text[pos:word.start()]))
         spans.append(html.Span(word.group().lower(), style={'background-color': '#FF9C9C'}))
@@ -122,11 +140,11 @@ def colorize_uppercase(text: str) -> list[html.Span]:
     return spans
 
 
-def string_to_spans(text: str) -> list[html.Span | html.Br]:
+def _text_with_linebreaks_to_spans(text: str) -> list[html.Span | html.Br]:
     spans: list[html.Span | html.Br] = []
     lines = text.splitlines()
     for i, line in enumerate(lines):
-        spans += colorize_uppercase(line)
+        spans += _colorize_uppercase(line)
         if i != len(lines) - 1:
             spans.append(html.Br())
     return spans

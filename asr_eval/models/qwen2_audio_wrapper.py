@@ -7,6 +7,11 @@ from ..utils.types import FLOATS
 from .base.interfaces import ContextualTranscriber
 
 
+__all__ = [
+    'Qwen2AudioWrapper',
+]
+
+
 class Qwen2AudioWrapper(ContextualTranscriber):
     '''
     Qwen2-Audio transcriber.

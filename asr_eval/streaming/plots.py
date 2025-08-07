@@ -15,6 +15,16 @@ from .evaluation import (
 )
 
 
+__all__ = [
+    'draw_partial_alignment',
+    'partial_alignments_plot',
+    'visualize_history',
+    'streaming_error_vs_latency_histogram',
+    'latency_plot',
+    'show_last_alignments',
+]
+
+
 def draw_partial_alignment(
     partial_alignment: PartialAlignment,
     override_y_pos: float | None = None,
@@ -22,6 +32,9 @@ def draw_partial_alignment(
     show_processed_time: bool = True,
     show_send_time: bool = True,
 ):
+    '''
+    Draws a single partial alignment.
+    '''
     ax = ax or plt.gca()
     y_pos = override_y_pos if override_y_pos is not None else partial_alignment.at_time
     for pos in partial_alignment.get_error_positions():
@@ -132,6 +145,9 @@ def streaming_error_vs_latency_histogram(
     evals: list[RecordingStreamingEvaluation],
     ax: plt.Axes | None = None,
 ):
+    '''
+    Summarizes error percentage depending on latancy, for a dataset.
+    '''
     ax = ax or plt.gca()
     
     error_positions = sum([
@@ -170,6 +186,9 @@ def latency_plot(
     evals: list[RecordingStreamingEvaluation],
     ax: plt.Axes | None = None,
 ):
+    '''
+    Visualizes latancy for each real-world time, given a single streaming model run.
+    '''
     ax = ax or plt.gca()
     
     for eval in evals:
@@ -185,6 +204,9 @@ def show_last_alignments(
     evals: list[RecordingStreamingEvaluation],
     ax: plt.Axes | None = None,
 ):
+    '''
+    Visualizes alignments of the final transcriptions, given a list of model runs.
+    '''
     ax = ax or plt.gca()
     
     last_partial_alignments = [eval.partial_alignments[-1] for eval in evals]

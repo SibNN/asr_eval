@@ -9,7 +9,18 @@ from .base.interfaces import TimedTranscriber
 from ..utils.types import FLOATS
 
 
+__all__ = [
+    'LegacyPisetsWrapper',
+]
+
+
 class LegacyPisetsWrapper(TimedTranscriber):
+    '''
+    A Pisets transcriber from
+    https://github.com/bond005/pisets/tree/e095ae626bbd18bb4490b9745d0acc34006c4eb8
+    
+    Requires a manual cloning into the `repo_dir`.
+    '''
     def __init__(
         self,
         repo_dir: str | Path,

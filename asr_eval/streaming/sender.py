@@ -11,9 +11,18 @@ from .buffer import ID_TYPE
 from .model import AUDIO_CHUNK_TYPE, InputBuffer, InputChunk, Signal
 
 
+__all__ = [
+    'Cutoff',
+    'BaseStreamingAudioSender',
+    'StreamingAudioSender',
+]
+
+
 @dataclass(slots=True)
 class Cutoff:
     """
+    Is used to shedule a waveform sending.
+    
     Let we have an audio `waveform` and two consecutive cutoffs `[c1, c2]`:
     
     `[Cutoff(tr1, ta1, pos1), Cutoff(tr2, ta2, pos2)]`.

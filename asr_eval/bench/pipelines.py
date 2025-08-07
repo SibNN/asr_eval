@@ -11,16 +11,32 @@ from .datasets import AudioSample
 from ..utils.serializing import save_to_json
 
 
+__all__ = [
+    'get_pipeline',
+    'Pipeline',
+    'TranscriberPipeline',
+    'TimedTranscriberPipeline',
+]
+
+
 pipelines_registry: dict[str, type[Pipeline]] = {}
 
 
 def get_pipeline(name: str) -> type[Pipeline]:
+    '''
+    Get a registered pipeline. See the examples in the current file.
+    
+    See asr_eval/bench/README.md for details.
+    '''
     if name not in pipelines_registry:
         raise ValueError(f'Pipeline does not exist: {name}')
     return pipelines_registry[name]
 
 
 class Pipeline(ABC):
+    '''
+    An abstract class for a pipeline. See asr_eval/bench/README.md for details.
+    '''
     FILENAME: str = ''
     
     @abstractmethod
@@ -43,6 +59,9 @@ class Pipeline(ABC):
 
 
 class TranscriberPipeline(Pipeline):
+    '''
+    An abstract class for a trasncriber pipeline. See asr_eval/bench/README.md for details.
+    '''
     FILENAME: str = 'transcription.json'
     
     def __init__(self):
@@ -68,6 +87,9 @@ class TranscriberPipeline(Pipeline):
 
 
 class TimedTranscriberPipeline(Pipeline):
+    '''
+    An abstract class for a timed trasncriber pipeline. See asr_eval/bench/README.md for details.
+    '''
     FILENAME: str = 'transcription.json'
     
     def __init__(self):

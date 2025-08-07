@@ -6,6 +6,12 @@ from .model import OutputChunk, Signal, StreamingASR, TranscriptionChunk
 from .sender import BaseStreamingAudioSender, StreamingAudioSender
 
 
+__all__ = [
+    'receive_full_transcription',
+    'transсribe_parallel',
+]
+
+
 def receive_full_transcription(
     asr: StreamingASR,
     id: ID_TYPE,

@@ -17,10 +17,20 @@ from ..utils.serializing import load_from_json
 from ..segments.segment import TimedText
 
 
+__all__ = [
+    'Evaluator',
+]
+
+
 GROUND_TRUTH_TYPE = tuple[str, list[Token | MultiVariant]]
 
 
 class Evaluator:
+    '''
+    An evaluator that loads the results of transcriber pipelines into a dataframe.
+    
+    TODO more detailed docs.
+    '''
     def __init__(self, root_dir: str | Path):
         self.root_dir = Path(root_dir)
         self.df = self._predictions_to_df({})
@@ -68,7 +78,7 @@ class Evaluator:
     def _load_result(self, path: Path) -> _SamplePrediction:
         _, dataset_name, sample_idx, _ = path.relative_to(self.root_dir).parts
         _, ground_truth_words = self.get_ground_truth(dataset_name, int(sample_idx))
-        return sample_prediction_from_file(path, ground_truth_words)
+        return _sample_prediction_from_file(path, ground_truth_words)
     
     def _get_dataset(self, dataset_name: str) -> Dataset:
         if dataset_name not in self._datasets_cache:
@@ -87,7 +97,7 @@ class _SamplePrediction(TypedDict):
     timed_transcription: list[TimedText] | None
     
 
-def sample_prediction_from_file(
+def _sample_prediction_from_file(
     path: Path, ground_truth_words: list[Token | MultiVariant]
 ) -> _SamplePrediction:
     if (pkl_path := path.with_suffix('.pkl')).exists():

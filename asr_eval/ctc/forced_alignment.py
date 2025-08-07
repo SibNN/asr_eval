@@ -11,6 +11,12 @@ import torchaudio
 from ..utils.misc import groupby_into_spans
 
 
+__all__ = [
+    'forced_alignment',
+    'recursion_forced_alignment',
+]
+
+
 def forced_alignment(
     log_probs: npt.NDArray[np.floating[Any]],
     true_tokens: list[int] | npt.NDArray[np.integer[Any]],

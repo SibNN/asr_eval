@@ -4,6 +4,11 @@ from .data import MatchesList, Token
 from .recursive import align
 
 
+__all__ = [
+    "multiple_transcriptions_alignment",
+]
+
+
 def _align_into_table(
     truth: list[Token], pred: MatchesList
 ) -> tuple[list[Token | None | list[Token]], list[bool]]:
@@ -52,6 +57,19 @@ def multiple_transcriptions_alignment(
     truth: list[Token],
     predictions: dict[str, MatchesList],
 ) -> tuple[pd.DataFrame, str]:
+    '''
+    Displays multiple transcriptions aligned against ground truth.
+    Currently does not support multivariance. TODO support
+    
+    Example:
+    truth = parse_single_variant_string('раз два три четыре')
+    df, text = multiple_transcriptions_alignment(truth, {
+        'model1': align(truth, parse_single_variant_string('раз один один два три четыре ы')),
+        'model2': align(truth, parse_single_variant_string('а раз один два три четыре')),
+        'model3': align(truth, parse_single_variant_string('раз два три четыре пять')),
+    })
+    print(text)
+    '''
     rows: dict[str, list[Token | list[Token] | None]] = {}
     errors: dict[str, list[bool]] = {}
     for title, alignment in (
@@ -87,18 +105,3 @@ def multiple_transcriptions_alignment(
     
     return table, table.to_string(header=False, max_cols=9999) # type: ignore
 
-
-'''
-Example:
-
-from asr_eval.align.parsing import split_text_into_tokens
-from asr_eval.align.multiple import multiple_transcriptions_alignment
-
-truth = split_text_into_tokens('раз два три четыре')
-df, text = multiple_transcriptions_alignment(truth, {
-    'model1': align(truth, split_text_into_tokens('раз один один два три четыре ы')), # type: ignore
-    'model2': align(truth, split_text_into_tokens('а раз один два три четыре')), # type: ignore
-    'model3': align(truth, split_text_into_tokens('раз два три четыре пять')), # type: ignore
-})
-print(text)
-'''

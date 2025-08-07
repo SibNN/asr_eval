@@ -7,6 +7,13 @@ import nltk
 from .data import Anything, Token, MultiVariant, Match, MatchesList, AlignmentScore
 
 
+__all__ = [
+    'match_from_pair',
+    'select_shortest_multi_variants',
+    'align',
+]
+
+
 @cache
 def _char_edit_distance(true: str, pred: str) -> int:
     return nltk.edit_distance(true, pred) # type: ignore
@@ -53,6 +60,9 @@ def match_from_pair(true: Token | None, pred: Token | None) -> Match:
     
 
 def select_shortest_multi_variants(seq: list[Token | MultiVariant]) -> list[Token]:
+    '''
+    Selects the shortest option in each muultivariant block.
+    '''
     result: list[Token] = []
     for x in seq:
         if isinstance(x, MultiVariant):

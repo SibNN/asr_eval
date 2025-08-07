@@ -76,6 +76,9 @@ class _MultiVariantEncoded:
 
 
 class CannotFillTimings(ValueError):
+    '''
+    Indicates that we failed to fill .start_time and .end_time for words.
+    '''
     pass
     
 

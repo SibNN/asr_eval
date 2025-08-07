@@ -17,7 +17,15 @@ from .base.interfaces import Transcriber
 from ..utils.types import FLOATS
 
 
+__all__ = [
+    'VoskV54',
+]
+
+
 class VoskV54(Transcriber):
+    '''
+    A wrapper for Vosk 0.54 model.
+    '''
     def __init__(self, device: str | torch.device = 'cuda'):
         # adopted from https://huggingface.co/alphacep/vosk-model-ru/blob/main/decode.py
         # beam search code taken from icefall/egs/librispeech/ASR/pruned_transducer_stateless2/beam_search.py
