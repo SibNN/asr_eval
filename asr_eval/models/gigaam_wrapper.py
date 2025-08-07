@@ -59,20 +59,20 @@ class GigaAMShortformRNNT(GigaAMShortformBase):
     '''
     GigaAM2 RNNT model.
     '''
-    def __init__(self):
+    def __init__(self, device: str | torch.device = 'cuda'):
         super().__init__()
         import gigaam
-        self.model = gigaam.load_model('rnnt', device='cuda') # type: ignore
+        self.model = gigaam.load_model('rnnt', device=device) # type: ignore
 
 
 class GigaAMShortformCTC(GigaAMShortformBase, CTC):
     '''
     GigaAM2 CTC model.
     '''
-    def __init__(self):
+    def __init__(self, device: str | torch.device = 'cuda'):
         super().__init__()
         import gigaam
-        self.model = gigaam.load_model('ctc', device='cuda') # type: ignore
+        self.model = gigaam.load_model('ctc', device=device) # type: ignore
     
     @override
     def transcribe(self, waveform: FLOATS) -> str:
