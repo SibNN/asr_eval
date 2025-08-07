@@ -62,6 +62,28 @@ pipelines. Example:
 
     pipeline = get_pipeline('whisper-temp=0.5')()
 
+Running pipelines
+=======================
+
+Using code:
+
+.. code-block:: python
+
+    from asr_eval.bench.run import run_pipeline
+
+    run_pipeline(
+        pipeline_name='whisper-tiny',
+        dataset_names=['resd', 'podlodka'],
+        root_dir='outputs',
+        max_samples=100,
+    )
+
+Or, equally, using command line interface:
+
+.. code-block:: bash
+
+    python -m asr_eval.bench.run -p whisper-tiny -d resd podlodka -r outputs -m 100
+
 Evaluator
 =======================
 
