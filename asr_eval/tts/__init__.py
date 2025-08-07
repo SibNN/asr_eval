@@ -1,1 +1,1 @@
-from .yandex_speechkit import *
+# from .yandex_speechkit import *
