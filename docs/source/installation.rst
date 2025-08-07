@@ -36,7 +36,7 @@ Building docs
 Preparing models
 *****************
 
-It is better to prepare a separate Python environment for each model, bacause they ahve conflicting dependencies.
+It is better to prepare a separate Python environment for each model, bacause they have conflicting dependencies.
 
 Whisper
 ------------------

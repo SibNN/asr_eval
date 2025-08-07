@@ -13,7 +13,7 @@ Organizing datasets
 =======================
 
 Each speech recognition test set has a unique name and a loading function without arguments
-that return a list of samples. Each sample contain an :code:`'audio'` field with sampling
+that returns a list of samples. Each sample contain an :code:`'audio'` field with sampling
 rate 16 000 and a :code:`'transcription'` field - a ground truth transcription, possibly
 multivariant. Usually a loading function takes a dataset from HuggingFace and shuffles it
 with seed 0 before returning. Shuffling allows to get the first N samples to obtain
