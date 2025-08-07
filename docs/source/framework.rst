@@ -77,3 +77,7 @@ A dashboard is a script that runs evaluator on the output dir and starts a web s
 the alignments and metrics. When calculating metrics, the dashboard  takes into account that different
 sample sets could be processed for different pipelines (for example, pipeline A processed the whole dataset
 and pipeline B processed only a half of the dataset), and compares the pipelines carefully.
+
+.. code-block:: bash
+
+    python python -m asr_eval.bench.dashboard
