@@ -229,7 +229,7 @@ class MatchesList:
 
 
 def align(
-    true: list[Token | MultiVariantBlock],
+    true: list[Token | MultiVariantBlock] | list[Token],
     pred: list[Token],
 ) -> MatchesList:
     """
