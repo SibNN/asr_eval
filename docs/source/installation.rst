@@ -24,15 +24,6 @@ A package python3-dev is required to build some requirements; FFMpeg is needed f
 
 If you see torchcodec errors, install a specific version from the `compatibility table <https://github.com/pytorch/torchcodec#installing-cpu-only-torchcodec>`_:
 
-Building docs
-*****************
-
-.. code-block:: bash
-
-    sphinx-apidoc -o docs/source -H asr_eval -V 0.0.1 --no-toc --no-headings --force asr_eval/
-    python -m asr_eval.utils.autodoc
-    sphinx-build -b html docs/source docs/build
-
 Preparing models
 *****************
 
@@ -161,3 +152,21 @@ See :code:`asr_eval.tts.yandex_speechkit.YandexSpeechKitWrapper` docstring for i
     tmp/venv_yandex_speechkit/bin/python -m pip install -e .
     tmp/venv_yandex_speechkit/bin/python -m pip install yandex-speechkit
     tmp/venv_yandex_speechkit/bin/python -m asr_eval.bench.check yandex-speechkit
+
+Building docs
+*****************
+
+.. code-block:: bash
+
+    sphinx-apidoc -o docs/source -H asr_eval -V 0.0.1 --no-toc --no-headings --force asr_eval/
+    python -m asr_eval.utils.autodoc
+    sphinx-build -b html docs/source docs/build
+
+CI/CD (local)
+*****************
+
+.. code-block:: bash
+
+    apt install gh
+    gh extension install https://github.com/nektos/gh-act
+    gh act -v --artifact-server-path /tmp/artifacts
