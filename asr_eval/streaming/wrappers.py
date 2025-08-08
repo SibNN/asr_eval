@@ -52,6 +52,7 @@ class OfflineToStreaming(StreamingASR):
     Each time overwrites the old transcription with the new one (this is achieved by
     sending a new TranscriptionChunk with the same uid).
     
+    TODO support longform audios somehow (with or without VAD)
     TODO support batching?
     TODO set also a real-time minimal interval between model calls
     TODO add keep=True arg to .get_with_rechunking() instead making of another buffer
@@ -67,8 +68,13 @@ class OfflineToStreaming(StreamingASR):
         while True:
             id, data, is_finished, end_time = self.input_buffer.get_with_rechunking(self.chunk_size)
             if data is not None:
-                self.accumulated_audios[id] = np.concatenate([self.accumulated_audios[id], data])
-                text = self.offline_model.transcribe(self.accumulated_audios[id])
+                waveform = self.accumulated_audios[id] = np.concatenate(
+                    [self.accumulated_audios[id], data]
+                )
+                assert len(waveform) < 16_000 * 30, (
+                    'Audio is too long, OfflineToStreaming does not support >30 sec yet'
+                )
+                text = self.offline_model.transcribe(waveform)
                 # send always with uid=0, so that new text overwrites previous
                 self.output_buffer.put(OutputChunk(
                     data=TranscriptionChunk(uid=0, text=text), seconds_processed=end_time
