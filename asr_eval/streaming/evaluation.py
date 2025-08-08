@@ -144,7 +144,7 @@ def default_evaluation_pipeline(
     sender.audio = ''
     sender.history = []
     for input_chunk in input_chunks:
-        if input_chunk.data != Signal.FINISH:
+        if input_chunk.data is not Signal.FINISH:
             input_chunk.data = ''
         
     return RecordingStreamingEvaluation(
@@ -186,6 +186,10 @@ class PartialAlignment:
                 tail.insert(0, match)
             else:
                 head.insert(0, match)
+        
+        # debug
+        # print('HEAD', head, [m.status for m in head])
+        # print('TAIL', tail, [m.status for m in tail])
         
         # process head
         for i, match in enumerate(head):

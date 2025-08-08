@@ -37,9 +37,9 @@ def match_from_pair(true: Token | None, pred: Token | None) -> Match:
     is_anything = T and isinstance(true.value, Anything)
     if is_anything or (T and P and true.value == pred.value):
         status = 'correct'
-    elif P:
-        status = 'deletion'
     elif T:
+        status = 'deletion'
+    elif P:
         status = 'insertion'
     else:
         status = 'replacement'
