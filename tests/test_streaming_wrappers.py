@@ -9,7 +9,7 @@ from asr_eval.bench.recording import Recording
 from asr_eval.models.gigaam_wrapper import GigaAMShortformCTC
 from asr_eval.models.vosk_streaming_wrapper import VoskStreaming
 from asr_eval.streaming.evaluation import default_evaluation_pipeline
-from asr_eval.streaming.wrappers import Offline, QuasiStreaming
+from asr_eval.streaming.wrappers import StreamingToOffline, OfflineToStreaming
 from asr_eval.streaming.plots import partial_alignments_plot
 from asr_eval.streaming.model import TranscriptionChunk
 from asr_eval.utils.types import FLOATS
@@ -19,7 +19,7 @@ from asr_eval.utils.types import FLOATS
 def test_streaming_to_offline():
     waveform: FLOATS = librosa.load('tests/testdata/vosk.wav', sr=16_000)[0] # type: ignore
 
-    model = Offline(VoskStreaming())
+    model = StreamingToOffline(VoskStreaming())
     assert model.transcribe(waveform) == 'one zero zero zero one nah no to i know zero one eight zero three'
     
     model.streaming_model.stop_thread()
@@ -33,7 +33,7 @@ def test_offline_to_streaming():
     gigaam = GigaAMShortformCTC()
     fill_word_timings_inplace(gigaam, waveform, transcription_words)
 
-    model = QuasiStreaming(gigaam)
+    model = OfflineToStreaming(gigaam)
     model.start_thread()
     recording = Recording(
         transcription=transcription,

@@ -12,7 +12,7 @@ from ..utils.types import FLOATS
 from ..utils.misc import new_uid
 
 
-class Offline(Transcriber):
+class StreamingToOffline(Transcriber):
     '''
     A wrapper that turns StreamingASR into a Transcriber. Transcribes
     the full audio and returns the full transcription.
@@ -38,7 +38,7 @@ class Offline(Transcriber):
         return TranscriptionChunk.join(output_chunks)
 
 
-class QuasiStreaming(StreamingASR):
+class OfflineToStreaming(StreamingASR):
     '''
     Converts non-streaming (offline) ASR model into a streaming one. Calls the offline model
     with the given `interval` (at the audio timescale).
