@@ -1,23 +1,44 @@
-name: test_build_docs_and_release
+name: test, build docs and release
 on: workflow_dispatch
 
-jobs: #Начало секции джобов
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
-  print_hello:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Print hello
-        run: echo "Hello world!"
 
-  test:
+jobs:
+  main:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     container:
-          image: python:3.12
+          # image: python:3.12
+          image: nikolaik/python-nodejs:python3.12-nodejs24
     steps:
-      - name: Checkout repository
+      - name: checkout
         uses: actions/checkout@v4
       - name: install
         run: |
+          # apt update && apt install nodejs npm -y  # for deploying docs
           python3.12 -m pip install uv
           python3.12 -m uv pip install .[dev]
           python3.12 -m pytest tests
+      - name: build docs
+        run: |
+          sphinx-apidoc -o docs/source -H asr_eval -V 0.0.1 --no-toc --no-headings --force asr_eval/
+          python3.12 -m asr_eval.utils.autodoc
+          sphinx-build -b html docs/source docs/build
+      - name: setup pages
+        if: ${{ !env.ACT }}
+        uses: actions/configure-pages@v5
+      - name: upload artifact
+        if: ${{ !env.ACT }}
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'docs/build'
+      - name: deploy to github pages
+        if: ${{ !env.ACT }}
+        id: deployment
+        uses: actions/deploy-pages@v4
