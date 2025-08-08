@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from ..models.gigaam_wrapper import GigaAMShortformCTC
 from .datasets import AudioSample
 from ..utils.types import FLOATS
-from ..align.data import Token, MultiVariant
+from ..align.transcription import MultiVariantTranscription, SingleVariantTranscription
 from ..align.parsing import parse_multivariant_string
 from ..align.timings import fill_word_timings_inplace
 
@@ -27,8 +27,7 @@ class Recording:
     (such as RecordingStreamingEvaluation with .recording field).
     
     """
-    transcription: str
-    transcription_words: list[Token | MultiVariant]
+    transcription: MultiVariantTranscription | SingleVariantTranscription
     waveform: FLOATS | None = None
     
     hf_dataset_name: str | None = None
@@ -55,18 +54,14 @@ class Recording:
         text = sample['transcription']
         
         # this will also work for texts without multivariant blocks
-        transcription_words = parse_multivariant_string(text)
+        transcription = parse_multivariant_string(text)
         
         if use_gigaam is not None:
-            fill_word_timings_inplace(use_gigaam, waveform, transcription_words)
-            # transcription_words = cast(
-            #     list[Token | MultiVariant], get_word_timings_simple(fill_timings, waveform, text)
-            # )
+            fill_word_timings_inplace(use_gigaam, waveform, transcription)
         
         return Recording(
             waveform=waveform,
-            transcription=text,
-            transcription_words=transcription_words,
+            transcription=transcription,
             hf_dataset_name=name,
             hf_dataset_split=split,
             hf_dataset_index=index,

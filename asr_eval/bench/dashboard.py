@@ -6,8 +6,10 @@ from dash import dcc, html, Input, Output
 from dash.development.base_component import Component
 from requests_cache import Path
 
+from ..align.matching import MatchesList
+
 from .evaluator import Evaluator
-from ..align.data import MatchesList, Token, assert_single_variant
+from ..align.transcription import SingleVariantTranscription, Token
 from ..align.multiple import multiple_transcriptions_alignment
 
 
@@ -81,7 +83,10 @@ def run_dashboard(root_dir: str | Path = 'outputs'):
         dataset_df = dataset_df.sort_values('sample_idx') # type: ignore
         for sample_idx, sample_df in dataset_df.groupby('sample_idx'): # type: ignore
             sample_df = sample_df.sort_values('pipeline_name') # type: ignore
-            _true_text, true_words = evaluator.get_ground_truth(dataset_name, int(sample_idx)) # type: ignore
+            ground_truth = evaluator.get_ground_truth(dataset_name, int(sample_idx)) # type: ignore
+            
+            assert all(isinstance(t, Token) for t in ground_truth.tokens)
+            ground_truth = SingleVariantTranscription(ground_truth.text, cast(list[Token], ground_truth.tokens))
             
             if sample_filter == 'unequal' and len(sample_df) == 2:
                 words1, words2 = cast(list[list[Token]], sample_df['transcription_words'].tolist())
@@ -97,7 +102,7 @@ def run_dashboard(root_dir: str | Path = 'outputs'):
             
             paragraphs.append(_sample_to_paragraph(
                 sample_idx=int(sample_idx), # type: ignore
-                true_words=assert_single_variant(true_words),
+                true_words=ground_truth.tokens,
                 alignments=alignments,
             ))
         

@@ -1,9 +1,9 @@
 import nltk
 import numpy as np
 
-from asr_eval.align.data import Token
+from asr_eval.align.transcription import Token
 from asr_eval.align.parsing import parse_single_variant_string, parse_multivariant_string
-from asr_eval.align.recursive import align
+from asr_eval.align.matching import align
 
 
 def test_edit_distance():
@@ -23,7 +23,7 @@ def test_align_recursive():
     pred_text = 'a b x y a a'
     true = parse_multivariant_string(true_text)
     pred = parse_single_variant_string(pred_text)
-    matches_list = align(true, pred)
+    matches_list = align(true.tokens, pred.tokens)
 
     assert [
         (
@@ -41,14 +41,9 @@ def test_align_recursive():
         (None, 'a')
     ]
 
-    for x in true:
-        if isinstance(x, Token):
-            assert true_text[x.start_pos:x.end_pos] == x.value
-        else:
-            for option in x.options:
-                for x2 in option:
-                    assert true_text[x2.start_pos:x2.end_pos] == x2.value
+    for x in true.itertokens():
+        assert true_text[x.start_pos:x.end_pos] == x.value
 
-    for x in pred:
+    for x in pred.tokens:
         assert isinstance(x, Token)
         assert pred_text[x.start_pos:x.end_pos] == x.value

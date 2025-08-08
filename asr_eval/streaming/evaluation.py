@@ -20,9 +20,9 @@ from .model import (
 )
 from .sender import BaseStreamingAudioSender, Cutoff, StreamingAudioSender
 from .caller import receive_full_transcription
-from ..align.data import Match, MatchesList, MultiVariant, Token
+from ..align.transcription import MultiVariantTranscription, SingleVariantTranscription
 from ..align.parsing import parse_single_variant_string
-from ..align.partial import align_partial
+from ..align.matching import align, Match, MatchesList
 from ..bench.recording import Recording
 from ..utils.misc import new_uid
 
@@ -129,9 +129,9 @@ def default_evaluation_pipeline(
 
     # processing to save the results
     partial_alignments = get_partial_alignments(
-        input_chunks,
-        output_chunks,
-        recording.transcription_words,
+        input_history=input_chunks,
+        output_history=output_chunks,
+        true_word_timings=recording.transcription,
         processes=1,
         timestamps=np.arange(
             input_chunks[0].put_timestamp,
@@ -167,7 +167,7 @@ class PartialAlignment:
     
     Obtaining PartialAlignment requires word timings for the true transcription.
     """
-    pred: list[Token]
+    pred: SingleVariantTranscription
     alignment: MatchesList
     at_time: float
     audio_seconds_sent: float
@@ -279,7 +279,7 @@ def get_audio_seconds_processed(time: float, output_chunks: Sequence[OutputChunk
 def get_partial_alignments(
     input_history: Sequence[InputChunk],
     output_history: Sequence[OutputChunk],
-    true_word_timings: list[Token | MultiVariant],
+    true_word_timings: MultiVariantTranscription | SingleVariantTranscription,
     timestamps: list[float] | FLOATS | None = None,
     processes: int = 1,
 ) -> list[PartialAlignment]:
@@ -329,7 +329,7 @@ def get_partial_alignments(
                 pa.audio_seconds_sent = get_audio_seconds_sent(at_time, input_history)
             else:
                 pa = PartialAlignment(
-                    pred=[],
+                    pred=SingleVariantTranscription('', []),
                     alignment=None, # type: ignore
                     at_time=at_time,
                     audio_seconds_sent=get_audio_seconds_sent(at_time, input_history),
@@ -341,12 +341,12 @@ def get_partial_alignments(
     if processes > 1:
         pool = mp.Pool(processes=processes)
         alignments = pool.map(
-            lambda pa: align_partial(true_word_timings, pa.pred, pa.audio_seconds_processed),
+            lambda pa: align(true_word_timings.get_starting_part(pa.audio_seconds_processed).tokens, pa.pred.tokens),
             partial_alignments
         )
     else:
         alignments = [
-            align_partial(true_word_timings, pa.pred, pa.audio_seconds_processed)
+            align(true_word_timings.get_starting_part(pa.audio_seconds_processed).tokens, pa.pred.tokens)
             for pa in partial_alignments
         ]
     

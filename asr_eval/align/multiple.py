@@ -1,7 +1,7 @@
 import pandas as pd
 
-from .data import MatchesList, Token
-from .recursive import align
+from .transcription import Token
+from .matching import MatchesList, align
 
 
 __all__ = [

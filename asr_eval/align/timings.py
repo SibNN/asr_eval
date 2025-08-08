@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from gigaam.model import GigaAMASR
 
 from ..utils.types import FLOATS
-from .data import Token, MultiVariant, Anything
+from .transcription import MultiVariantTranscription, SingleVariantTranscription, Token, MultiVariantBlock, Anything
 from .parsing import parse_single_variant_string
 from ..ctc.base import ctc_mapping
 from ..ctc.forced_alignment import forced_alignment
@@ -46,10 +46,10 @@ class _TokenEncoded:
 @dataclass
 class _MultiVariantEncoded:
     options: list[list[_TokenEncoded]]  # may be in different order comparing to ref
-    ref: MultiVariant
+    ref: MultiVariantBlock
 
     @classmethod
-    def from_multivariant(cls, block: MultiVariant, model: GigaAMASR) -> _MultiVariantEncoded:
+    def from_multivariant(cls, block: MultiVariantBlock, model: GigaAMASR) -> _MultiVariantEncoded:
         options = [
             [_TokenEncoded.from_token(token, model) for token in option]
             for option in block.options
@@ -172,7 +172,7 @@ def _print_propagation(
 def fill_word_timings_inplace(
     model: GigaAMShortformCTC,
     waveform: FLOATS,
-    tokens: list[Token | MultiVariant],
+    transcription: MultiVariantTranscription | SingleVariantTranscription,
     verbose: bool = False,
 ):
     '''
@@ -192,7 +192,7 @@ def fill_word_timings_inplace(
         _TokenEncoded.from_token(x, model.model)
         if isinstance(x, Token)
         else _MultiVariantEncoded.from_multivariant(x, model.model)
-        for x in tokens
+        for x in transcription.tokens
     ]
 
     # select best (longest and valid) option for each multivariant block, also skip Anything tokens
@@ -331,7 +331,7 @@ def get_word_timings_simple(
 
     # fill positions
     if text is not None:
-        true_tokens_with_positions = parse_single_variant_string(text)
+        true_tokens_with_positions = parse_single_variant_string(text).tokens
         for token_to_return, token_with_pos in zip(
             word_timings, true_tokens_with_positions, strict=True
         ):

@@ -1,22 +1,52 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from functools import cache
+from typing import Literal, cast
 
 import nltk
 
-from .data import Anything, Token, MultiVariant, Match, MatchesList, AlignmentScore
+from asr_eval.align.transcription import Anything, Token
+
+from .transcription import Anything, Token, MultiVariantBlock
 
 
 __all__ = [
     'match_from_pair',
-    'select_shortest_multi_variants',
+    '_select_shortest_multi_variants',
     'align',
+    'AlignmentScore',
+    'Match',
+    'MatchesList',
 ]
 
 
 @cache
 def _char_edit_distance(true: str, pred: str) -> int:
     return nltk.edit_distance(true, pred) # type: ignore
+
+
+@dataclass(kw_only=True, slots=True)
+class Match:
+    """
+    An element of a string alignment: a match between zero or more words in two texts.
+    - `true` array contains tokens from the first text
+    - `pred` array contains tokens from the second text (both arrays cannot be empty simultaneously)
+    - `status` is one of 'correct', 'deletion', 'insertion', 'replacement
+    - `score` is the corresponding AlignmentScore
+
+    Note that this class does not calculate or validate `status` or `score`, it only stores them.
+    Use `match_from_pair()` to construct `Match` object and fill these fields.
+    """
+    true: Token | None
+    pred: Token | None
+    status: Literal['correct', 'deletion', 'insertion', 'replacement']
+    score: AlignmentScore
+
+    def __repr__(self) -> str:
+        first = str(self.true.value) if self.true is not None else ''
+        second = str(self.pred.value) if self.pred is not None else ''
+        return f'Match({first}, {second})'
 
 
 def match_from_pair(true: Token | None, pred: Token | None) -> Match:
@@ -57,23 +87,149 @@ def match_from_pair(true: Token | None, pred: Token | None) -> Match:
             ) if (not is_anything and status != 'correct') else 0,
         ),
     )
+
+
+@dataclass(slots=True)
+class AlignmentScore:
+    """
+    A score to compare for one or more consecutive Match. Comparision algorithm:
+    1. First, if one match has less word errors than other, it is better.
+    2. Else if one match has less character errors than other, it is better.
+    3. Else if one match has more correct matches, it is better.
+    3. Otherwise, scores are the same.
+
+    This class is used in the align() function that searches for the alignment with the best score.
+    """
+    n_word_errors: int = 0
+    n_correct: int = 0
+    n_char_errors: int = 0
+
+    def __add__(self, other: AlignmentScore) -> AlignmentScore:
+        # score for a concatenation 
+        return AlignmentScore(
+            self.n_word_errors + other.n_word_errors,
+            self.n_correct + other.n_correct,
+            self.n_char_errors + other.n_char_errors,
+        )
+
+    def _compare(self, other: AlignmentScore) -> Literal['<', '=', '>']:
+        # comparison order:
+
+        # 1. n_word_errors (lower is better)
+        if self.n_word_errors > other.n_word_errors:
+            return '<'
+        if self.n_word_errors < other.n_word_errors:
+            return '>'
+
+        # 2. n_char_errors (lower is better)
+        if self.n_char_errors > other.n_char_errors:
+            return '<'
+        if self.n_char_errors < other.n_char_errors:
+            return '>'
+
+        # 3. n_correct (higher is better)
+        if self.n_correct < other.n_correct:
+            return '<'
+        if self.n_correct > other.n_correct:
+            return '>'
+
+        return '='
+
+    # do not use functools.total_ordering to speedup
+
+    def __lt__(self, other: object) -> bool:
+        return self._compare(cast(AlignmentScore, other)) == '<'
+
+    def __gt__(self, other: object) -> bool:
+        return self._compare(cast(AlignmentScore, other)) == '>'
+
+    def __eq__(self, other: object) -> bool:
+        return self._compare(cast(AlignmentScore, other)) == '='
+
+    def __ne__(self, other: object) -> bool:
+        return self._compare(cast(AlignmentScore, other)) != '='
+
+    def __le__(self, other: object) -> bool:
+        return self._compare(cast(AlignmentScore, other)) != '>'
+
+    def __ge__(self, other: object) -> bool:
+        return self._compare(cast(AlignmentScore, other)) != '<'
     
 
-def select_shortest_multi_variants(seq: list[Token | MultiVariant]) -> list[Token]:
+def _select_shortest_multi_variants(seq: list[Token | MultiVariantBlock]) -> list[Token]:
     '''
     Selects the shortest option in each muultivariant block.
     '''
     result: list[Token] = []
     for x in seq:
-        if isinstance(x, MultiVariant):
+        if isinstance(x, MultiVariantBlock):
             result += min(x.options, key=len)
         else:
             result.append(x)
     return result
 
 
+def _true_len(match: Match) -> int:
+    if match.true is not None and isinstance(match.true.value, Anything):
+        # "Anything" blocks does not increment true len!
+        return 0
+    return int(match.true is not None)
+
+
+@dataclass(slots=True)
+class MatchesList:
+    """
+    An string alignment: a list of matches, such that:
+    - A sum of `[m.true for m in self.matches]` give the full first text as a list of tokens
+    - A sum of `[m.pred for m in self.matches]` give the full second text as a list of tokens
+
+    If true text is multivariant, `[m.true for m in self.matches]` contains only a single
+    variant for each multivariant block.
+
+    `total_true_len` and `score` are filled automatically in the `MatchesList.from_list()`
+    """
+    matches: list[Match]
+    total_true_len: int
+    score: AlignmentScore
+
+    @classmethod
+    def from_list(cls, matches: list[Match]) -> MatchesList:
+        return MatchesList(
+            matches=matches,
+            total_true_len=sum(_true_len(m) for m in matches),
+            score=sum([m.score for m in matches], AlignmentScore())
+        )
+
+    def prepend(self, match: Match) -> MatchesList:
+        return MatchesList(
+            matches=[match] + self.matches,
+            total_true_len=_true_len(match) + self.total_true_len,
+            score = match.score + self.score
+        )
+
+    def append(self, match: Match) -> MatchesList:
+        return MatchesList(
+            matches=self.matches + [match],
+            total_true_len=self.total_true_len + _true_len(match),
+            score = self.score + match.score
+        )
+
+    def n_errors_with_insertions_tolerance(self, max_insertions: int = 4) -> int:
+        n_errors = 0
+        n_prev_insertions = 0
+        for match in self.matches:
+            if match.status != 'insertion':
+                n_errors += n_prev_insertions
+                n_prev_insertions = 0
+                n_errors += match.score.n_word_errors
+            else:
+                n_prev_insertions = min(max_insertions, n_prev_insertions + int(match.pred is not None))
+        n_errors += n_prev_insertions
+        return n_errors
+
+
 def align(
-    true: list[Token | MultiVariant],
+    true: list[Token | MultiVariantBlock],
     pred: list[Token],
 ) -> MatchesList:
     """
@@ -89,7 +245,7 @@ def align(
         
     multivariant_prefixes: dict[tuple[tuple[int, int], int], list[Token]] = {}
     for x in true:
-        if isinstance(x, MultiVariant):
+        if isinstance(x, MultiVariantBlock):
             for i, option in enumerate(x.options):
                 multivariant_prefixes[x.pos, i] = option
     
@@ -112,7 +268,7 @@ def align(
         elif len(_pred) == 0 and len(_true) > 0:
             _matches: list[Match] = []
             for token in _true:
-                if len(shortest := select_shortest_multi_variants([token])):
+                if len(shortest := _select_shortest_multi_variants([token])):
                     _matches += [match_from_pair(t, None) for t in shortest]
             return MatchesList.from_list(_matches)
         elif len(_pred) > 0 and len(_true) == 0:
@@ -120,7 +276,7 @@ def align(
                 match_from_pair(None, token)
                 for token in _pred
             ])
-        elif not isinstance(_true[0], MultiVariant):
+        elif not isinstance(_true[0], MultiVariantBlock):
             options: list[MatchesList] = []
             current_match_options = [
                 # option 1: match true[0] with pred[0]

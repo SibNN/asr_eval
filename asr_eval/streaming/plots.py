@@ -81,7 +81,7 @@ def partial_alignments_plot(
     y0 = y1 - (y2 - y1) / 15
     
     draw_timed_transcription(
-        eval.recording.transcription_words,
+        eval.recording.transcription,
         y_pos=y0,
         y_delta=-(y2 - y1) / 15,
         graybox_y=(y0, y2)

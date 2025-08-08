@@ -1,21 +1,17 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
-from dataclasses import replace
 import re
 import string
 from typing import Literal, cast
 
 import razdel
 
-from .data import Anything, Token, MultiVariant
-from ..utils.formatting import Formatting, FormattingSpan, apply_ansi_formatting
+from .transcription import Anything, MultiVariantTranscription, SingleVariantTranscription, Token, MultiVariantBlock
 
 
 __all__ = [
     "parse_single_variant_string",
     "parse_multivariant_string",
-    "colorize_parsed_string",
 ]
 
 
@@ -150,19 +146,21 @@ def parse_single_variant_string(
     drop_punct: bool = True,
     lower: bool = True,
     ru_tweaks: bool = True,
-) -> list[Token]:
+) -> SingleVariantTranscription:
     '''
     Parses a string without multivariant blocks into a list of Token. See more details
     in the `parse_multivariant_string` docstring.
     '''
-    result = _split_text_into_tokens(
+    tokens = _split_text_into_tokens(
         text=text,
         method=method,
         drop_punct=drop_punct,
         lower=lower,
         ru_tweaks=ru_tweaks,
     )
-    _assign_incremental_token_ids_inplace(result)
+    result = SingleVariantTranscription(text, tokens)
+    for i, t in enumerate(result.itertokens()):
+        t.uid = str(i)
     return result
 
 
@@ -172,7 +170,7 @@ def parse_multivariant_string(
     drop_punct: bool = True,
     lower: bool = True,
     ru_tweaks: bool = True,
-) -> list[Token | MultiVariant]:
+) -> MultiVariantTranscription:
     r"""
     Finds words in the text, possibly with multivariant blocks, and return them as a list of
     Token and/or MultiVariant objects.
@@ -212,7 +210,7 @@ def parse_multivariant_string(
     print()
     ```
     """
-    result: list[Token | MultiVariant] = []
+    tokens: list[Token | MultiVariantBlock] = []
     for match in re.finditer(MULTIVARIANT_PATTERN, '}' + text + '{'):
         text_part = match.group()
         start = match.start() - 1  # account for '}' (see in re.finditer)
@@ -257,104 +255,32 @@ def parse_multivariant_string(
                     lower=lower,
                     ru_tweaks=ru_tweaks,
                 )
-                option_tokens = _shift_tokens(option_tokens, start_pos)
+                _shift_tokens_inplace(option_tokens, start_pos)
                 options.append(option_tokens)
                 
             if len(options) == 1:
                 assert len(options[0]), 'empty multivariant block'
                 options.append([])
             
-            result.append(MultiVariant(options=options, pos=(start, end)))
+            tokens.append(MultiVariantBlock(options=options, pos=(start, end)))
         else:
-            result += _shift_tokens(
-                _split_text_into_tokens(
-                    text_part,
-                    method=method,
-                    drop_punct=drop_punct, 
-                    lower=lower,
-                    ru_tweaks=ru_tweaks,
-                ),
-                shift=start
+            new_tokens = _split_text_into_tokens(
+                text_part,
+                method=method,
+                drop_punct=drop_punct, 
+                lower=lower,
+                ru_tweaks=ru_tweaks,
             )
+            _shift_tokens_inplace(new_tokens, shift=start)
+            tokens += new_tokens
     
-    _assign_incremental_token_ids_inplace(result)
+    result = MultiVariantTranscription(text, tokens)
+    for i, t in enumerate(result.itertokens()):
+        t.uid = str(i)
     return result
 
 
-def _assign_incremental_token_ids_inplace(tokens: Sequence[Token | MultiVariant]):
-    i = 0
-    for x in tokens:
-        match x:
-            case Token():
-                x.uid = str(i)
-                i += 1
-            case MultiVariant():
-                for option in x.options:
-                    for token in option:
-                        token.uid = str(i)
-                        i += 1
-
-
-def _shift_tokens(tokens: list[Token], shift: int = 0) -> list[Token]:
-    return [
-        replace(t, start_pos=t.start_pos + shift, end_pos=t.end_pos + shift)
-        for t in tokens
-    ]
-
-
-def colorize_parsed_string(
-    text: str, tokens: list[Token | MultiVariant]
-) -> tuple[str, dict[str, str]]:
-    '''
-    Colorizes each token in the parsed (possibly multivariant) string. Returns:
-    - String with ANSI escape codes (can be rendered using print() in jupyter or console).
-    - A mapping from token uid to its color.
-    
-    Example:
-    
-    ```
-    orig_text = '{emm} at {fourty nine|49} <*> year'
-    tokens = parse_multivariant_string(orig_text)
-    colored_str, colors = colorize_parsed_string(orig_text, tokens)
-    print(colored_str)
-    ```
-    '''
-    colors = [
-        'on_light_yellow',
-        'on_light_green',
-        'on_light_cyan',
-        # 'on_light_grey',
-        # 'on_light_red',
-        # 'on_light_blue',
-        # 'on_light_magenta',
-    ]
-    
-    token_idx = 0
-    token_uid_to_color: dict[str, str] = {}
-    
-    formatting_spans = [FormattingSpan(
-        Formatting(attrs={'bold'}), 0, len(text)
-    )]
-    
-    def mark_token(token: Token):
-        nonlocal token_idx, token_uid_to_color
-        color = colors[token_idx % len(colors)]
-        formatting_spans.append(FormattingSpan(
-            Formatting(on_color=color), token.start_pos, token.end_pos,
-        ))
-        token_uid_to_color[token.uid] = color
-        token_idx += 1
-        
-    for block in tokens:
-        match block:
-            case Token():
-                mark_token(block)
-            case MultiVariant():
-                formatting_spans.append(FormattingSpan(
-                    Formatting(attrs={'underline'}), block.pos[0], block.pos[1]
-                ))
-                for option in block.options:
-                    for token in option:
-                        mark_token(token)
-
-    return apply_ansi_formatting(text, formatting_spans), token_uid_to_color
+def _shift_tokens_inplace(tokens: list[Token], shift: int = 0):
+    for t in tokens:
+        t.start_pos += shift
+        t.end_pos += shift

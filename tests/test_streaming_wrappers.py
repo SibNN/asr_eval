@@ -27,17 +27,15 @@ def test_streaming_to_offline():
 
 def test_offline_to_streaming():
     waveform: FLOATS = librosa.load('tests/testdata/formula1.mp3', sr=16_000)[0] # type: ignore
-    transcription = Path('tests/testdata/formula1.txt').read_text()
-    transcription_words = parse_multivariant_string(transcription)
+    transcription = parse_multivariant_string(Path('tests/testdata/formula1.txt').read_text())
 
     gigaam = GigaAMShortformCTC()
-    fill_word_timings_inplace(gigaam, waveform, transcription_words)
+    fill_word_timings_inplace(gigaam, waveform, transcription)
 
     model = OfflineToStreaming(gigaam)
     model.start_thread()
     recording = Recording(
         transcription=transcription,
-        transcription_words=transcription_words,
         waveform=waveform,
     )
     eval = default_evaluation_pipeline(recording, model)

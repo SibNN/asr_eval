@@ -2,7 +2,7 @@ from itertools import pairwise
 
 import matplotlib.pyplot as plt
 
-from .data import Anything, MultiVariant, Token
+from .transcription import Anything, MultiVariantBlock, MultiVariantTranscription, SingleVariantTranscription, Token
 from ..utils.plots import draw_bezier, draw_line_with_ticks
 
 
@@ -12,7 +12,7 @@ __all__ = [
 
 
 def draw_timed_transcription(
-    transcription: list[Token | MultiVariant],
+    transcription: MultiVariantTranscription | SingleVariantTranscription,
     y_pos: float = 0,
     y_delta: float = -1,
     y_tick_width: float = 0.1,
@@ -24,11 +24,11 @@ def draw_timed_transcription(
     '''
     ax = ax or plt.gca()
 
-    if len(transcription) == 0:
+    if len(transcription.tokens) == 0:
         return
 
     # words
-    for block_idx, block in enumerate(transcription):
+    for block_idx, block in enumerate(transcription.tokens):
         match block:
             case Token():
                 assert block.is_timed
@@ -41,7 +41,7 @@ def draw_timed_transcription(
                     color='blue' if isinstance(block.value, Anything) else 'g',
                     lw=2,
                 )
-            case MultiVariant():
+            case MultiVariantBlock():
                 for option_idx, option in enumerate(block.options):
                     option_y_pos = y_pos + y_delta * option_idx / (len(block.options) - 1)
                     for t in option:
@@ -66,11 +66,11 @@ def draw_timed_transcription(
             ha='center',
             va='bottom',
         )
-    for block_idx, block in enumerate(transcription):
+    for block_idx, block in enumerate(transcription.tokens):
         match block:
             case Token():
                 write_token(block, y_pos)
-            case MultiVariant():
+            case MultiVariantBlock():
                 best_option = sorted(
                     block.options,
                     key=lambda option: len(' '.join(str(t.value) for t in option))
@@ -79,13 +79,13 @@ def draw_timed_transcription(
                     write_token(token, y_pos)
 
     # bezier connections
-    block_spans = [(x.start_time, x.end_time) for x in transcription]
+    block_spans = [(x.start_time, x.end_time) for x in transcription.tokens]
     joints = (
         [block_spans[0][0] - 0.05]
         + [(end1 + start2) / 2  for (_, end1), (start2, _) in pairwise(block_spans)]
         + [block_spans[-1][1] + 0.05]
     )
-    for block_idx, block in enumerate(transcription):
+    for block_idx, block in enumerate(transcription.tokens):
         prev_joint = joints[block_idx]
         next_joint = joints[block_idx + 1]
         match block:
@@ -95,12 +95,12 @@ def draw_timed_transcription(
                         (prev_joint, y_pos),
                         (block.start_time, y_pos)
                     ], ax=ax, indent=0, lw=2)
-                if block_idx < len(transcription) - 1:
+                if block_idx < len(transcription.tokens) - 1:
                     draw_bezier([
                         (block.end_time, y_pos),
                         (next_joint, y_pos)
                     ], ax=ax, indent=0, lw=2)
-            case MultiVariant():
+            case MultiVariantBlock():
                 for option_idx, option in enumerate(block.options):
                     option_y_pos = y_pos + y_delta * option_idx / (len(block.options) - 1)
                     draw_bezier([
@@ -118,7 +118,7 @@ def draw_timed_transcription(
 
     # gray boxes
     if graybox_y is not None:
-        for block_idx, block in enumerate(transcription):
+        for block_idx, block in enumerate(transcription.tokens):
             match block:
                 case Token():
                     ax.fill_between( # type: ignore
@@ -128,7 +128,7 @@ def draw_timed_transcription(
                         color='#eeeeee',
                         zorder=-999,
                     )
-                case MultiVariant():
+                case MultiVariantBlock():
                     for option_idx, option in enumerate(block.options):
                         for t in option:
                             ax.fill_between( # type: ignore
