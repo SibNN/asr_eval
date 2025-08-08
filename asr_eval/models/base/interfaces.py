@@ -53,21 +53,41 @@ class CTC(Transcriber):
     Converts audio into CTC log probs (should sum up to 1).
     '''
     @abstractmethod
-    def ctc_log_probs(self, waveforms: list[FLOATS]) -> list[FLOATS]: ...
+    def ctc_log_probs(self, waveforms: list[FLOATS]) -> list[FLOATS]:
+        '''
+        Calculates log probs (should sum up to 1)
+        '''
+        ...
     
     @property
     @abstractmethod
-    def blank_id(self) -> int: ...
+    def blank_id(self) -> int:
+        '''
+        Vocabulary index for <blank> CTC token
+        '''
+        ...
     
     @property
     @abstractmethod
-    def tick_size(self) -> float: ...
+    def tick_size(self) -> float:
+        '''
+        Time interval in seconds between consecutive time steps in log probs matrix
+        '''
+        ...
     
     @abstractmethod
-    def decode(self, token: int) -> str: ...
+    def decode(self, token: int) -> str:
+        '''
+        Decode a single token index into string (usually a single letter)
+        
+        Note that this does not support Whisper-style BPE encoding: each single token
+        should be decoded into a valid unicode string.
+        '''
+        ...
     
     @override
     def transcribe(self, waveform: FLOATS) -> str:
+        # converts CTC log probs into the output text via argmax
         log_probs = self.ctc_log_probs([waveform])[0]
         labels = cast(list[int], log_probs.argmax(axis=-1, keepdims=False).tolist())
         tokens = ctc_mapping(labels, self.blank_id)
