@@ -1,0 +1,23 @@
+name: test_build_docs_and_release
+on: workflow_dispatch
+
+jobs: #Начало секции джобов
+
+  print_hello:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print hello
+        run: echo "Hello world!"
+
+  test:
+    runs-on: ubuntu-latest
+    container:
+          image: python:3.12
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: install
+        run: |
+          python3.12 -m pip install uv
+          python3.12 -m uv pip install .[dev]
+          python3.12 -m pytest tests
