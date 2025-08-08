@@ -5,7 +5,6 @@ import wave
 import pytest
 import librosa
 import numpy as np
-from vosk import Model, KaldiRecognizer # type: ignore
 
 from asr_eval.streaming.model import TranscriptionChunk
 from asr_eval.streaming.caller import receive_full_transcription
@@ -23,6 +22,8 @@ def test_vosk_KaldiRecognizer(frames_per_chunk: int, prediction: list[str]):
     """
     Testing vosk.KaldiRecognizer without any wrapper code from the current framework
     """
+    from vosk import Model, KaldiRecognizer # type: ignore
+    
     model = Model(lang='en-us')
     
     # need to re-create KaldiRecognizer when a new audio comes

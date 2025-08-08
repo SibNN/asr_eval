@@ -21,11 +21,13 @@ dependencies = [
     "nltk",
     "razdel",
     "torch",
+    "torchaudio",
     "torchcodec",
     "dash",
     "pydub",
     "transformers",
     "pydantic_extra_types",
+    "numba>=0.61.0",  # uv tries to install old numba version (for librosa) which causes error
 ]
 
 [project.optional-dependencies]

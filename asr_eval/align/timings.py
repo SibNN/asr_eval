@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 from itertools import pairwise
 
 import numpy as np
-from gigaam.model import GigaAMASR
+
+if TYPE_CHECKING:
+    from gigaam.model import GigaAMASR
 
 from ..utils.types import FLOATS
 from .data import Token, MultiVariant, Anything
