@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "asr_eval"
+version = "0.0.1"
+requires-python = ">=3.12"
+description = "Evaluation tools for Automatic Speech Recognition"
+authors = [{name = "Oleg Sedukhin", email = "sedukhin@sibnn.ai"}]
+dependencies = [
+    "numpy",
+    "librosa",
+    "matplotlib",
+    "datasets<4.0.0",  # https://github.com/huggingface/datasets/issues/7675
+    "ipywidgets",
+    "ipykernel",
+    "hydra_zen",
+    "srt",
+    "termcolor",
+    "nltk",
+    "razdel",
+    "torch",
+    "torchaudio",
+    "torchcodec",
+    "dash",
+    "pydub",
+    "transformers",
+    "pydantic_extra_types",
+    "numba>=0.61.0",  # uv tries to install old numba version (for librosa) which causes error
+    "pycountry", # required by pydantic_extra_types.language_code.LanguageAlpha2
+    "openai",
+    "mistral_common",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-cov", "coverage[toml]", "sphinx"]
+speechbrain = ["speechbrain"]
+nvidia-conformer = ["nemo_toolkit[all]"]
+linguistics = ["wordfreq", "pymorphy3", "pymystem3", "Levenshtein"]
+langchain = ["langchain", "langchain-openai", "langchain-community", "duckduckgo-search"]
+wiki_search = ["wikipedia-api", "scikit-learn", "requests-cache"]
+
+[tool.setuptools.packages.find]
+include = ["asr_eval"]
+
+[tool.setuptools.package-data]
+"asr_eval" = ["py.typed"]
+
+[project.urls]
+Repository = "https://gitlab.sibnn.ai/research/asr-eval"
+
+[tool.coverage.run]
+omit = ["asr_eval/align/dynprog.py"]
+
+[tool.coverage.report]
+skip_empty = true

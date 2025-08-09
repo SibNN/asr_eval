@@ -1,0 +1,33 @@
+from typing import Any, override
+
+from asr_eval.segments.segment import TimedText
+
+from .base.interfaces import TimedTranscriber
+from ..utils.types import FLOATS
+
+
+__all__ = [
+    'PisetsWrapper',
+]
+
+
+class PisetsWrapper(TimedTranscriber):
+    '''
+    A Pisets wrapper (a `pisets` package, currently unreleased).
+    '''
+    def __init__(self, **kwargs: Any):
+        from pisets import Pisets
+        
+        self.kwargs = kwargs
+        self.pisets = Pisets(**self.kwargs)
+    
+    @override
+    def timed_transcribe(self, waveform: FLOATS) -> list[TimedText]:
+        return [
+            TimedText(
+                start_time=seg.start_time,
+                end_time=seg.end_time,
+                text=seg.whisper_text,
+            )
+            for seg in self.pisets(waveform)
+        ]

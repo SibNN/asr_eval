@@ -1,0 +1,20 @@
+.document {
+    width: 1500px !important;
+}
+
+.body {
+    max-width: 1500px !important;
+}
+
+dd {
+    margin-top: 20px;
+}
+
+section > dl > dt {
+    background-color: #DDD;
+}
+
+h2 {
+    margin-top: 40px;
+    margin-bottom: 30px;
+}

@@ -1,0 +1,166 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, cast, override
+import warnings
+import torch
+from torch.nn.utils.rnn import pad_sequence
+import numpy as np
+
+if TYPE_CHECKING:
+    from gigaam.model import GigaAMASR
+
+from .base.interfaces import CTC, Transcriber
+from ..utils.types import FLOATS, INTS
+
+
+__all__ = [
+    'GigaAMShortformBase',
+    'GigaAMShortformRNNT',
+    'GigaAMShortformCTC',
+    'GigaAMEncodeError',
+    'gigaam_encode',
+    'gigaam_decode',
+]
+
+
+SAMPLING_RATE = 16000
+FREQ = 25  # GigaAM2 encoder outputs per second
+
+
+class GigaAMShortformBase(Transcriber):
+    '''
+    A base class for GigaAM, either CTC or RNNT. Requires subclassing.
+    '''
+    model: GigaAMASR
+    
+    def __init__(self):
+        from gigaam.model import SAMPLE_RATE, LONGFORM_THRESHOLD
+        from gigaam.decoding import CTCGreedyDecoding
+        self.SAMPLE_RATE = SAMPLE_RATE
+        self.LONGFORM_THRESHOLD = LONGFORM_THRESHOLD
+        self.CTCGreedyDecoding = CTCGreedyDecoding
+
+    @override
+    @torch.inference_mode()
+    def transcribe(self, waveform: FLOATS) -> str:
+        # a forward + decoding pipeline suitable for both CTC and RNNT
+        wav = (
+            torch.tensor(waveform)
+            .to(self.model._device)  # pyright:ignore[reportPrivateUsage]
+            .to(self.model._dtype)  # pyright:ignore[reportPrivateUsage]
+            .unsqueeze(0)
+        )
+        length = torch.full([1], wav.shape[-1], device=self.model._device)  # pyright:ignore[reportPrivateUsage]
+        encoded, encoded_len = self.model.forward(wav, length)
+        return self.model.decoding.decode(self.model.head, encoded, encoded_len)[0]
+
+
+class GigaAMShortformRNNT(GigaAMShortformBase):
+    '''
+    GigaAM2 RNNT model.
+    '''
+    def __init__(self, device: str | torch.device = 'cuda'):
+        import gigaam
+        
+        super().__init__()
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', FutureWarning)
+            self.model = gigaam.load_model('rnnt', device=device) # type: ignore
+
+
+class GigaAMShortformCTC(GigaAMShortformBase, CTC):
+    '''
+    GigaAM2 CTC model.
+    '''
+    def __init__(self, device: str | torch.device = 'cuda'):
+        import gigaam
+        
+        super().__init__()
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', FutureWarning)
+            self.model = gigaam.load_model('ctc', device=device) # type: ignore
+    
+    @override
+    def transcribe(self, waveform: FLOATS) -> str:
+        return super(GigaAMShortformBase, self).transcribe(waveform)
+    
+    @property
+    @override
+    def blank_id(self) -> int:
+        return self.model.decoding.blank_id
+    
+    @property
+    @override
+    def tick_size(self) -> float:
+        return 1 / FREQ
+
+    @override
+    def decode(self, token: int) -> str:
+        return self.model.decoding.tokenizer.decode([token])
+    
+    @override
+    @torch.inference_mode()
+    def ctc_log_probs(self, waveforms: list[FLOATS]) -> list[FLOATS]:
+        # Sampling rate should be equal to gigaam.preprocess.SAMPLE_RATE == 16_000.
+        assert isinstance(self.model.decoding, self.CTCGreedyDecoding)
+        
+        for waveform in waveforms:
+            if len(waveform) / self.SAMPLE_RATE > self.LONGFORM_THRESHOLD:
+                warnings.warn("too long audio, GigaAMASR.transcribe() would throw an error", RuntimeWarning)
+        
+        waveform_tensors = [
+            torch.tensor(w, dtype=self.model._dtype).to(self.model._device) # pyright: ignore[reportPrivateUsage]
+            for w in waveforms
+        ]
+        lengths = torch.tensor([len(w) for w in waveforms]).to(self.model._device) # pyright: ignore[reportPrivateUsage]
+        
+        waveform_tensors_padded = pad_sequence(
+            waveform_tensors,
+            batch_first=True,
+            padding_value=0,
+        )
+        
+        encoded, encoded_len = self.model.forward(waveform_tensors_padded, lengths)
+        
+        log_probs = cast(torch.Tensor, self.model.head(encoder_output=encoded))
+        # exp(log_probs) sums to 1
+        
+        return [
+            _log_probs[:length].cpu().numpy() # type: ignore
+            for _log_probs, length in zip(log_probs, encoded_len)
+        ]
+
+
+class GigaAMEncodeError(ValueError):
+    '''
+    Cannot encode a letter because it is does not exist in the GigaAM vocabulary.
+    '''
+    pass
+
+
+def gigaam_encode(model: GigaAMASR, text: str) -> list[int]:
+    '''
+    Encodes the text into GigaAM tokens.
+    '''
+    assert model.decoding.tokenizer.charwise
+    tokens: list[int] = []
+    for char in text:
+        if not char in model.decoding.tokenizer.vocab:
+            raise GigaAMEncodeError(f'Cannot encode char "{char}": does not exist in vocab')
+        tokens.append(model.decoding.tokenizer.vocab.index(char))
+    return tokens
+
+
+def gigaam_decode(model: GigaAMASR, tokens: list[int] | INTS) -> str:
+    '''
+    Decodes a text from the GigaAM tokens.
+    '''
+    if isinstance(tokens, np.ndarray):
+        assert tokens.ndim == 1, 'pass a single sample, not a batch'
+        tokens = tokens.tolist()
+    return ''.join([
+        model.decoding.tokenizer.decode([x])
+        if x != model.decoding.blank_id
+        else '_'
+        for x in tokens
+    ])
