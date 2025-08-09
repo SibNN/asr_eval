@@ -159,7 +159,7 @@ def parse_single_variant_string(
         ru_tweaks=ru_tweaks,
     )
     result = SingleVariantTranscription(text, tokens)
-    for i, t in enumerate(result.itertokens()):
+    for i, t in enumerate(result.list_all_tokens()):
         t.uid = str(i)
     return result
 
@@ -275,7 +275,7 @@ def parse_multivariant_string(
             tokens += new_tokens
     
     result = MultiVariantTranscription(text, tokens)
-    for i, t in enumerate(result.itertokens()):
+    for i, t in enumerate(result.list_all_tokens()):
         t.uid = str(i)
     return result
 
