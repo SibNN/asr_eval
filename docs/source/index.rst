@@ -19,4 +19,4 @@ of ASR models and datasets (with focus on Russian speech).
    framework
    reproducing
    reference
-   tree
+   acknowledgements
