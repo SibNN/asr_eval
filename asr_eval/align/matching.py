@@ -65,12 +65,12 @@ def match_from_pair(true: Token | None, pred: Token | None) -> Match:
     is_anything = T and isinstance(true.value, Anything)
     if is_anything or (T and P and true.value == pred.value):
         status = 'correct'
+    elif T and P:
+        status = 'replacement'
     elif T:
         status = 'deletion'
-    elif P:
-        status = 'insertion'
     else:
-        status = 'replacement'
+        status = 'insertion'
     
     return Match(
         true=true,
