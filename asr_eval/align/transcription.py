@@ -100,15 +100,17 @@ class MultiVariantBlock:
         end_times = [option[-1].end_time for option in self.options if len(option)]
         assert len(end_times), 'All options are empty in a MultiVariant block, should not happen'
         return np.max(end_times)
+    
+    def get_option_text(self, option_index: int) -> str:
+        return ' '.join(
+            ('<*>' if isinstance(t.value, Anything) else t.value)
+            for t in self.options[option_index]
+        )
 
     def to_text(self) -> str:
-        options_str: list[str] = []
-        for option in self.options:
-            options_str.append(' '.join(
-                ('<*>' if isinstance(t.value, Anything) else t.value)
-                for t in option
-            ))
-        return '{' + '|'.join(options_str) + '}'
+        return '{' + '|'.join([
+            self.get_option_text(i) for i in range(len(self.options))
+        ]) + '}'
     
     
 T = TypeVar('T', list[Token], list[Token | MultiVariantBlock])
@@ -256,6 +258,47 @@ class BaseTranscription(Generic[T]):
 
         return apply_ansi_formatting(self.text, formatting_spans)
     
+    def to_single_variant(
+        self, multivariant_indices: list[int] | None = None
+    ) -> SingleVariantTranscription:
+        '''
+        For each multivariant block, selects an option with the given index. Length of the
+        passed list should be equal to the multivariant blocks count.
+        
+        If `multivariant_indices=None`, assume there is no multivariant blocks in the transcription
+        (same as `multivariant_indices=[]`).
+        '''
+        multivariant_indices = (multivariant_indices or []).copy()
+        
+        mv_blocks_count = len([b for b in self.tokens if isinstance(b, MultiVariantBlock)])
+        assert len(multivariant_indices) == mv_blocks_count, (
+            f'The transcription has {mv_blocks_count} multivariant blocks'
+            f', but {len(multivariant_indices)} indices are provided'
+        )
+        
+        tokens: list[Token] = []
+        text_replacements: list[tuple[int, int, str]] = []
+        for block in self.tokens:
+            match block:
+                case Token():
+                    tokens.append(block)
+                case MultiVariantBlock():
+                    option_index = multivariant_indices.pop(0)
+                    assert option_index < len(block.options), (
+                        f'Option index {option_index} is provided'
+                        f', but the block has only {len(block.options)} options'
+                    )
+                    option = block.options[option_index]
+                    option_text = block.get_option_text(option_index)
+                    tokens += option
+                    text_replacements.append((*block.pos, option_text))
+        
+        text = self.text
+        for start, end, replacement in text_replacements[::-1]:
+            text = text[:start] + replacement + text[end:]
+        
+        return SingleVariantTranscription(text, tokens)
+    
     @dataclass
     class FlatView:
         positions: list[str]
@@ -275,7 +318,7 @@ class BaseTranscription(Generic[T]):
 @dataclass
 class MultiVariantTranscription(BaseTranscription[list[Token | MultiVariantBlock]]):
     pass
-
+                    
 
 @dataclass
 class SingleVariantTranscription(BaseTranscription[list[Token]]):
