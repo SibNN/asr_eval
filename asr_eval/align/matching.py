@@ -347,11 +347,8 @@ def solve_optimal_alignment(
         pos = _TranscriptionPosition(0)
         selected_options: list[int] = []
         
-        print(f'{result.matches=}')
-        
         for match in result.matches:
             if match.true is not None:
-                print(f'{match.true.uid=}, {pos=}')
                 while True:
                     pos, selected_option_idx, selected_empty_option = (
                         pos.step_forward(true, match.true.uid)
@@ -460,7 +457,6 @@ class _TranscriptionPosition:
                 else:
                     # did not find an option
                     # check that we have an empty option
-                    print(f'Cannot find uid', next_token_uid, 'in options', block.options)
                     assert empty_option_idx is not None
                     # step over the empty option
                     return _TranscriptionPosition(self.before_index + 1, None, None), empty_option_idx, True
