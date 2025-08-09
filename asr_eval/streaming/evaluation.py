@@ -22,7 +22,7 @@ from .sender import BaseStreamingAudioSender, Cutoff, StreamingAudioSender
 from .caller import receive_full_transcription
 from ..align.transcription import MultiVariantTranscription, SingleVariantTranscription
 from ..align.parsing import parse_single_variant_string
-from ..align.matching import align, Match, MatchesList
+from ..align.matching import solve_optimal_alignment, Match, MatchesList
 from ..bench.recording import Recording
 from ..utils.misc import new_uid
 
@@ -341,12 +341,20 @@ def get_partial_alignments(
     if processes > 1:
         pool = mp.Pool(processes=processes)
         alignments = pool.map(
-            lambda pa: align(true_word_timings.get_starting_part(pa.audio_seconds_processed).tokens, pa.pred.tokens),
+            lambda pa: solve_optimal_alignment(
+                true_word_timings.get_starting_part(pa.audio_seconds_processed).tokens,
+                pa.pred.tokens,
+                determine_selected_multivariant_indices=False,
+            )[0],
             partial_alignments
         )
     else:
         alignments = [
-            align(true_word_timings.get_starting_part(pa.audio_seconds_processed).tokens, pa.pred.tokens)
+            solve_optimal_alignment(
+                true_word_timings.get_starting_part(pa.audio_seconds_processed).tokens,
+                pa.pred.tokens,
+                determine_selected_multivariant_indices=False,
+            )[0]
             for pa in partial_alignments
         ]
     

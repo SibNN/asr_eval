@@ -74,9 +74,10 @@ class MultiVariantBlock:
     """
     options: list[list[Token]]
     pos: tuple[int, int] = (0, 0)
+    uid: str = field(default_factory=lambda: str(uuid.uuid4()))
     
     def __repr__(self) -> str:
-        return f'MultiVariant({str(self.options)[1:-1]})'
+        return f'MultiVariantBlock({str(self.options)[1:-1]})'
 
     @property
     def is_timed(self) -> bool:
@@ -254,6 +255,21 @@ class BaseTranscription(Generic[T]):
                             mark_token(token)
 
         return apply_ansi_formatting(self.text, formatting_spans)
+    
+    @dataclass
+    class FlatView:
+        positions: list[str]
+        transitions: list[list[int]]
+        resolved_multivariant_blocks: dict[tuple[int, int], list[tuple[int, int]]]
+    
+    def flat_view(self) -> FlatView:
+        '''
+        TODO support a flat view and use it in the `solve_optimal_alignment`. A flat view is
+        - list of token uids
+        - for each flat position, list of allowed transitions
+        - dict from transition (idx1, idx2) to a list of resolved multivariant blocks and options
+        '''
+        raise NotImplementedError
 
 
 @dataclass

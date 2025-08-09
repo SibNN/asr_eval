@@ -6,15 +6,13 @@ from typing import Literal, cast
 
 import nltk
 
-from asr_eval.align.transcription import Anything, Token
-
 from .transcription import Anything, Token, MultiVariantBlock
 
 
 __all__ = [
     'match_from_pair',
     '_select_shortest_multi_variants',
-    'align',
+    'solve_optimal_alignment',
     'AlignmentScore',
     'Match',
     'MatchesList',
@@ -228,10 +226,11 @@ class MatchesList:
         return n_errors
 
 
-def align(
+def solve_optimal_alignment(
     true: list[Token | MultiVariantBlock] | list[Token],
     pred: list[Token],
-) -> MatchesList:
+    determine_selected_multivariant_indices: bool = True,
+) -> tuple[MatchesList, list[int]]:
     """
     Recursively solves an optimal alignment task.
     
@@ -240,20 +239,26 @@ def align(
     will select one with minimal character error count and maximum number of corret matches. This
     helps to improve alignments. This is especially important for streaming recognition, because to
     evaluate latency we need to obtain an alignment, not only WER or CER value.
+    
+    Returns selected multivariant indices as the second returned value.
+    
+    If determine_selected_multivariant_indices=False, returns [] as the second returned value.
+    This is useful for partial alignments where it is hard to determine which blocks were selected.
+    TODO this shoud be fixed after rewriting the alignment algorithm to use flat view.
     """
     assert all(isinstance(x, Token) for x in pred), 'prediction cannot be multivariant'
         
-    multivariant_prefixes: dict[tuple[tuple[int, int], int], list[Token]] = {}
+    multivariant_prefixes: dict[tuple[str, int], list[Token]] = {}
     for x in true:
         if isinstance(x, MultiVariantBlock):
             for i, option in enumerate(x.options):
-                multivariant_prefixes[x.pos, i] = option
+                multivariant_prefixes[x.uid, i] = option
     
     @cache
     def _align_recursive(
         true_pos: int,
         pred_pos: int,
-        multivariant_prefix_id: tuple[tuple[int, int], int] | None,
+        multivariant_prefix_id: tuple[str, int] | None,
         multivariant_prefix_pos: int,
     ) -> MatchesList:
         _true = true[true_pos:]
@@ -327,7 +332,7 @@ def align(
                 _align_recursive(
                     true_pos + 1,
                     pred_pos,
-                    (_true[0].pos, i) if len(_true[0].options[i]) else None,
+                    (_true[0].uid, i) if len(_true[0].options[i]) else None,
                     0,
                 )
                 for i in range(len(_true[0].options))
@@ -336,4 +341,126 @@ def align(
     
     result = _align_recursive(0, 0, None, 0)
     # print(_align_recursive.cache_info()) # type: ignore
-    return result
+    
+    # determine which multivariant blocks were selected
+    if determine_selected_multivariant_indices:
+        pos = _TranscriptionPosition(0)
+        selected_options: list[int] = []
+        
+        print(f'{result.matches=}')
+        
+        for match in result.matches:
+            if match.true is not None:
+                print(f'{match.true.uid=}, {pos=}')
+                while True:
+                    pos, selected_option_idx, selected_empty_option = (
+                        pos.step_forward(true, match.true.uid)
+                    )
+                    if selected_option_idx is not None:
+                        selected_options.append(selected_option_idx)
+                    if not selected_empty_option:
+                        break
+        
+        assert pos.in_multivariant_option is None
+        
+        while True:
+            # step over the trailing empty multivariant blocks
+            try:
+                pos, selected_option_idx, selected_empty_option = pos.step_forward(true, '')
+                assert selected_empty_option
+                assert selected_option_idx is not None
+                selected_options.append(selected_option_idx)
+            except StopIteration:
+                break
+    else:
+        selected_options = []
+    
+    return result, selected_options
+
+
+@dataclass(slots=True)
+class _TranscriptionPosition:
+    '''
+    A position between two tokens in a multivariant or single-variant transcription.
+    `before_option_index` should be filled only if `in_multivariant_option=True`
+    
+    `in_multivariant_option` should be True only if we are **between** two tokens in a
+    multivariant option. `before_option_index` should be filled accordingly, and.
+    `current_pos` should point to the current multivariant block index. Otherwise,
+    `before_option_index` should be None.
+    
+    This class allows to traverse a multivariant transcription.
+    
+    TODO use a flat view instead, here and in the `solve_optimal_alignment`
+    '''
+    before_index: int
+    in_multivariant_option: int | None = None
+    before_option_index: int | None = None
+
+    def step_forward(
+        self,
+        tokens: list[Token | MultiVariantBlock] | list[Token],
+        next_token_uid: str
+    ) -> tuple[_TranscriptionPosition, int | None, bool]:
+        '''
+        Given a _TranscriptionPosition between two tokens, and the expected next token,
+        does a step forward.
+        
+        If we enter a multivariant block, selects which option to choose and returns the index
+        of this option as the second returned value.
+        
+        Otherwise just asserts that `next_token_uid` is the same as expected and returns None
+        as the second returned value.
+        
+        The third returned value indicates that we did a step over an empty option and did not
+        consume a token.
+        
+        If pos is after the last token in the `tokens`, raises StopIteration
+        '''
+        if self.in_multivariant_option is not None:
+            # between two tokens in a multivariant option
+            assert self.before_option_index is not None
+            block = tokens[self.before_index]
+            assert isinstance(block, MultiVariantBlock)
+            option = block.options[self.in_multivariant_option]
+            next_token = option[self.before_option_index]
+            assert next_token.uid == next_token_uid
+            if self.before_option_index == len(option) - 1:
+                # we step over the last token in the current option
+                # reset in_multivariant_option to None
+                return _TranscriptionPosition(self.before_index + 1, None, None), None, False
+            else:
+                return _TranscriptionPosition(
+                    self.before_index, self.in_multivariant_option, self.before_option_index + 1
+                ), None, False
+        else:
+            # not inside a multivariant block (possibly before or after it)
+            assert self.before_option_index is None
+            if self.before_index >= len(tokens):
+                raise StopIteration
+            block = tokens[self.before_index]
+            if isinstance(block, Token):
+                # step over a token
+                assert block.uid == next_token_uid
+                return _TranscriptionPosition(self.before_index + 1, None, None), None, False
+            else:
+                # enter or step over a multivariant block
+                empty_option_idx: int | None = None
+                for option_idx, option in enumerate(block.options):
+                    if len(option) == 0:
+                        empty_option_idx = option_idx
+                    elif len(option) and option[0].uid == next_token_uid:
+                        # enter the current option
+                        if len(option) == 1:
+                            # step over the block
+                            return _TranscriptionPosition(self.before_index + 1, None, None), option_idx, False
+                        else:
+                            # step inside the block
+                            return _TranscriptionPosition(self.before_index, option_idx, 1), option_idx, False
+                else:
+                    # did not find an option
+                    # check that we have an empty option
+                    print(f'Cannot find uid', next_token_uid, 'in options', block.options)
+                    assert empty_option_idx is not None
+                    # step over the empty option
+                    return _TranscriptionPosition(self.before_index + 1, None, None), empty_option_idx, True

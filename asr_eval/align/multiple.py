@@ -1,7 +1,7 @@
 import pandas as pd
 
 from .transcription import Token
-from .matching import MatchesList, align
+from .matching import MatchesList, solve_optimal_alignment
 
 
 __all__ = [
@@ -73,7 +73,7 @@ def multiple_transcriptions_alignment(
     rows: dict[str, list[Token | list[Token] | None]] = {}
     errors: dict[str, list[bool]] = {}
     for title, alignment in (
-        [('truth', align(truth, truth))] # type: ignore
+        [('truth', solve_optimal_alignment(truth, truth)[0])] # type: ignore
         + list(predictions.items())
     ):
         row, error_positions = _align_into_table(truth, alignment)

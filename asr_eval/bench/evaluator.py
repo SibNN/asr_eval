@@ -11,7 +11,7 @@ from datasets import Dataset
 
 from .datasets import AudioSample, get_dataset
 from ..align.parsing import parse_single_variant_string, parse_multivariant_string
-from ..align.matching import MatchesList, align
+from ..align.matching import MatchesList, solve_optimal_alignment
 from ..align.transcription import MultiVariantTranscription, SingleVariantTranscription
 from ..utils.serializing import load_from_json
 from ..segments.segment import TimedText
@@ -108,7 +108,9 @@ def _sample_prediction_from_file(
             transcription = data['output']
         
         transcription = parse_single_variant_string(transcription)
-        alignment = align(ground_truth.tokens, transcription.tokens)
+        alignment, _selected_multivariant_blocks = solve_optimal_alignment(
+            ground_truth.tokens, transcription.tokens
+        )
         
         obj: _SamplePrediction = {
             'pipeline_name': path.parts[-4],

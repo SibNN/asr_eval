@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from .matching import align
+from .matching import solve_optimal_alignment
 from .parsing import parse_multivariant_string, parse_single_variant_string
 from .transcription import MultiVariantTranscription, SingleVariantTranscription
 
@@ -24,5 +24,7 @@ class Alignment:
             truth = parse_multivariant_string(truth)
         if isinstance(pred, str):
             pred = parse_single_variant_string(pred)
-        matches = align(truth.tokens, pred.tokens)
+        
+        matches, selected_multivariant_blocks = solve_optimal_alignment(truth.tokens, pred.tokens)
+        
         ... # TODO
