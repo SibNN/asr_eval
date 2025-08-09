@@ -16,11 +16,6 @@ release = '0.0.1'
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-import sys
-from pathlib import Path
-
-sys.path.append(str(Path.cwd().parent.parent))
-import asr_eval.align
 
 extensions = ['sphinx.ext.autodoc']
 

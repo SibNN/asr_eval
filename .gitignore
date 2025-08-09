@@ -1,5 +1,6 @@
 /tmp
 /outputs
+/docs/source/reference.rst
 
 # template from https://github.com/github/gitignore/blob/main/Python.gitignore
 
