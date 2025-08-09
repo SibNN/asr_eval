@@ -15,6 +15,7 @@ from asr_eval.streaming.model import TranscriptionChunk
 from asr_eval.utils.types import FLOATS
 
 
+@pytest.mark.skip(reason='todo decide how to test optional dependencies')
 @pytest.mark.filterwarnings('ignore::DeprecationWarning:')
 def test_streaming_to_offline():
     waveform: FLOATS = librosa.load('tests/testdata/vosk.wav', sr=16_000)[0] # type: ignore
@@ -25,6 +26,7 @@ def test_streaming_to_offline():
     model.streaming_model.stop_thread()
     
 
+@pytest.mark.skip(reason='todo decide how to test optional dependencies')
 def test_offline_to_streaming():
     waveform: FLOATS = librosa.load('tests/testdata/formula1.mp3', sr=16_000)[0] # type: ignore
     transcription = parse_multivariant_string(Path('tests/testdata/formula1.txt').read_text())
