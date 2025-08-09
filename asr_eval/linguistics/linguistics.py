@@ -1,12 +1,14 @@
-from typing import Literal
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Literal
 from itertools import pairwise
 import re
-
-import wordfreq
-from pymorphy3 import MorphAnalyzer
-from pymorphy3.analyzer import Parse
-from pymystem3 import Mystem  # pip install pymystem3
+    
 import nltk
+
+if TYPE_CHECKING:
+    from pymorphy3 import MorphAnalyzer
+    from pymystem3 import Mystem
 
 
 __all__ = [
@@ -39,6 +41,8 @@ def word_freq(word: str, lang: str = 'ru') -> float:
     See list of available languages in
     `wordfreq.available_languages(wordlist='large')`.
     '''
+    import wordfreq
+    
     return wordfreq.zipf_frequency(word.lower(), lang, wordlist='large')
 
 
@@ -56,6 +60,8 @@ def lemmatize_ru(word: str) -> str:
     
     Raises ValueError if Mystem founds zero or more than one word in the 'word' argument.
     '''
+    from pymystem3 import Mystem
+
     global _mystem
     if _mystem is None:
         _mystem = Mystem()
@@ -83,6 +89,9 @@ def try_inflect_ru(word: str, original_word: str) -> tuple[str, Literal['ok', 'o
     Author: Yana Fitkovskaya
     Updated by: Oleg Sedukhin
     '''
+    from pymorphy3 import MorphAnalyzer
+    from pymorphy3.analyzer import Parse
+
     global _morph
     if _morph is None:
         _morph = MorphAnalyzer(path=None)

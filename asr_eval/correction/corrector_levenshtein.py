@@ -1,9 +1,11 @@
 from dataclasses import dataclass, field
 import re
-from typing import cast, override
+from typing import TYPE_CHECKING, cast, override
 
-import Levenshtein
 import numpy as np
+
+if TYPE_CHECKING:
+    import Levenshtein
 
 from ..utils.types import FLOATS
 from .interfaces import TranscriptionCorrector
@@ -50,6 +52,11 @@ class CorrectorLevenshtein(TranscriptionCorrector):
     freq_threshold: float = 1
     distance_thresholds: list[float] = field(default_factory=lambda: [0, 0, 0, 1, 1, 1, 2, 2, 2, 3])
     
+    def __post_init__(self):
+        import Levenshtein
+        
+        self.Levenshtein = Levenshtein
+    
     @override
     def correct(self, transcription: str, waveform: FLOATS | None = None) -> str:
         corrections = self.get_word_corrections(transcription)
@@ -75,7 +82,7 @@ class CorrectorLevenshtein(TranscriptionCorrector):
                 continue
             
             distances = [
-                Levenshtein.distance(lemmatized, _preprocess_text(word))
+                self.Levenshtein.distance(lemmatized, _preprocess_text(word))
                 for word in self.domain_specific_bag_of_words
             ]
             min_distance = min(distances)

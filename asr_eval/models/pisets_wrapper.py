@@ -1,5 +1,4 @@
 from typing import Any, override
-from pisets import Pisets
 
 from asr_eval.segments.segment import TimedText
 
@@ -17,6 +16,8 @@ class PisetsWrapper(TimedTranscriber):
     A Pisets wrapper (a `pisets` package, currently unreleased).
     '''
     def __init__(self, **kwargs: Any):
+        from pisets import Pisets
+        
         self.kwargs = kwargs
         self.pisets = Pisets(**self.kwargs)
     

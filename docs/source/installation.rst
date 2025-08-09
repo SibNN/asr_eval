@@ -137,7 +137,7 @@ Voxtral
     
     python3.12 -m venv tmp/venv_voxtral
     tmp/venv_voxtral/bin/python -m pip install -e .
-    tmp/venv_voxtral/bin/python -m pip install vllm[audio] openai mistral_common
+    tmp/venv_voxtral/bin/python -m pip install vllm[audio]
     tmp/venv_voxtral/bin/python -m asr_eval.bench.check voxtral-3B
 
 Yandex-speechkit

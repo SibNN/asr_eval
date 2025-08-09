@@ -4,11 +4,7 @@ from collections import Counter
 import sys
 from typing import cast, override
 
-import wikipediaapi
-import requests_cache
 from transformers import pipeline # type: ignore
-from sentence_transformers import SentenceTransformer
-from rapidfuzz import fuzz
 from sklearn.metrics.pairwise import cosine_similarity as _cosine_similarity # type: ignore
 import nltk
 from nltk.tokenize import word_tokenize # type: ignore
@@ -86,20 +82,26 @@ class WikipediaTermRetriever(TranscriptionCorrector):
         score_threshold: float = 0.7,
         verbose: bool = False,
     ):
+        import wikipediaapi
+        from sentence_transformers import SentenceTransformer
+        from rapidfuzz import fuzz
+        self.wikipediaapi = wikipediaapi
+        self.fuzz = fuzz
+        
         _download_nltk_resources()
         
-        self.wiki = wikipediaapi.Wikipedia("MyRAGASR", lang)
+        self.wiki = self.wikipediaapi.Wikipedia("MyRAGASR", lang)
         
-        self.wiki._session = requests_cache.CachedSession( # pyright: ignore[reportPrivateUsage]
-            # not working
-            'tmp/wikipedia_cache', backend='sqlite',
-        )
+        # self.wiki._session = requests_cache.CachedSession( # pyright: ignore[reportPrivateUsage]
+        #     # not working
+        #     'tmp/wikipedia_cache', backend='sqlite',
+        # )
         if verbose:  
-            wikipediaapi.log.setLevel(level=wikipediaapi.logging.DEBUG)
-            out_hdlr = wikipediaapi.logging.StreamHandler(sys.stderr)
-            out_hdlr.setFormatter(wikipediaapi.logging.Formatter('%(asctime)s %(message)s'))
-            out_hdlr.setLevel(wikipediaapi.logging.DEBUG)
-            wikipediaapi.log.addHandler(out_hdlr)
+            self.wikipediaapi.log.setLevel(level=self.wikipediaapi.logging.DEBUG)
+            out_hdlr = self.wikipediaapi.logging.StreamHandler(sys.stderr)
+            out_hdlr.setFormatter(self.wikipediaapi.logging.Formatter('%(asctime)s %(message)s'))
+            out_hdlr.setLevel(self.wikipediaapi.logging.DEBUG)
+            self.wikipediaapi.log.addHandler(out_hdlr)
         
         self.classifier = pipeline(
             "zero-shot-classification",
@@ -162,13 +164,13 @@ class WikipediaTermRetriever(TranscriptionCorrector):
             print(page.title)
             if len(articles) > min(5000, max_articles):
                 break
-            if page.ns == wikipediaapi.Namespace.MAIN:
+            if page.ns == self.wikipediaapi.Namespace.MAIN:
                 articles.append(WikiArticle(
                     title=page.title,
                     text=page.text[:10000],  # Ограничиваем размер
                     url=str(page.fullurl),
                 ))
-            elif page.ns == wikipediaapi.Namespace.CATEGORY:
+            elif page.ns == self.wikipediaapi.Namespace.CATEGORY:
                 sub_articles = self.get_category_articles(page.title.split(":")[1])
                 articles.extend(sub_articles[:max_articles - len(articles)])
         
@@ -238,7 +240,7 @@ class WikipediaTermRetriever(TranscriptionCorrector):
                 for index_term in all_index_terms:
                     # Используем комбинацию семантического и строкового сходства
                     semantic_sim = _vectors_cosine_similarity(term_emb, term_index[index_term])
-                    fuzzy_sim = fuzz.ratio(term, index_term) / 100
+                    fuzzy_sim = self.fuzz.ratio(term, index_term) / 100
                     combined_score = 0.6 * semantic_sim + 0.4 * fuzzy_sim
                     
                     if combined_score > similarity_threshold:

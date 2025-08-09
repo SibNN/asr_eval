@@ -4,7 +4,7 @@ from typing import Literal, cast
 import dash
 from dash import dcc, html, Input, Output
 from dash.development.base_component import Component
-from requests_cache import Path
+from pathlib import Path
 
 from ..align.matching import MatchesList
 

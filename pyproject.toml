@@ -28,6 +28,9 @@ dependencies = [
     "transformers",
     "pydantic_extra_types",
     "numba>=0.61.0",  # uv tries to install old numba version (for librosa) which causes error
+    "pycountry", # required by pydantic_extra_types.language_code.LanguageAlpha2
+    "openai",
+    "mistral_common",
 ]
 
 [project.optional-dependencies]

@@ -1,11 +1,8 @@
 import io
 from typing import Literal
-import grpc
 
 import librosa
 import numpy as np
-import yandex.cloud.ai.tts.v3.tts_pb2 as tts_pb2
-import yandex.cloud.ai.tts.v3.tts_service_pb2_grpc as tts_service_pb2_grpc
 
 from asr_eval.linguistics.linguistics import split_text_into_sentences
 from asr_eval.utils.audio_ops import merge_synthetic_speech
@@ -92,6 +89,10 @@ def _yandex_text_to_speech(
     role: str,
     speed: float = 1,
 ) -> FLOATS:
+    import grpc
+    import yandex.cloud.ai.tts.v3.tts_pb2 as tts_pb2
+    import yandex.cloud.ai.tts.v3.tts_service_pb2_grpc as tts_service_pb2_grpc
+
     request = tts_pb2.UtteranceSynthesisRequest(
         text=text, # type: ignore
         output_audio_spec=tts_pb2.AudioFormatOptions( # type: ignore
