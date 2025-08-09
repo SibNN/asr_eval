@@ -47,7 +47,7 @@ class Alignment:
     @classmethod
     def from_predictions(
         cls,
-        true: MultiVariantTranscription,
+        true: MultiVariantTranscription | SingleVariantTranscription,
         pred: SingleVariantTranscription,
     ) -> Self:
         matches_list, multivariant_choices = solve_optimal_alignment(true.tokens, pred.tokens)
