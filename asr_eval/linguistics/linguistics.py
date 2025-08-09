@@ -86,7 +86,7 @@ def try_inflect_ru(word: str, original_word: str) -> tuple[str, Literal['ok', 'o
     try_inflect_ru('мемас', 'мэмасы') == ('мемасы', 'ok')
     try_inflect_ru('антиген', 'онтегенам') == ('антигенам', 'ok')
     
-    Author: Yana Fitkovskaya
+    Author: Yana Fitkovskaja
     Updated by: Oleg Sedukhin
     '''
     from pymorphy3 import MorphAnalyzer
