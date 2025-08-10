@@ -17,7 +17,7 @@ def new_uid() -> str:
     '''
     A unique ids generator
     '''
-    return str(uuid.uuid4())
+    return str(uuid.uuid4())[:8]
 
 
 T = TypeVar('T')

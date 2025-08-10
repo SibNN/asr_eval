@@ -3,9 +3,10 @@ from __future__ import annotations
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any, Generic, Literal, TypeVar, cast
-import uuid
 
 import numpy as np
+
+from asr_eval.utils.misc import new_uid
 
 from ..utils.formatting import Formatting, FormattingSpan, apply_ansi_formatting
 
@@ -44,7 +45,7 @@ class Token:
     - `type` is either "word", or "punct" (see `split_text_into_tokens`), or any user-defined types
     """
     value: str | Anything
-    uid: TOKEN_UID = field(default_factory=lambda: str(uuid.uuid4()))
+    uid: TOKEN_UID = field(default_factory=new_uid)
     start_pos: int = 0
     end_pos: int = 0
     start_time: float = np.nan
@@ -76,7 +77,7 @@ class MultiVariantBlock:
     """
     options: list[list[Token]]
     pos: tuple[int, int] = (0, 0)
-    uid: str = field(default_factory=lambda: str(uuid.uuid4()))
+    uid: str = field(default_factory=new_uid)
     
     def __repr__(self) -> str:
         return f'MultiVariantBlock({str(self.options)[1:-1]})'
