@@ -2,10 +2,11 @@ import pytest
 import librosa
 
 from asr_eval.streaming.caller import receive_full_transcription
-from asr_eval.streaming.model import TranscriptionChunk, prepare_audio_format
+from asr_eval.streaming.model import TranscriptionChunk
 from asr_eval.models.speechbrain_wrapper import SpeechbrainStreaming
 from asr_eval.streaming.sender import StreamingAudioSender
 from asr_eval.utils.types import FLOATS
+from asr_eval.utils.audio_ops import resample
 
 
 @pytest.mark.skip(reason='todo decide how to test optional dependencies')
@@ -16,8 +17,18 @@ def test_speechbrain_streaming():
     asr = SpeechbrainStreaming()
     asr.start_thread()
     
-    array, array_len_per_sec = prepare_audio_format(waveform, asr)
-    sender = StreamingAudioSender(id=0, audio=array, speed_multiplier=5, array_len_per_sec=array_len_per_sec)
+    array = resample(
+        waveform,
+        from_sampling_rate=16_000,
+        to_sampling_rate=asr.sampling_rate
+    )
+    sender = StreamingAudioSender(
+        id=0,
+        audio=array,
+        speed_multiplier=5,
+        sampling_rate=asr.sampling_rate,
+        output_type=asr.audio_type,
+    )
     sender.send_all_without_delays(send_to=asr.input_buffer)
     
     chunks = receive_full_transcription(asr=asr, id=sender.id)

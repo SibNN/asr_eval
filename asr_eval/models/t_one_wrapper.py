@@ -59,7 +59,7 @@ class TOneStreaming(StreamingASR):
                 
     @property
     @override
-    def audio_type(self) -> Literal['float', 'int', 'bytes']:
+    def audio_type(self) -> Literal['int']:
         return 'int'
 
 
