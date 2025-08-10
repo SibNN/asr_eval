@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from collections import defaultdict
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Any, Generic, Literal, TypeVar, cast
 import uuid
 
@@ -119,17 +117,6 @@ class MultiVariantBlock:
     
 T = TypeVar('T', list[Token], list[Token | MultiVariantBlock])
 
-
-class FlatLoc(Enum):
-    Start = 0
-    End = 1
-
-@dataclass
-class FlatView:
-    positions: list[str | Literal[FlatLoc.Start, FlatLoc.End]]
-    transitions: list[list[int]]
-    resolved_multivariant_blocks: dict[tuple[int, int], list[tuple[str, int]]]
-    
 
 @dataclass
 class BaseTranscription(Generic[T]):
@@ -279,75 +266,6 @@ class BaseTranscription(Generic[T]):
             tokens=cast(list[Token | MultiVariantBlock], self.tokens),
             multivariant_choices=multivariant_choices,
         )
-    
-    def flat_view(self) -> FlatView:
-        '''
-        A flat view, TODO use it in the `solve_optimal_alignment`. A flat view is
-        - positions: [FlatLoc.Start] + list of token uids + [FlatLoc.End]
-        - for each flat position except the last FlatLoc.End, list of allowed transitions
-        - dict from transition (idx1, idx2) to a list of resolved multivariant blocks and options
-        '''
-        view = FlatView(
-            positions=[FlatLoc.Start, FlatLoc.End],
-            transitions=[[1]],
-            resolved_multivariant_blocks=defaultdict(list),
-        )
-        
-        # incrementally grow a flat view, initially empty
-        for _block_idx, block in enumerate(self.tokens):
-            prev_end_pos = len(view.positions) - 1
-            match block:
-                case Token():
-                    view.positions = view.positions[:-1] + [block.uid, FlatLoc.End]
-                    view.transitions.append([prev_end_pos + 1])
-                case MultiVariantBlock():
-                    empty_options_indices = [i for i, option in enumerate(block.options) if len(option) == 0]
-                    has_empty_option = len(empty_options_indices) > 0
-                    non_empty_options = [option for option in block.options if len(option)]
-                    view.positions = view.positions[:-1]  # cut FlatLoc.End
-                    paths_from_prefix = [i for i, to in enumerate(view.transitions) if prev_end_pos in to]
-                    options_end_positions: list[int] = []
-                    for option_idx, option in enumerate(non_empty_options):
-                        first_token_pos = len(view.positions)
-                        # add paths from prefix to the current option
-                        for i in paths_from_prefix:
-                            if option_idx > 0:
-                                view.transitions[i].append(first_token_pos)
-                            else:
-                                # these paths were already added for the first option
-                                assert first_token_pos in view.transitions[i]
-                            view.resolved_multivariant_blocks[(i, first_token_pos)].append(
-                                (block.uid, option_idx)
-                            )
-                        # add option tokens and transitions between them
-                        i = 0
-                        for i, token in enumerate(option):
-                            view.positions.append(token.uid)
-                            view.transitions.append([])
-                            if i > 0:
-                                view.transitions[-2].append(first_token_pos + i)
-                        # save option end position
-                        options_end_positions.append(first_token_pos + i)
-                    # append FlatLoc.End
-                    view.positions.append(FlatLoc.End)
-                    assert len(view.positions) == len(view.transitions) + 1
-                    new_end_pos = len(view.positions) - 1
-                    # add paths from option endings to FlatLoc.End
-                    for option_end_pos in options_end_positions:
-                        view.transitions[option_end_pos].append(new_end_pos)
-                    if has_empty_option:
-                        # add paths from prefix to FlatLoc.End
-                        for i in paths_from_prefix:
-                            view.transitions[i].append(new_end_pos)
-                            view.resolved_multivariant_blocks[(i, new_end_pos)].append(
-                                (block.uid, empty_options_indices[0])
-                            )
-            # if _block_idx == 2:  # debug
-            #     break
-            for lst in view.transitions:
-                assert len(lst)
-        
-        return view
 
 
 @dataclass
@@ -367,8 +285,11 @@ class SingleVariantTranscription(BaseTranscription[list[Token]]):
 
 
 MOD = Literal['at', 'pre']
+
 OUTER_LOC = tuple[MOD, int]
+
 INNER_LOC = tuple[MOD, int, MOD, int]
+
 SLOT_LOC = INNER_LOC | OUTER_LOC
 
 
