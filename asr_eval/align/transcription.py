@@ -332,7 +332,7 @@ class BaseTranscription(Generic[T]):
                     view.positions.append(FlatLoc.End)
                     assert len(view.positions) == len(view.transitions) + 1
                     new_end_pos = len(view.positions) - 1
-                    # add paths from option ends to FlatLoc.End
+                    # add paths from option endings to FlatLoc.End
                     for option_end_pos in options_end_positions:
                         view.transitions[option_end_pos].append(new_end_pos)
                     if has_empty_option:
