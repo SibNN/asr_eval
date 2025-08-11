@@ -58,7 +58,7 @@ from asr_eval.utils.misc import *
 from asr_eval.utils.plots import *
 from asr_eval.utils.serializing import *
 from asr_eval.utils.server import *
-from asr_eval.utils.srt import *
+from asr_eval.utils.srt_wrapper import *
 from asr_eval.utils.types import *
 
 
