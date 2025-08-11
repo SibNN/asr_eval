@@ -31,6 +31,7 @@ dependencies = [
     "pycountry", # required by pydantic_extra_types.language_code.LanguageAlpha2
     "openai",
     "mistral_common",
+    "pandas",
 ]
 
 [project.optional-dependencies]
