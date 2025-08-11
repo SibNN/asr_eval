@@ -261,8 +261,8 @@ class BaseTranscription(Generic[T]):
 
         return apply_ansi_formatting(self.text, formatting_spans)
     
-    def select_single_path(self, multivariant_choices: list[int]) -> MultiVariantTranscriptionWithPath:
-        return MultiVariantTranscriptionWithPath(
+    def select_single_path(self, multivariant_choices: list[int]) -> MultiVariantTranscriptionPath:
+        return MultiVariantTranscriptionPath(
             text=self.text,
             tokens=cast(list[Token | MultiVariantBlock], self.tokens),
             multivariant_choices=multivariant_choices,
@@ -285,6 +285,9 @@ class SingleVariantTranscription(BaseTranscription[list[Token]]):
     pass
 
 
+Transcription = MultiVariantTranscription | SingleVariantTranscription
+
+
 MOD = Literal['at', 'pre']
 
 OUTER_LOC = tuple[MOD, int]
@@ -294,7 +297,7 @@ INNER_LOC = tuple[MOD, int, MOD, int]
 SLOT_LOC = INNER_LOC | OUTER_LOC
 
 
-class MultiVariantTranscriptionWithPath(MultiVariantTranscription):
+class MultiVariantTranscriptionPath(MultiVariantTranscription):
     '''
     A MultiVariantTranscription with a selected path, i. e. a selected option for each
     multivariant block.

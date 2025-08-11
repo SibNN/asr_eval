@@ -1,11 +1,11 @@
 from collections import defaultdict
-from dataclasses import dataclass
-from typing import Self
+from dataclasses import dataclass, field
+from typing import Literal, Self
 
 from .matching import Match, solve_optimal_alignment
 from .transcription import (
     MultiVariantTranscription,
-    MultiVariantTranscriptionWithPath,
+    MultiVariantTranscriptionPath,
     SingleVariantTranscription,
     Token,
     SLOT_LOC,
@@ -35,7 +35,7 @@ SLOT_VALUE = list[Correct | Replacement | Insertion | Deletion]
 
 @dataclass
 class Alignment:
-    true: MultiVariantTranscriptionWithPath
+    true: MultiVariantTranscriptionPath
     slots: dict[SLOT_LOC, SLOT_VALUE]
     
     def groupby_outer(self) -> dict[OUTER_LOC, SLOT_VALUE]:
@@ -57,7 +57,7 @@ class Alignment:
     @classmethod
     def from_matches(
         cls,
-        true: MultiVariantTranscriptionWithPath,
+        true: MultiVariantTranscriptionPath,
         matches: list[Match],
     ) -> Self:
         slots: dict[SLOT_LOC, SLOT_VALUE] = defaultdict(list)
@@ -89,3 +89,13 @@ class Alignment:
                 slots[slot_loc].append(Insertion(match.pred))
             
         return cls(true=true, slots=dict(slots))  # defaultdict -> dict, to be serializable
+
+
+@dataclass
+class MultipleAlignment:
+    baseline: MultiVariantTranscription | SingleVariantTranscription
+    baseline_name: str | Literal[True] = True
+    alignments: dict[str, Alignment] = field(default_factory=dict)
+    
+    def add_alignment_from_prediction(self, name: str, pred: SingleVariantTranscription):
+        self.alignments[name] = Alignment.from_predictions(self.baseline, pred)

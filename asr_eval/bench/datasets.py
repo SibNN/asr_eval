@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Callable, TypedDict
 from datasets import Audio, load_dataset, load_from_disk, Dataset, concatenate_datasets # type: ignore
 
@@ -23,28 +24,38 @@ class AudioSample(TypedDict):
     '''A typization for audio-text samples in HF datasets'''
     audio: AudioData
     transcription: str
+    
+
+@dataclass
+class DatasetInfo:
+    '''Info for a registered ASR dataset.'''
+    instantiate_fn: Callable[[], Dataset]
+    unlabeled: bool
 
 
-datasets_registry: dict[str, Callable[[], Dataset]] = {}
+datasets_registry: dict[str, DatasetInfo] = {}
 
 
 def get_dataset(name: str) -> Callable[[], Dataset]:
-    '''
-    Get a registered ASR dataset. See the examples in the current file.
-    '''
+    '''Get a registered ASR dataset. See the examples in the current file.'''
+    return get_dataset_info(name).instantiate_fn
+
+
+def get_dataset_info(name: str) -> DatasetInfo:
+    '''Get info for a registered ASR dataset.'''
     if name not in datasets_registry:
         raise ValueError(f'Dataset does not exist: {name}')
     return datasets_registry[name]
 
 
-def register_dataset(name: str):
+def register_dataset(name: str, unlabeled: bool = False):
     '''
     Register a new ASR dataset. See the examples in the current file.
     '''
     global datasets_registry
     def decorator(fn: Callable[[], Dataset]):
         assert name not in datasets_registry
-        datasets_registry[name] = fn
+        datasets_registry[name] = DatasetInfo(instantiate_fn=fn, unlabeled=unlabeled)
         return fn
     return decorator
 
