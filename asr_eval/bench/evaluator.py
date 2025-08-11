@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
-from typing import Self, TypedDict, cast
+from typing import Callable, Self, TypedDict, cast
 import pickle
 
 import pandas as pd
@@ -54,14 +55,16 @@ class Evaluator:
         for path in tqdm(files):
             pipeline_name, dataset_name, sample_idx, _ = path.relative_to(self.root_dir).parts
             sample_idx = int(sample_idx)
-            true = self.get_ground_truth(dataset_name, sample_idx)
-            result = _TranscriberPipelineResult.from_file(path, true=true)
+            result = _TranscriberPipelineResult.from_file(
+                path,
+                get_true=partial(self.get_ground_truth, dataset_name, sample_idx),
+            )
             df_rows.append({
                 'path': path,
                 'pipeline_name': pipeline_name,
                 'dataset_name': dataset_name,
                 'sample_idx': sample_idx,
-                'ground_truth': true,
+                'ground_truth': result.true,
                 'pred': result.pred,
                 'pred_timed': result.pred_timed,
                 'alignment': result.alignment,
@@ -77,7 +80,9 @@ class Evaluator:
     
     def _get_dataset(self, dataset_name: str) -> Dataset:
         if dataset_name not in self._datasets_cache:
+            print(f'Loading dataset {dataset_name}')
             self._datasets_cache[dataset_name] = get_dataset(dataset_name)()
+            print(f'Loaded dataset {dataset_name}')
         return self._datasets_cache[dataset_name]
     
     def get_ground_truth(
@@ -114,7 +119,10 @@ class _TranscriberPipelineResult:
     
     Will cache the results of {file}.json to a neighbour file {file}.pkl, or
     will load .pkl if it exists.
+    
+    ground truth is callable for lazy evaluation, since it is required only if .pkl was not found.
     '''
+    true: MultiVariantTranscription | SingleVariantTranscription
     pred: SingleVariantTranscription
     pred_timed: list[TimedText] | None
     alignment: Alignment
@@ -123,7 +131,7 @@ class _TranscriberPipelineResult:
     def from_file(
         cls,
         path: Path,
-        true: MultiVariantTranscription | SingleVariantTranscription,
+        get_true: Callable[[], MultiVariantTranscription | SingleVariantTranscription],
     ) -> Self:
         assert path.suffix == '.json'
         if (pkl_path := path.with_suffix('.pkl')).exists():
@@ -136,11 +144,14 @@ class _TranscriberPipelineResult:
             else:
                 timed_transcription = None
                 transcription = data['output']
+                
+            true = get_true()
             
             pred = parse_single_variant_string(transcription)
             alignment = Alignment.from_predictions(true=true, pred=pred)
             
             result = cls(
+                true=true,
                 pred=pred,
                 pred_timed=timed_transcription,
                 alignment=alignment,
