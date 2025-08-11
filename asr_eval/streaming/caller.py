@@ -8,7 +8,7 @@ from .sender import BaseStreamingAudioSender, StreamingAudioSender
 
 __all__ = [
     'receive_full_transcription',
-    'transсribe_parallel',
+    'transcribe parallel',
 ]
 
 
@@ -38,7 +38,7 @@ def receive_full_transcription(
             return results
 
 
-def transсribe_parallel(
+def transcribe parallel(
     asr: StreamingASR,
     senders: list[StreamingAudioSender],
     n_threads: int,
