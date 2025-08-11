@@ -66,6 +66,9 @@ class Token:
     @property
     def is_timed(self) -> bool:
         return not np.isnan(self.start_time) and not np.isnan(self.end_time)
+    
+    def to_text(self) -> str:
+        return '<*>' if isinstance(self.value, Anything) else self.value
 
 
 @dataclass(slots=True)
@@ -106,8 +109,7 @@ class MultiVariantBlock:
     
     def get_option_text(self, option_index: int) -> str:
         return ' '.join(
-            ('<*>' if isinstance(t.value, Anything) else t.value)
-            for t in self.options[option_index]
+            t.to_text() for t in self.options[option_index]
         )
 
     def to_text(self) -> str:
@@ -295,6 +297,28 @@ OUTER_LOC = tuple[MOD, int]
 INNER_LOC = tuple[MOD, int, MOD, int]
 
 SLOT_LOC = INNER_LOC | OUTER_LOC
+
+
+def get_outer_slots(
+    transcription: MultiVariantTranscription | SingleVariantTranscription
+) -> list[OUTER_LOC]:
+    result: list[OUTER_LOC] = []
+    for i in range(len(transcription.tokens)):
+        result.append(('pre', i))
+        result.append(('at', i))
+    result.append(('pre', len(transcription.tokens)))
+    return result
+
+
+def get_outer_slots_values(
+    transcription: MultiVariantTranscription | SingleVariantTranscription
+) -> list[str]:
+    result: list[str] = []
+    for i, token in enumerate(transcription.tokens):
+        result.append('')
+        result.append(token.to_text())
+    result.append('')
+    return result
 
 
 class MultiVariantTranscriptionPath(MultiVariantTranscription):
