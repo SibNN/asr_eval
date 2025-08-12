@@ -347,8 +347,11 @@ def solve_optimal_alignment(
         pos = _TranscriptionPosition(0)
         selected_options: list[int] = []
         
-        for match in result.matches:
+        for match_idx, match in enumerate(result.matches):
             if match.true is not None:
+                if match_idx > 0 and match.true is result.matches[match_idx - 1].true:
+                    # same true token for consecutive matches, happens with Token(Anything())
+                    continue
                 while True:
                     pos, selected_option_idx, selected_empty_option = (
                         pos.step_forward(true, match.true.uid)

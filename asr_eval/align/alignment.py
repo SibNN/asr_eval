@@ -80,18 +80,17 @@ class Alignment:
                         assert match.status == 'replacement'
                         slots[slot_loc].append(Replacement(match.pred))
                 else:
-                    # deletion
-                    slots[slot_loc].append(Deletion())
+                    if match.status != 'correct':  # may be correct for unmatched Anything()
+                        # deletion
+                        slots[slot_loc].append(Deletion())
             else:
                 # insertion
                 if last_true_slot_idx is None:
                     # before the first true token
                     slot_loc = true.slot_idx_to_loc(0)
                 else:
-                    print(f'{last_true_slot_idx=}')
                     slot_loc = true.slot_idx_to_loc(last_true_slot_idx + 1)
                 assert match.pred is not None
-                print(f'Inserting {match.pred} at {slot_loc}')
                 slots[slot_loc].append(Insertion(match.pred))
             
         return cls(true=true, slots=dict(slots))  # defaultdict -> dict, to be serializable
