@@ -54,6 +54,7 @@ class Evaluator:
         skip_loaded: bool = True,
         max_sample_idx: int | None = None,
         dataset_names: Container[str] | None = None,
+        pref_baseline: str | None = None,
     ) -> Self:
         # 1. update predictions
         paths: list[Path] = []
@@ -104,7 +105,11 @@ class Evaluator:
             if get_dataset_info(dataset_name).unlabeled:
                 # for unlabeled dataset, use one of the predictions as a baseline
                 if multiple_alignment is None:
-                    baseline_name = sorted(predictions)[0]
+                    baseline_name = (
+                        sorted(predictions)[0]
+                        if pref_baseline is None or pref_baseline not in predictions
+                        else pref_baseline
+                    )
                     self.multple_alignments[dataset_name, sample_idx] = multiple_alignment = (
                         MultipleAlignment(
                             baseline=predictions[baseline_name].pred,

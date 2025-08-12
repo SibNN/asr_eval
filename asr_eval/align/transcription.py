@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Generic, Literal, TypeVar, cast
 
@@ -300,21 +300,21 @@ SLOT_LOC = INNER_LOC | OUTER_LOC
 
 
 def get_outer_slots(
-    transcription: MultiVariantTranscription | SingleVariantTranscription
+    tokens: Sequence[Token | MultiVariantBlock]
 ) -> list[OUTER_LOC]:
     result: list[OUTER_LOC] = []
-    for i in range(len(transcription.tokens)):
+    for i in range(len(tokens)):
         result.append(('pre', i))
         result.append(('at', i))
-    result.append(('pre', len(transcription.tokens)))
+    result.append(('pre', len(tokens)))
     return result
 
 
 def get_outer_slots_values(
-    transcription: MultiVariantTranscription | SingleVariantTranscription
+    tokens: Sequence[Token | MultiVariantBlock]
 ) -> list[str]:
     result: list[str] = []
-    for i, token in enumerate(transcription.tokens):
+    for i, token in enumerate(tokens):
         result.append('')
         result.append(token.to_text())
     result.append('')
