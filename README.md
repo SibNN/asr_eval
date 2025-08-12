@@ -1,3 +1,3 @@
 Evaluation tools for Automatic Speech Recognition
 
-See the docs/ dir for the documentation.
+See sibnn.github.io/asr_eval/ for the documentation.
