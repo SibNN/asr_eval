@@ -106,13 +106,16 @@ class Evaluator:
                 if multiple_alignment is None:
                     baseline_name = sorted(predictions)[0]
                     self.multple_alignments[dataset_name, sample_idx] = multiple_alignment = (
-                        MultipleAlignment(baseline=predictions[baseline_name].pred)
+                        MultipleAlignment(
+                            baseline=predictions[baseline_name].pred,
+                            baseline_name=baseline_name,
+                        )
                     )
                 else:
                     baseline_name = multiple_alignment.baseline_name
                     assert isinstance(baseline_name, str)
                 for pipeline_name, loaded_prediction in predictions.items():
-                    if baseline_name != baseline_name:
+                    if pipeline_name != baseline_name:
                         multiple_alignment.add_alignment_from_prediction(
                             pipeline_name, loaded_prediction.pred
                         )
