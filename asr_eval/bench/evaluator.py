@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Container
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Self, cast
@@ -52,6 +53,7 @@ class Evaluator:
         self,
         skip_loaded: bool = True,
         max_sample_idx: int | None = None,
+        dataset_names: Container[str] | None = None,
     ) -> Self:
         # 1. update predictions
         paths: list[Path] = []
@@ -67,7 +69,12 @@ class Evaluator:
                 continue
             if (
                 max_sample_idx is not None
-                and int(str(path.parent.name)) > max_sample_idx
+                and sample_idx > max_sample_idx
+            ):
+                continue
+            if (
+                dataset_names is not None
+                and dataset_name not in dataset_names
             ):
                 continue
             paths.append(path)
