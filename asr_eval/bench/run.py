@@ -3,6 +3,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import cast
 
+from ..utils.timer import Timer
 from .pipelines import Pipeline, get_pipeline
 from .datasets import AudioSample, get_dataset
 
@@ -58,11 +59,12 @@ def run_pipeline(
             # lazy pipeline instantiation
             pipeline_obj = pipeline_obj or pipeline_cls()
             
-            print('running', pipeline_name, dataset_name, i)
-            pipeline_obj.run_on_dataset_sample(
-                dataset_name, i, sample, root_dir, dir / str(i)
-            )
-
+            print('running', pipeline_name, dataset_name, i, end='... ')
+            with Timer() as timer:
+                pipeline_obj.run_on_dataset_sample(
+                    dataset_name, i, sample, root_dir, dir / str(i)
+                )
+                print(f'done in {timer.elapsed_time:.3f} sec')
 
 if __name__ == '__main__':
     # example: `python -m asr_eval.bench.run -p whisper-tiny -d podlodka -m 1`
