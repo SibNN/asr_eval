@@ -69,6 +69,10 @@ class Token:
     
     def to_text(self) -> str:
         return '<*>' if isinstance(self.value, Anything) else self.value
+    
+    @property
+    def pos(self) -> tuple[int, int]:
+        return self.start_pos, self.end_pos
 
 
 @dataclass(slots=True)
@@ -80,7 +84,7 @@ class MultiVariantBlock:
     """
     options: list[list[Token]]
     pos: tuple[int, int] = (0, 0)
-    uid: str = field(default_factory=new_uid)
+    uid: TOKEN_UID = field(default_factory=new_uid)
     
     def __repr__(self) -> str:
         return f'MultiVariantBlock({str(self.options)[1:-1]})'
@@ -117,6 +121,14 @@ class MultiVariantBlock:
             self.get_option_text(i) for i in range(len(self.options))
         ]) + '}'
     
+    @property
+    def start_pos(self) -> int:
+        return self.pos[0]
+    
+    @property
+    def end_pos(self) -> int:
+        return self.pos[1]
+    
     
 T = TypeVar('T', list[Token], list[Token | MultiVariantBlock])
 
@@ -133,6 +145,11 @@ class BaseTranscription(Generic[T]):
     '''
     text: str
     tokens: T
+    
+    def __post_init__(self):
+        self._block_uid_to_pos: dict[TOKEN_UID, int] = {
+            block.uid: i for i, block in enumerate(self.tokens)
+        }
     
     def list_all_tokens(self) -> Iterator[Token]:
         for x in self.tokens:
@@ -269,6 +286,24 @@ class BaseTranscription(Generic[T]):
             tokens=cast(list[Token | MultiVariantBlock], self.tokens),
             multivariant_choices=multivariant_choices,
         )
+    
+    # def text_span_after_block_uid(self, uid: TOKEN_UID) -> tuple[int, int]:
+    #     # TODO refactor?
+    #     block_idx = self._block_uid_to_pos[uid]
+    #     if block_idx == len(self.tokens) - 1:
+    #         # last block
+    #         return self.tokens[block_idx].end_pos, len(self.text)
+    #     else:
+    #         return self.tokens[block_idx].end_pos, self.tokens[block_idx + 1].start_pos
+    
+    # def text_span_before_block_uid(self, uid: TOKEN_UID) -> tuple[int, int]:
+    #     # TODO refactor?
+    #     block_idx = self._block_uid_to_pos[uid]
+    #     if block_idx == 0:
+    #         # last block
+    #         return 0, self.tokens[block_idx].start_pos
+    #     else:
+    #         return self.tokens[block_idx - 1].end_pos, self.tokens[block_idx].start_pos
 
 
 @dataclass
@@ -312,12 +347,12 @@ def get_outer_slots(
 
 def get_outer_slots_values(
     tokens: Sequence[Token | MultiVariantBlock]
-) -> list[str]:
-    result: list[str] = []
+) -> list[Token | MultiVariantBlock | None]:
+    result: list[Token | MultiVariantBlock | None] = []
     for i, token in enumerate(tokens):
-        result.append('')
-        result.append(token.to_text())
-    result.append('')
+        result.append(None)
+        result.append(token)
+    result.append(None)
     return result
 
 
@@ -350,7 +385,7 @@ class MultiVariantTranscriptionPath(MultiVariantTranscription):
             )
         
         # filling a mapping from multivariant block uid to selected option
-        self._choices_by_mvuid: dict[str, int] = {}
+        self._choices_by_mvuid: dict[TOKEN_UID, int] = {}
         for block, option_idx in zip(multivariant_blocks, self._multivariant_choices, strict=True):
             assert block.uid not in self._choices_by_mvuid, 'duplicate multivariant block index'
             self._choices_by_mvuid[block.uid] = option_idx

@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Literal
 
-from .transcription import MultiVariantBlock, MultiVariantTranscription, SingleVariantTranscription, Token
+from .transcription import TOKEN_UID, MultiVariantBlock, MultiVariantTranscription, SingleVariantTranscription, Token
 
 
 class FlatLoc(Enum):
@@ -15,7 +15,7 @@ class FlatLoc(Enum):
 class FlatView:
     positions: list[str | Literal[FlatLoc.Start, FlatLoc.End]]
     transitions: list[list[int]]
-    resolved_multivariant_blocks: dict[tuple[int, int], list[tuple[str, int]]]
+    resolved_multivariant_blocks: dict[tuple[int, int], list[tuple[TOKEN_UID, int]]]
 
 
 def flat_view(transcription: MultiVariantTranscription | SingleVariantTranscription) -> FlatView:

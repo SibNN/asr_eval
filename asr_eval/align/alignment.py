@@ -9,6 +9,7 @@ from termcolor import colored
 from ..utils.table import Table2D
 from .matching import Match, solve_optimal_alignment
 from .transcription import (
+    MultiVariantBlock,
     MultiVariantTranscription,
     MultiVariantTranscriptionPath,
     SingleVariantTranscription,
@@ -46,6 +47,7 @@ class Alignment:
     TODO docstring
     '''
     true: MultiVariantTranscriptionPath
+    pred: SingleVariantTranscription
     slots: dict[SLOT_LOC, SLOT_VALUES]
     
     @classmethod
@@ -56,12 +58,13 @@ class Alignment:
     ) -> Self:
         matches_list, multivariant_choices = solve_optimal_alignment(true.tokens, pred.tokens)
         true = true.select_single_path(multivariant_choices)
-        return cls.from_matches(true, matches_list.matches)
+        return cls.from_matches(true, pred, matches_list.matches)
 
     @classmethod
     def from_matches(
         cls,
         true: MultiVariantTranscriptionPath,
+        pred: SingleVariantTranscription,
         matches: list[Match],
     ) -> Self:
         slots: dict[SLOT_LOC, SLOT_VALUES] = defaultdict(list)
@@ -93,7 +96,7 @@ class Alignment:
                 assert match.pred is not None
                 slots[slot_loc].append(Insertion(match.pred))
             
-        return cls(true=true, slots=dict(slots))  # defaultdict -> dict, to be serializable
+        return cls(true=true, pred=pred, slots=dict(slots))  # defaultdict -> dict, to be serializable
 
 
 @dataclass
@@ -107,7 +110,6 @@ class MultipleAlignment:
         
     def view(self) -> MultipleAlignmentView:
         outer_slots = get_outer_slots(self.baseline.tokens)
-        outer_slot_baseline_values = get_outer_slots_values(self.baseline.tokens)
         outer_slot_to_index: dict[OUTER_LOC, int] = {loc: i for i, loc in enumerate(outer_slots)}
 
         outer_slot_values = Table2D[SLOT_VALUES].construct(
@@ -123,9 +125,11 @@ class MultipleAlignment:
                 outer_slot_values[row_idx, outer_slot_idx] += values
         
         return MultipleAlignmentView(
-            baseline_words=outer_slot_baseline_values,
+            baseline=self.baseline,
+            baseline_blocks=get_outer_slots_values(self.baseline.tokens),
             baseline_name=self.baseline_name,
             names=list(self.alignments),
+            texts=[al.pred for al in self.alignments.values()],
             table=outer_slot_values,
         )
 
@@ -135,9 +139,11 @@ class MultipleAlignmentView:
     '''
     TODO docstring
     '''
-    baseline_words: list[str]
+    baseline: MultiVariantTranscription | SingleVariantTranscription
+    baseline_blocks: list[Token | MultiVariantBlock | None]
     baseline_name: str | Literal[True]
     names: list[str]
+    texts: list[SingleVariantTranscription]
     table: Table2D[SLOT_VALUES]
     
     def render_as_text(self, mode: Literal['ansi', 'html', None] = 'ansi') -> str:
@@ -153,7 +159,12 @@ class MultipleAlignmentView:
         html_err_color = '#FF9C9C' if not unlabeled else '#FFDB85'
         ansi_err_on_color = 'on_yellow'  # on_red is too dark
         
-        true_lengths = [len(x) for x in self.baseline_words]
+        # length of colored spans for Deletion()
+        baseline_words = [
+            self.baseline.text[block.start_pos:block.end_pos] if block is not None else ''
+            for block in self.baseline_blocks
+        ]
+        baseline_word_lengths = [len(w) for w in baseline_words]
         
         def colorize_err(text: str) -> tuple[str, int]:
             nonlocal mode, html_err_color, ansi_err_on_color
@@ -177,11 +188,15 @@ class MultipleAlignmentView:
             # returns (text, text_len) tuple for a cell
             # text_len is a count of printable characters in the text,
             # excluding ANSI color codes and HTML tags
-            nonlocal true_lengths
+            nonlocal baseline_word_lengths, self
             words: list[str] = []
             lengths: list[int] = []
             for x in cell:
-                text = ' ' * true_lengths[col] if isinstance(x, Deletion) else x.token.to_text()
+                text = (
+                    ' ' * baseline_word_lengths[col]
+                    if isinstance(x, Deletion)
+                    else self.texts[row].text[x.token.start_pos:x.token.end_pos]
+                )
                 text_len = len(text)
                 if not isinstance(x, Correct):
                     text, text_len = colorize_err(text)
@@ -195,22 +210,7 @@ class MultipleAlignmentView:
         # table_str keeps (text, text_len) tuple in each cell
         table_str: Table2D[tuple[str, int]] = self.table.map_with_indices(render_cell)
         
-        # if unlabeled:
-        #     col_has_mismatch_with_baseline = [
-        #         any(
-        #             any(not isinstance(value, Correct) for value in values)
-        #             for values in self.table[:, col_idx]
-        #         )
-        #         for col_idx in range(self.table.shape[1])
-        #     ]
-        #     first_row = [
-        #         colorize_err(word) if has_mismatch_with_baseline else (word, len(word))
-        #         for word, has_mismatch_with_baseline
-        #         in zip(self.baseline_words, col_has_mismatch_with_baseline)
-        #     ]
-        # else:
-        #     first_row = [(word, len(word)) for word in self.baseline_words]
-        first_row = [(word, len(word)) for word in self.baseline_words]
+        first_row = list(zip(baseline_words, baseline_word_lengths))
         table_str.prepend_row(first_row)
         
         table_str.prepend_col([('|', 1) for _ in range(table_str.shape[0])])

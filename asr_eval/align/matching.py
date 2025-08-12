@@ -6,7 +6,7 @@ from typing import Literal, cast
 
 import nltk
 
-from .transcription import Anything, Token, MultiVariantBlock
+from .transcription import TOKEN_UID, Anything, Token, MultiVariantBlock
 
 
 __all__ = [
@@ -248,7 +248,7 @@ def solve_optimal_alignment(
     """
     assert all(isinstance(x, Token) for x in pred), 'prediction cannot be multivariant'
         
-    multivariant_prefixes: dict[tuple[str, int], list[Token]] = {}
+    multivariant_prefixes: dict[tuple[TOKEN_UID, int], list[Token]] = {}
     for x in true:
         if isinstance(x, MultiVariantBlock):
             for i, option in enumerate(x.options):

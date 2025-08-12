@@ -11,6 +11,6 @@ def test_multiple_alignment():
     pred = parse_single_variant_string(pred_text)
     matches_list, mv_indices = solve_optimal_alignment(true.tokens, pred.tokens)
     true_path = true.select_single_path(mv_indices)
-    al = Alignment.from_matches(true_path, matches_list.matches)
+    al = Alignment.from_matches(true_path, pred, matches_list.matches)
     mal = MultipleAlignment(baseline=true, alignments={'pred': al})
     mal.view().render_as_text()
