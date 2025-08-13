@@ -31,6 +31,7 @@ PIPELINE_KEY = str  # pipeline_name
 class LoadedPrediction:
     pred: SingleVariantTranscription
     pred_timed: list[TimedText] | None
+    elapsed_time: float
 
 
 class Evaluator:
@@ -104,6 +105,7 @@ class Evaluator:
             self.predictions[dataset_name, sample_idx][pipeline_name] = LoadedPrediction(
                 pred=parse_single_variant_string(transcription),
                 pred_timed=timed_transcription,
+                elapsed_time=data['elapsed_time'],
             )
             
         # 2. update multiple alignments

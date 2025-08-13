@@ -208,7 +208,11 @@ class MultipleAlignmentView:
     texts: list[SingleVariantTranscription]
     table: Table2D[SLOT_VALUES]
     
-    def render_as_text(self, mode: Literal['ansi', 'html', None] = 'ansi') -> str:
+    def render_as_text(
+        self,
+        mode: Literal['ansi', 'html', None] = 'ansi',
+        prefixes: list[str] | None = None
+    ) -> str:
         '''
         TODO docstring
         
@@ -289,6 +293,8 @@ class MultipleAlignmentView:
                 text + ' ' * (length - text_len)
                 for (text, text_len), length in zip(table_str[row_idx, :], col_lengths)
             ])
+            if prefixes is not None:
+                line = prefixes[row_idx] + line
             lines.append(line)
             
         # use single quotes inside the string

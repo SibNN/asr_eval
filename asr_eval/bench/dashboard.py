@@ -21,7 +21,7 @@ def run_dashboard(root_dir: str | Path = 'outputs'):
     
     See asr_eval/bench/README.md for details.
     '''
-    evaluator = Evaluator(root_dir=root_dir).load_results(pref_baseline='whisper-large-v3', dataset_names=['podlodka-full'])
+    evaluator = Evaluator(root_dir=root_dir).load_results(pref_baseline='whisper-large-v3')
     
     dataset_names = evaluator.list_datasets()
     pipeline_names = evaluator.list_pipelines()
@@ -83,9 +83,16 @@ def run_dashboard(root_dir: str | Path = 'outputs'):
         
         html_contents = ''
         for sample_idx, multiple_alignment in multiple_alignments.items():
+            names = [multiple_alignment.baseline_name] + list(multiple_alignment.alignments)
+            timings = [
+                f'[{evaluator.predictions[dataset_name, sample_idx][name].elapsed_time:.2f} sec]' # type: ignore
+                if name is not True else ''
+                for name in names
+            ]
+            timings = [x.ljust(13) for x in timings]
             html_contents += (
                 f'{sample_idx}</br>'
-                + multiple_alignment.view().render_as_text(mode='html')
+                + multiple_alignment.view().render_as_text(mode='html', prefixes=timings)
                 + '</br></br>'
             )
         return [Purify(html='<p>' + html_contents+ '</p>')]
