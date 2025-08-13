@@ -435,6 +435,18 @@ class MultiVariantTranscriptionPath(MultiVariantTranscription):
                 option_idx = self._choices_by_mvuid[block.uid]
                 return block.options[option_idx]
     
+    def get_prev_slot(self, loc: SLOT_LOC) -> SLOT_LOC | None:
+        idx = self.slot_loc_to_idx(loc)
+        if idx == 0:
+            return None
+        return self._slot_locs[idx - 1]
+    
+    def get_next_slot(self, loc: SLOT_LOC) -> SLOT_LOC | None:
+        idx = self.slot_loc_to_idx(loc)
+        if idx == len(self._slot_locs) - 1:
+            return None
+        return self._slot_locs[idx + 1]
+    
     def get_n_slots(self) -> int:
         return len(self._slot_locs)
     

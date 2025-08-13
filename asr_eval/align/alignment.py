@@ -3,12 +3,13 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Container
 from dataclasses import dataclass, field, replace
-from typing import Literal, Self
+from typing import Literal, Self, cast
 
+import numpy as np
 from termcolor import colored
 
 from ..utils.table import Table2D
-from .matching import Match, solve_optimal_alignment
+from .matching import Match, char_edit_distance, solve_optimal_alignment
 from .transcription import (
     MultiVariantBlock,
     MultiVariantTranscription,
@@ -56,10 +57,11 @@ class Alignment:
         cls,
         true: MultiVariantTranscription | SingleVariantTranscription,
         pred: SingleVariantTranscription,
+        absorb_insertions: bool = True,
     ) -> Self:
         matches_list, multivariant_choices = solve_optimal_alignment(true.tokens, pred.tokens)
         true = true.select_single_path(multivariant_choices)
-        return cls.from_matches(true, pred, matches_list.matches)
+        return cls.from_matches(true, pred, matches_list.matches, absorb_insertions=absorb_insertions)
 
     @classmethod
     def from_matches(
@@ -67,6 +69,7 @@ class Alignment:
         true: MultiVariantTranscriptionPath,
         pred: SingleVariantTranscription,
         matches: list[Match],
+        absorb_insertions: bool = True,
     ) -> Self:
         slots: dict[SLOT_LOC, SLOT_VALUES] = defaultdict(list)
         
@@ -96,8 +99,60 @@ class Alignment:
                     slot_loc = true.slot_idx_to_loc(last_true_slot_idx + 1)
                 assert match.pred is not None
                 slots[slot_loc].append(Insertion(match.pred))
+        
+        if absorb_insertions:
+            absorb_insertions_into_replacements_inplace(true, slots)
             
         return cls(true=true, pred=pred, slots=dict(slots))  # defaultdict -> dict, to be serializable
+
+
+def absorb_insertions_into_replacements_inplace(
+    true: MultiVariantTranscriptionPath,
+    slots: dict[SLOT_LOC, SLOT_VALUES]
+):
+    slots_becoming_empty: set[SLOT_LOC] = set()
+    for slot_loc, slot_values in slots.items():
+        if len(slot_values) == 1 and isinstance(slot_values[0], Replacement):
+            true_text = cast(str, true.slot_to_token(slot_loc).value)
+            text = cast(str, slot_values[0].token.value)
+            
+            # try to absorb insertions from the left side
+            prev_slot = true.get_prev_slot(slot_loc)
+            if prev_slot is not None and prev_slot in slots:
+                prev_values = slots[prev_slot]
+                for i in np.arange(len(prev_values))[::-1]:
+                    if not isinstance(prev_values[i], Insertion):
+                        break
+                    prev_text = cast(str, prev_values[i].token.value) # type: ignore
+                    if (
+                        char_edit_distance(true_text, prev_text + ' ' + text)
+                        < char_edit_distance(true_text, text)
+                    ):
+                        slot_values.insert(0, prev_values.pop())
+                        text = prev_text + ' ' + text
+                if len(prev_values) == 0:
+                    slots_becoming_empty.add(prev_slot)
+            
+            # try to absorb insertions from the right side
+            next_slot = true.get_next_slot(slot_loc)
+            if next_slot is not None and next_slot in slots:
+                next_values = slots[next_slot]
+                for i in np.arange(len(next_values)):
+                    if not isinstance(next_values[0], Insertion):
+                        break
+                    next_text = cast(str, next_values[0].token.value) # type: ignore
+                    if (
+                        char_edit_distance(true_text,  text + ' ' + next_text)
+                        < char_edit_distance(true_text, text)
+                    ):
+                        slot_values.append(next_values.pop(0))
+                        text = text + ' ' + next_text
+                if len(next_values) == 0:
+                    slots_becoming_empty.add(next_slot)
+    
+    for slot_loc in slots_becoming_empty:
+        del slots[slot_loc]
+    
 
 
 @dataclass

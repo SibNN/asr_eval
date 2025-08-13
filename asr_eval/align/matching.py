@@ -20,7 +20,7 @@ __all__ = [
 
 
 @cache
-def _char_edit_distance(true: str, pred: str) -> int:
+def char_edit_distance(true: str, pred: str) -> int:
     return nltk.edit_distance(true, pred) # type: ignore
 
 
@@ -79,7 +79,7 @@ def match_from_pair(true: Token | None, pred: Token | None) -> Match:
         score=AlignmentScore(
             n_word_errors=0 if status == 'correct' else 1,
             n_correct=int(T) if status == 'correct' and not is_anything else 0,
-            n_char_errors=_char_edit_distance(
+            n_char_errors=char_edit_distance(
                 str(true.value) if T else '',
                 str(pred.value) if P else '',
             ) if (not is_anything and status != 'correct') else 0,
