@@ -43,11 +43,20 @@ class Evaluator:
     def __init__(self, root_dir: str | Path):
         self.root_dir = Path(root_dir)
         self.predictions: dict[SAMPLE_KEY, dict[PIPELINE_KEY, LoadedPrediction]] = defaultdict(dict)
-        self.multple_alignments: dict[SAMPLE_KEY, MultipleAlignment] = {}
+        self.multiple_alignments: dict[SAMPLE_KEY, MultipleAlignment] = {}
         
         # caches for ground truth
         self.ground_truths: dict[str, dict[int, Transcription]] = defaultdict(dict)
         self._datasets_cache: dict[str, Dataset] = {}
+    
+    def list_datasets(self) -> list[str]:
+        return sorted([dataset_name for dataset_name, _sample_idx in self.predictions])
+    
+    def list_pipelines(self) -> list[str]:
+        pipelines: set[str] = set()
+        for preds in self.predictions.values():
+            pipelines |= set(preds.keys())
+        return sorted(pipelines)
         
     def load_results(
         self,
@@ -101,7 +110,7 @@ class Evaluator:
         for (dataset_name, sample_idx), predictions in tqdm(self.predictions.items()):
             if len(predictions) == 0:
                 continue
-            multiple_alignment = self.multple_alignments.get((dataset_name, sample_idx), None)
+            multiple_alignment = self.multiple_alignments.get((dataset_name, sample_idx), None)
             if get_dataset_info(dataset_name).unlabeled:
                 # for unlabeled dataset, use one of the predictions as a baseline
                 if multiple_alignment is None:
@@ -110,7 +119,7 @@ class Evaluator:
                         if pref_baseline is None or pref_baseline not in predictions
                         else pref_baseline
                     )
-                    self.multple_alignments[dataset_name, sample_idx] = multiple_alignment = (
+                    self.multiple_alignments[dataset_name, sample_idx] = multiple_alignment = (
                         MultipleAlignment(
                             baseline=predictions[baseline_name].pred,
                             baseline_name=baseline_name,
@@ -127,7 +136,7 @@ class Evaluator:
             else:
                 # for labeled dataset, use ground truth as a baseline
                 if multiple_alignment is None:
-                    self.multple_alignments[dataset_name, sample_idx] = multiple_alignment = (
+                    self.multiple_alignments[dataset_name, sample_idx] = multiple_alignment = (
                         MultipleAlignment(baseline=self.get_ground_truth(dataset_name, sample_idx))
                     )
                 for pipeline_name, loaded_prediction in predictions.items():

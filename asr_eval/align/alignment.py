@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import dataclass, field
+from collections.abc import Container
+from dataclasses import dataclass, field, replace
 from typing import Literal, Self
 
 from termcolor import colored
@@ -107,6 +108,12 @@ class MultipleAlignment:
     
     def add_alignment_from_prediction(self, name: str, pred: SingleVariantTranscription):
         self.alignments[name] = Alignment.from_predictions(self.baseline, pred)
+    
+    def get_names(self, names: Container[str]) -> Self:
+        return replace(self, alignments={
+            name: alignment for name, alignment in self.alignments.items()
+            if name in names
+        })
         
     def view(self) -> MultipleAlignmentView:
         outer_slots = get_outer_slots(self.baseline.tokens)
