@@ -144,6 +144,16 @@ class _(TranscriberPipeline, register_as='whisper-large-v3'):
         return WhisperLongformWrapper('openai/whisper-large-v3')
 
 
+class _(TranscriberPipeline, register_as='whisper-large-v3-turbo'):
+    def init(self):
+        return WhisperLongformWrapper('openai/whisper-large-v3-turbo')
+
+
+class _(TranscriberPipeline, register_as='whisper-podlodka-turbo'):
+    def init(self):
+        return WhisperLongformWrapper('bond005/whisper-podlodka-turbo')
+
+
 class _(TranscriberPipeline, register_as='gigaam-ctc'):
     def init(self):
         return LongformCTC(GigaAMShortformCTC())
