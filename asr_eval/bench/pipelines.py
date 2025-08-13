@@ -209,6 +209,13 @@ class _(TimedTranscriberPipeline, register_as='pisets-ru-whisper-large-v3'):
         )
 
 
+class _(TimedTranscriberPipeline, register_as='pisets-podlodka'):
+    def init(self):
+        return PisetsWrapper(
+            language='ru', recognizer='bond005/whisper-large-v3-ru-podlodka', diarization=None
+        )
+
+
 class _(TimedTranscriberPipeline, register_as='qwen2-audio-vad'):
     def init(self):
         return LongformVAD(Qwen2AudioWrapper(), PyannoteSegmenter())
