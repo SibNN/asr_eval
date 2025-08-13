@@ -21,6 +21,7 @@ from ..models.qwen2_audio_wrapper import Qwen2AudioWrapper
 from ..models.flamingo_wrapper import FlamingoWrapper
 from .datasets import AudioSample
 from ..utils.serializing import save_to_json
+from ..utils.timer import Timer
 
 
 __all__ = [
@@ -94,8 +95,13 @@ class TranscriberPipeline(Pipeline):
         output_path = sample_dir / self.FILENAME
         if output_path.exists():
             return
-        output = self.transcriber.transcribe(sample['audio']['array'])
-        save_to_json({'output': output, 'type': 'transcription'}, output_path, indent=0)
+        with Timer() as timer:
+            output = self.transcriber.transcribe(sample['audio']['array'])
+        save_to_json({
+            'output': output,
+            'type': 'transcription',
+            'elapsed_time': timer.elapsed_time,
+        }, output_path, indent=0)
 
 
 class TimedTranscriberPipeline(Pipeline):
@@ -122,8 +128,13 @@ class TimedTranscriberPipeline(Pipeline):
         output_path = sample_dir / self.FILENAME
         if output_path.exists():
             return
-        output = self.transcriber.timed_transcribe(sample['audio']['array'])
-        save_to_json({'output': output, 'type': 'timed_transcription'}, output_path, indent=0)
+        with Timer() as timer:
+            output = self.transcriber.timed_transcribe(sample['audio']['array'])
+        save_to_json({
+            'output': output,
+            'type': 'timed_transcription',
+            'elapsed_time': timer.elapsed_time,
+        }, output_path, indent=0)
         
 
 # TODO better check language for each transcriber
