@@ -1,5 +1,4 @@
 import argparse
-from dataclasses import replace
 from typing import Literal
 from pathlib import Path
 
@@ -8,7 +7,6 @@ from dash import dcc, html, Input, Output
 from dash.development.base_component import Component
 from dash_extensions import Purify
 
-from ..align.alignment import MultipleAlignment
 from .evaluator import Evaluator
 
 
