@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from functools import cache
 from typing import Callable, TypedDict
 from datasets import Audio, load_dataset, load_from_disk, Dataset, concatenate_datasets # type: ignore
 
@@ -36,9 +37,10 @@ class DatasetInfo:
 datasets_registry: dict[str, DatasetInfo] = {}
 
 
-def get_dataset(name: str) -> Callable[[], Dataset]:
+@cache
+def get_dataset(name: str) -> Dataset:
     '''Get a registered ASR dataset. See the examples in the current file.'''
-    return get_dataset_info(name).instantiate_fn
+    return get_dataset_info(name).instantiate_fn()
 
 
 def get_dataset_info(name: str) -> DatasetInfo:

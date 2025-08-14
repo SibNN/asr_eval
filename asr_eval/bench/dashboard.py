@@ -15,13 +15,14 @@ __all__ = [
 ]
 
 
-def run_dashboard(root_dir: str | Path = 'outputs'):
+def run_dashboard(root_dir: str | Path = 'outputs', cache_dir: str | Path = 'tmp/evaluator_cache'):
     '''
     Runs an interactive dashboard to visualize the results of transcriber pipelines.
     
     See asr_eval/bench/README.md for details.
     '''
-    evaluator = Evaluator(root_dir=root_dir).load_results(pref_baseline='whisper-large-v3')
+    evaluator = Evaluator(root_dir=root_dir, cache_dir=cache_dir)
+    evaluator.load_results(pref_baseline='whisper-large-v3')
     
     dataset_names = evaluator.list_datasets()
     pipeline_names = evaluator.list_pipelines()

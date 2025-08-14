@@ -46,7 +46,7 @@ def run_pipeline(
         ):
             continue
         
-        dataset = get_dataset(dataset_name)()
+        dataset = get_dataset(dataset_name)
         
         if max_samples is not None and len(dataset) > max_samples:
             dataset = dataset.take(max_samples)
