@@ -68,6 +68,14 @@ def load_multivariant_v1_200() -> Dataset:
         .shuffle(0)
     )
 
+@register_dataset('ontico-unlabeled', unlabeled=True)
+def load_ontico_unlabeled() -> Dataset:
+    return (
+        load_from_disk('/asr_datasets/ontico_unlabeled')
+        .cast_column('audio', Audio(sampling_rate=16_000)) # type: ignore
+        .shuffle(0)
+    )
+
 @register_dataset('youtube-lectures')
 def load_youtube_lectures() -> Dataset:
     # "train" is a single split here
