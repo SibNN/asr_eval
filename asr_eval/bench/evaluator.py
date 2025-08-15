@@ -23,6 +23,7 @@ __all__ = [
 
 
 class Evaluator:
+    # TODO exclude_pipelines, exclude_datasets should work if they are already in cache
     def __init__(self, cache_dir: str | Path = 'tmp/evaluator_cache'):
         cache_dir = Path(cache_dir)
         self._truths = TupleKeyShelf(cache_dir / 'truths.db')
@@ -120,6 +121,8 @@ class Evaluator:
         
         # calculate alignments
         for (dataset_name, sample_idx), preds in self.group_predictions_by_sample().items():
+            if dataset_name in exclude_datasets:
+                continue
             if get_dataset_info(dataset_name).unlabeled:
                 # unlabeled dataset
                 baseline_name = pref_baseline if pref_baseline in preds else sorted(preds)[0]
