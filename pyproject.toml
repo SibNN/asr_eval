@@ -32,6 +32,7 @@ dependencies = [
     "openai",
     "mistral_common",
     "pandas",
+    "python-dotenv",
 ]
 
 [project.optional-dependencies]
