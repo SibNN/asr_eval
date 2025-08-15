@@ -1,0 +1,1 @@
+python scripts/map_dataset.py -i espnet/yodas2 -n ru000 -o tmp/yodas2_ru000 --extract_audio --bitrate 128k --verbose --ast --diarization --flush --no_streaming --n_shards 500

@@ -29,7 +29,7 @@ jobs:
         run: |
           sphinx-apidoc -o docs/source -H asr_eval -V 0.0.1 --no-toc --no-headings --force asr_eval/
           python3.12 -m asr_eval.utils.autodoc
-          sphinx-build -b html docs/source docs/build
+          PYTHONPATH=. sphinx-build -b html docs/source docs/build
       - name: setup pages
         if: ${{ !env.ACT }}
         uses: actions/configure-pages@v5

@@ -1,0 +1,85 @@
+from typing import Literal, override, cast
+
+import numpy as np
+import torch
+import torchaudio
+
+from ..streaming.buffer import ID_TYPE
+from ..streaming.model import OutputChunk, StreamingASR, Signal, TranscriptionChunk
+from .base.interfaces import Transcriber
+from ..utils.types import FLOATS
+
+
+__all__ = [
+    'TOneStreaming',
+    'TOneWrapper',
+]
+
+
+SAMPLING_RATE = 8000
+
+
+class TOneStreaming(StreamingASR):
+    '''
+    A streaming wrapper for T-One model.
+    '''
+    def __init__(self):
+        from tone import StreamingCTCPipeline
+        
+        super().__init__(sampling_rate=SAMPLING_RATE)
+        self.pipeline = StreamingCTCPipeline.from_hugging_face()
+        self.states: dict[ID_TYPE, StreamingCTCPipeline.StateType] = {}
+        self.CHUNK_SIZE = StreamingCTCPipeline.CHUNK_SIZE  # A 300 ms slice of audio (2400 samples)
+    
+    @override
+    def _run(self):
+        from tone import StreamingCTCPipeline
+
+        while True:
+            id, data, is_finished, end_time = self.input_buffer.get_with_rechunking(self.CHUNK_SIZE)
+            state = self.states.get(id, None)
+            if data is None: # TODO can this happen ever?
+                data = np.zeros(self.CHUNK_SIZE, dtype=np.int32)  # as in StreamingCTCPipeline.finalize
+                
+            data = cast(StreamingCTCPipeline.InputType, data).astype(np.int32)
+            if (pad_size := self.CHUNK_SIZE - len(data)) > 0:
+                # TODO add option for padding in get_with_rechunking
+                data = np.concatenate([data, np.zeros(pad_size, dtype=np.int32)])
+            output, state = self.pipeline.forward(data, state, is_last=is_finished)
+            self.states[id] = state
+            for utterance in output:
+                # start, end time are currently not used
+                self.output_buffer.put(OutputChunk(
+                    data=TranscriptionChunk(text=utterance.text),
+                    seconds_processed=end_time,
+                ), id=id)
+            if is_finished:
+                self.states.pop(id, None)
+                self.output_buffer.put(OutputChunk(data=Signal.FINISH, seconds_processed=end_time), id=id)
+                
+    @property
+    @override
+    def audio_type(self) -> Literal['float', 'int', 'bytes']:
+        return 'int'
+
+
+class TOneWrapper(Transcriber):
+    '''
+    A non-streaming wrapper for T-One model.
+    '''
+    def __init__(self):
+        from tone import StreamingCTCPipeline
+        
+        self.pipeline = StreamingCTCPipeline.from_hugging_face()
+    
+    @override
+    def transcribe(self, waveform: FLOATS) -> str:
+        waveform = torchaudio.functional.resample(
+            torch.tensor(waveform),
+            orig_freq=16_000,
+            new_freq=SAMPLING_RATE,
+        ).numpy() # type: ignore
+        if (maxval := np.abs(waveform).max()) > 0:
+            waveform /= maxval
+        utterances = self.pipeline.forward_offline((waveform * 32767).astype(np.int32))
+        return ' '.join(x.text for x in utterances)  # we can use x.start_time, x.end_time
