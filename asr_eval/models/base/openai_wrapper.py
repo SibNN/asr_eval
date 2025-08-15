@@ -64,6 +64,7 @@ class APITranscriber(Transcriber):
         prompt: str | None = None,
         chunking_strategy: Literal['auto'] | ChunkingStrategyVadConfig | NotGiven = NOT_GIVEN,
         temperature: float = 0.7,
+        format: str = 'flac',
         local_server_verbose: bool = False,
     ):
         if client == 'run_local_server':
@@ -82,6 +83,7 @@ class APITranscriber(Transcriber):
         self.prompt = prompt
         self.chunking_strategy: Literal['auto'] | ChunkingStrategyVadConfig | NotGiven = chunking_strategy
         self.temperature = temperature
+        self.format = format
     
     @override
     def transcribe(self, waveform: FLOATS) -> str:
@@ -93,6 +95,7 @@ class APITranscriber(Transcriber):
             prompt=self.prompt,
             chunking_strategy=self.chunking_strategy,
             temperature=self.temperature,
+            format=self.format,
             
         )
         return text
@@ -117,6 +120,7 @@ def api_transcribe(
     prompt: str | None = None,
     chunking_strategy: Literal['auto'] | ChunkingStrategyVadConfig | NotGiven = NOT_GIVEN,
     temperature: float = 0.7,
+    format: str = 'flac',
 ) -> tuple[str, list[Logprob] | None]:
     '''
     A connector to OpenAI API for audio LLMs. Runs via `client.audio.transcriptions.create`.
@@ -144,7 +148,7 @@ def api_transcribe(
     - InternalServerError in some cases (happened with VseGPT)
     '''
     # flac is actually a zipped (lossess) wav, should have smaller size than wav
-    file = io.BytesIO(waveform_to_bytes(waveform, sampling_rate=16_000, format='flac'))
+    file = io.BytesIO(waveform_to_bytes(waveform, sampling_rate=16_000, format=format))
     response: Transcription = client.audio.transcriptions.create(
         file=file,
         prompt=prompt if prompt is not None else NOT_GIVEN,
@@ -164,6 +168,7 @@ def api_chat_completion(
     logprobs: bool = False,
     pre_prompt: str | None = None,
     post_prompt: str | None = None,
+    format: str = 'flac',
     **generate_kwargs: Any,
 ) -> tuple[str, bool, list[ChatCompletionTokenLogprob] | None]:
     '''
@@ -183,7 +188,7 @@ def api_chat_completion(
     '''
     # mistral_common.audio.Audio is a container with data, sampling rate, and format
     # flac is actually a zipped (lossess) wav, should have smaller size than wav
-    audio = Audio.from_bytes(waveform_to_bytes(waveform, sampling_rate=16_000, format='flac'))
+    audio = Audio.from_bytes(waveform_to_bytes(waveform, sampling_rate=16_000, format=format))
     
     messages: list[UserContentChunk] = [AudioChunk.from_audio(audio)]
     if pre_prompt is not None:

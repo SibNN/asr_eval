@@ -236,6 +236,11 @@ class _(TranscriberPipeline, register_as='voxtral-3B'):
         return VoxtralWrapper('mistralai/Voxtral-Mini-3B-2507', language='ru', local_server_verbose=True)
 
 
+class _(TranscriberPipeline, register_as='voxtral-3B-mp3'):
+    def init(self):
+        return VoxtralWrapper('mistralai/Voxtral-Mini-3B-2507', language='ru', local_server_verbose=True, format='mp3')
+
+
 class _(TimedTranscriberPipeline, register_as='yandex-speechkit'):
     def init(self):
         return YandexSpeechKitWrapper(

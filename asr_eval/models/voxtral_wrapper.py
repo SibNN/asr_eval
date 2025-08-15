@@ -45,6 +45,7 @@ class VoxtralWrapper(APITranscriber):
         language: str | LanguageAlpha2 = 'ru',
         temperature: float = 0.7,
         local_server_verbose: bool = False,
+        format: str = 'flac',
     ):
         self.model_name = model_name
         super().__init__(
@@ -53,6 +54,7 @@ class VoxtralWrapper(APITranscriber):
             language=language,
             temperature=temperature,
             local_server_verbose=local_server_verbose,
+            format=format,
         )
     
     @override
