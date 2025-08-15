@@ -72,21 +72,12 @@ def run_dashboard(root_dir: str | Path = 'outputs', cache_dir: str | Path = 'tmp
         pipeline_names: list[str],
         sample_filter: Literal['all', 'unequal'],
     ) -> list[Component]:
-        multiple_alignments = {
-            sample_idx: multiple_alignment.get_names(pipeline_names)
-            for (_dataset_name, sample_idx), multiple_alignment
-            in evaluator.multiple_alignments.items()
-            if _dataset_name == dataset_name
-        }
-        
-        # sort by sample idx
-        multiple_alignments = dict(sorted(multiple_alignments.items()))
-        
+        multiple_alignments = evaluator.get_multiple_alignments(dataset_name, pipeline_names)
         html_contents = ''
         for sample_idx, multiple_alignment in multiple_alignments.items():
             names = [multiple_alignment.baseline_name] + list(multiple_alignment.alignments)
             timings = [
-                f'[{evaluator.predictions[dataset_name, sample_idx][name].elapsed_time:.2f} sec]' # type: ignore
+                f'[{evaluator.get_prediction(dataset_name, sample_idx, name).elapsed_time:.2f} sec]' # type: ignore
                 if name is not True else ''
                 for name in names
             ]
