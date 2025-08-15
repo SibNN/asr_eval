@@ -1,3 +1,4 @@
+import os
 import signal
 import subprocess
 import threading
@@ -28,6 +29,10 @@ class ServerAsSubprocess:
         verbose: bool = True
     ):
         self.verbose = verbose
+        
+        if not verbose and (value := os.environ.get('SERVER_VERBOSE')):
+            print(f'ServerAsSubprocess: verbose set to true due to SERVER_VERBOSE={value}')
+            self.verbose = True
         
         print('Starting the server')
         self.process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
