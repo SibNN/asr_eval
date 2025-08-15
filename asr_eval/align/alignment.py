@@ -6,6 +6,7 @@ from dataclasses import dataclass, field, replace
 from typing import Literal, Self, cast
 
 import numpy as np
+import pandas as pd
 from termcolor import colored
 
 from ..utils.table import Table2D
@@ -24,20 +25,27 @@ from .transcription import (
 
 
 @dataclass
+class TokenContainerMixin:
+    token: Token
+    
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}({self.token!r})'
+
+
 class Deletion:
     pass
 
-@dataclass
-class Correct:
-    token: Token
 
-@dataclass
-class Replacement:
-    token: Token
+class Correct(TokenContainerMixin):
+    pass
 
-@dataclass
-class Insertion:
-    token: Token
+
+class Replacement(TokenContainerMixin):
+    pass
+
+
+class Insertion(TokenContainerMixin):
+    pass
 
 
 SLOT_VALUES = list[Correct | Replacement | Insertion | Deletion]
@@ -207,6 +215,15 @@ class MultipleAlignmentView:
     names: list[str]
     texts: list[SingleVariantTranscription]
     table: Table2D[SLOT_VALUES]
+    
+    def to_dataframe(self) -> pd.DataFrame:
+        df = pd.DataFrame(
+            columns=[x.to_text() if x is not None else '<gap>' for x in self.baseline_blocks],
+            data=self.table.to_numpy(),
+        )
+        df['name'] = self.names
+        df = df.set_index('name') # type: ignore
+        return df
     
     def render_as_text(
         self,

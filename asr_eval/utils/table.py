@@ -23,8 +23,13 @@ class Table2D(Generic[T]):
     - getting .shape
     '''
     
-    def __init__(self, data: np.ndarray[tuple[Any, Any], Any]):
+    _data: np.ndarray[tuple[int, int], Any]
+    
+    def __init__(self, data: np.ndarray[tuple[int, int], Any]):
         self._data = data
+    
+    def to_numpy(self) -> np.ndarray[tuple[int, int], Any]:
+        return self._data.copy()
     
     @classmethod
     def construct(cls, rows: int, cols: int, default: Callable[[], T]):
@@ -65,16 +70,16 @@ class Table2D(Generic[T]):
         self._data[idx] = value
     
     def prepend_row(self, row: list[T]):
-        self._data = np.concatenate([self._list_to_np(row)[None, :], self._data], axis=0)
+        self._data = np.concatenate([self._list_to_np(row)[None, :], self._data], axis=0) # type: ignore
     
     def append_row(self, row: list[T]):
-        self._data = np.concatenate([self._data, self._list_to_np(row)[None, :]], axis=0)
+        self._data = np.concatenate([self._data, self._list_to_np(row)[None, :]], axis=0) # type: ignore
     
     def prepend_col(self, col: list[T]):
-        self._data = np.concatenate([self._list_to_np(col)[:, None], self._data], axis=1)
+        self._data = np.concatenate([self._list_to_np(col)[:, None], self._data], axis=1) # type: ignore
     
     def append_col(self, col: list[T]):
-        self._data = np.concatenate([self._data, self._list_to_np(col)[:, None]], axis=1)
+        self._data = np.concatenate([self._data, self._list_to_np(col)[:, None]], axis=1) # type: ignore
         
     def _list_to_np(self, lst: list[T]) -> np.ndarray[tuple[Any], Any]:
         # cannot use np.array(lst) because it will try to unpack if T is a list
