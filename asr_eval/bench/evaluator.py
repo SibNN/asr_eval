@@ -23,13 +23,11 @@ __all__ = [
 
 
 class Evaluator:
-    def __init__(self, root_dir: str | Path, cache_dir: str | Path):
-        self.root_dir = Path(root_dir)
-        self.cache_dir = Path(cache_dir)
-        
-        self._truths = TupleKeyShelf(self.cache_dir / 'truths.db')
-        self._predictions = TupleKeyShelf(self.cache_dir / 'predictions.db')
-        self._alignments = TupleKeyShelf(self.cache_dir / 'alignments.db')
+    def __init__(self, cache_dir: str | Path = 'tmp/evaluator_cache'):
+        cache_dir = Path(cache_dir)
+        self._truths = TupleKeyShelf(cache_dir / 'truths.db')
+        self._predictions = TupleKeyShelf(cache_dir / 'predictions.db')
+        self._alignments = TupleKeyShelf(cache_dir / 'alignments.db')
         self._baseline_names: dict[tuple[str, str], str] = {}
     
     def list_datasets(self) -> list[str]:
@@ -98,12 +96,23 @@ class Evaluator:
 
     def load_results(
         self,
+        root_dir: str | Path = 'outputs',
         max_sample_idx: int | None = None,
-        dataset_names: Container[str] | None = None,
+        only_pipelines: Container[str] | None = None,
+        only_datasets: Container[str] | None = None,
         pref_baseline: str | None = None,
+        exclude_pipelines: Container[str] = (),
+        exclude_datasets: Container[str] = (),
     ):
         # load predictions from json files to shelf
-        preds_on_disk = list_predictions(self.root_dir, max_sample_idx, dataset_names)
+        preds_on_disk = list_predictions(
+            root_dir,
+            max_sample_idx=max_sample_idx,
+            only_pipelines=only_pipelines,
+            only_datasets=only_datasets,
+            exclude_pipelines=exclude_pipelines,
+            exclude_datasets=exclude_datasets,
+        )
         for dataset_name, sample_idx, pipeline_name, json_path in tqdm(list(preds_on_disk)):
             key = (dataset_name, sample_idx, pipeline_name)
             if key not in self._predictions:
@@ -163,13 +172,22 @@ def load_prediction(filepath: Path) -> LoadedPrediction:
 def list_predictions(
     root_dir: str | Path,
     max_sample_idx: int | None = None,
-    dataset_names: Container[str] | None = None
+    only_pipelines: Container[str] | None = None,
+    only_datasets: Container[str] | None = None,
+    exclude_pipelines: Container[str] = (),
+    exclude_datasets: Container[str] = (),
 ) -> Iterator[tuple[str, str, str, Path]]:
     root_dir = Path(root_dir)
-    for path in sorted(root_dir.glob('*/fleurs/*/transcription.json')):
+    for path in sorted(root_dir.glob('*/*/*/transcription.json')):
         pipeline_name, dataset_name, sample_idx, _ = path.relative_to(root_dir).parts
+        if exclude_pipelines in exclude_pipelines:
+            continue
+        if dataset_name in exclude_datasets:
+            continue
         if max_sample_idx is not None and int(sample_idx) > max_sample_idx:
             continue
-        if dataset_names is not None and dataset_name not in dataset_names:
+        if only_datasets is not None and dataset_name not in only_datasets:
+            continue
+        if only_pipelines is not None and pipeline_name not in only_pipelines:
             continue
         yield dataset_name, sample_idx, pipeline_name, path

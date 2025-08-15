@@ -1,4 +1,5 @@
 import argparse
+from collections.abc import Container
 from typing import Literal
 from pathlib import Path
 
@@ -15,14 +16,24 @@ __all__ = [
 ]
 
 
-def run_dashboard(root_dir: str | Path = 'outputs', cache_dir: str | Path = 'tmp/evaluator_cache'):
+def run_dashboard(
+    root_dir: str | Path = 'outputs',
+    cache_dir: str | Path = 'tmp/evaluator_cache',
+    exclude_pipelines: Container[str] = (),
+    exclude_datasets: Container[str] = (),
+):
     '''
     Runs an interactive dashboard to visualize the results of transcriber pipelines.
     
     See asr_eval/bench/README.md for details.
     '''
-    evaluator = Evaluator(root_dir=root_dir, cache_dir=cache_dir)
-    evaluator.load_results(pref_baseline='whisper-large-v3')
+    evaluator = Evaluator(cache_dir=cache_dir)
+    evaluator.load_results(
+        root_dir=root_dir,
+        pref_baseline='whisper-large-v3',
+        exclude_pipelines=exclude_pipelines,
+        exclude_datasets=exclude_datasets,
+    )
     
     dataset_names = evaluator.list_datasets()
     pipeline_names = evaluator.list_pipelines()
@@ -97,6 +108,14 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser()
     parser.add_argument('-r', '--root_dir', default='outputs', help='dir to load the results')
+    parser.add_argument('-c', '--cache_dir', default='tmp/evaluator_cache', help='cache dir for alignments')
+    parser.add_argument('--exclude_pipeline', nargs='*')
+    parser.add_argument('--exclude_dataset', nargs='*')
     args = parser.parse_args()
     
-    run_dashboard(root_dir=args.root_dir)
+    run_dashboard(
+        root_dir=args.root_dir,
+        cache_dir=args.cache_dir,
+        exclude_pipelines=args.exclude_pipeline or (),
+        exclude_datasets=args.exclude_dataset or (),
+    )
