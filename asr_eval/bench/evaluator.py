@@ -1,19 +1,19 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Container, Iterator
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Self, TypedDict, cast
-import pickle
+from typing import cast
 
-import pandas as pd
 from tqdm.auto import tqdm
-from datasets import Dataset
 
-from .datasets import AudioSample, get_dataset
+from .datasets import AudioSample, get_dataset, get_dataset_info
+from ..align.alignment import Alignment, MultipleAlignment
 from ..align.parsing import parse_single_variant_string, parse_multivariant_string
-from ..align.matching import MatchesList, solve_optimal_alignment
-from ..align.transcription import MultiVariantTranscription, SingleVariantTranscription
+from ..align.transcription import SingleVariantTranscription, Transcription
 from ..utils.serializing import load_from_json
+from ..utils.shelves import TupleKeyShelf
 from ..segments.segment import TimedText
 
 
@@ -23,103 +23,153 @@ __all__ = [
 
 
 class Evaluator:
-    '''
-    An evaluator that loads the results of transcriber pipelines into a dataframe.
-    
-    TODO more detailed docs.
-    '''
-    def __init__(self, root_dir: str | Path):
+    def __init__(self, root_dir: str | Path, cache_dir: str | Path):
         self.root_dir = Path(root_dir)
-        self.df = self._predictions_to_df({})
+        self.cache_dir = Path(cache_dir)
         
-        # caches
-        self.ground_truths: dict[str, dict[int, MultiVariantTranscription]] = defaultdict(dict)
-        self._datasets_cache: dict[str, Dataset] = {}
+        self._truths = TupleKeyShelf(self.cache_dir / 'truths.db')
+        self._predictions = TupleKeyShelf(self.cache_dir / 'predictions.db')
+        self._alignments = TupleKeyShelf(self.cache_dir / 'alignments.db')
+        self._baseline_names: dict[tuple[str, str], str] = {}
+    
+    def list_datasets(self) -> list[str]:
+        return sorted(set([dataset_name for dataset_name, _, _ in self._predictions]))
+    
+    def list_pipelines(self) -> list[str]:
+        return sorted(set([pipeline_name for _, _, pipeline_name in self._predictions]))
+    
+    def get_prediction(self, dataset_name: str, sample_idx: str, pipeline_name: str) -> LoadedPrediction:
+        return self._predictions[dataset_name, sample_idx, pipeline_name]
+    
+    def get_ground_truth(self, dataset_name: str, sample_idx: str) -> Transcription:
+        key = (dataset_name, sample_idx)
+        try:
+            return self._truths[key]
+        except KeyError:
+            dataset = get_dataset(dataset_name)
+            sample = cast(AudioSample, dataset[int(sample_idx)])
+            self._truths[key] = result = parse_multivariant_string(sample['transcription'])
+            return result
+
+    def group_predictions_by_sample(self) -> dict[tuple[str, str], dict[str, LoadedPrediction]]:
+        result: dict[tuple[str, str], dict[str, LoadedPrediction]] = defaultdict(dict)
+        for (dataset_name, sample_idx, pipeline_name), pred in self._predictions.items():
+            result[dataset_name, sample_idx][pipeline_name] = pred
+        return result
+    
+    def get_multiple_alignments(
+        self,
+        dataset_name: str,
+        pipeline_names: Container[str] | None = None,
+    ) -> dict[str, MultipleAlignment]:
+        grouped_alignments: dict[str, dict[tuple[str, str], Alignment]] = defaultdict(dict)
+        for (
+            (_dataset_name, sample_idx, pipeline_name, baseline_name), alignment
+        ) in self._alignments.items():
+            if _dataset_name == dataset_name and (pipeline_names is None or pipeline_name in pipeline_names):
+                grouped_alignments[sample_idx][pipeline_name, baseline_name] = alignment
+        grouped_alignments = dict(sorted(grouped_alignments.items(), key=lambda item: int(item[0])))
         
-    def load_results(self, skip_loaded: bool = True) -> Self:
-        new_df = self._predictions_to_df({
-            path: self._load_result(path)
-            for path in tqdm(list(self.root_dir.glob('*/*/*/transcription.json')))
-            if not skip_loaded or path not in self.df.index
-        })
-        self.df = pd.concat([self.df, new_df])
-        return self
-    
-    def get_ground_truth(
-        self, dataset_name: str, sample_idx: int
-    ) -> MultiVariantTranscription:
-        if sample_idx not in self.ground_truths[dataset_name]:
-            dataset = self._get_dataset(dataset_name)
-            sample = cast(AudioSample, dataset[sample_idx])
-            self.ground_truths[dataset_name][sample_idx] = (
-                parse_multivariant_string(sample['transcription'])
-            )
-        return self.ground_truths[dataset_name][sample_idx]
-    
-    def _predictions_to_df(self, predictions: dict[Path, _SamplePrediction]) -> pd.DataFrame:
-        rows: list[dict[str, Any]] = []
-        for path, pred in predictions.items():
-            rows.append(row := cast(dict[str, Any], pred.copy()))
-            row['path'] = path
-            row['ground_truth'] = (
-                self.get_ground_truth(pred['dataset_name'], pred['sample_idx'])
-            )
-        df = pd.DataFrame(columns=(
-            ['path']
-            + list(_SamplePrediction.__required_keys__)
-            + ['ground_truth']
-        ), data=rows)
-        df = df.set_index('path') # type: ignore
-        return df
-
-    def _load_result(self, path: Path) -> _SamplePrediction:
-        _, dataset_name, sample_idx, _ = path.relative_to(self.root_dir).parts
-        ground_truth = self.get_ground_truth(dataset_name, int(sample_idx))
-        return _sample_prediction_from_file(path, ground_truth)
-    
-    def _get_dataset(self, dataset_name: str) -> Dataset:
-        if dataset_name not in self._datasets_cache:
-            self._datasets_cache[dataset_name] = get_dataset(dataset_name)()
-        return self._datasets_cache[dataset_name]
-
-
-class _SamplePrediction(TypedDict):
-    '''A result of running a Transcriber on a single sample'''
-    pipeline_name: str
-    dataset_name: str
-    sample_idx: int
-    transcription: SingleVariantTranscription
-    alignment: MatchesList
-    timed_transcription: list[TimedText] | None
-    
-
-def _sample_prediction_from_file(
-    path: Path, ground_truth: MultiVariantTranscription
-) -> _SamplePrediction:
-    if (pkl_path := path.with_suffix('.pkl')).exists():
-        return pickle.loads(pkl_path.read_bytes())
-    else:
-        data = load_from_json(path)
-        if data['type'] == 'timed_transcription':
-            timed_transcription = data['output']
-            transcription = ' '.join(seg.text for seg in timed_transcription)
+        results: dict[str, MultipleAlignment] = {}
+        if get_dataset_info(dataset_name).unlabeled:
+            for sample_idx, available_alignments in grouped_alignments.items():
+                baseline_name = self._baseline_names[dataset_name, sample_idx]
+                results[sample_idx] = MultipleAlignment(
+                    baseline=self._predictions[dataset_name, sample_idx, baseline_name],
+                    baseline_name=baseline_name,
+                    alignments={
+                        pipeline_name: alignment
+                        for (pipeline_name, _baseline_name), alignment in available_alignments.items()
+                        if _baseline_name == baseline_name
+                    }
+                )
         else:
-            timed_transcription = None
-            transcription = data['output']
+            for sample_idx, available_alignments in grouped_alignments.items():
+                results[sample_idx] = MultipleAlignment(
+                    baseline=self.get_ground_truth(dataset_name, sample_idx),
+                    baseline_name=True,
+                    alignments={
+                        pipeline_name: alignment
+                        for (pipeline_name, _baseline_name), alignment in available_alignments.items()
+                        if _baseline_name == ''  # aligned against ground truth
+                    }
+                )
+        return results
+
+    def load_results(
+        self,
+        max_sample_idx: int | None = None,
+        dataset_names: Container[str] | None = None,
+        pref_baseline: str | None = None,
+    ):
+        # load predictions from json files to shelf
+        preds_on_disk = list_predictions(self.root_dir, max_sample_idx, dataset_names)
+        for dataset_name, sample_idx, pipeline_name, json_path in tqdm(list(preds_on_disk)):
+            key = (dataset_name, sample_idx, pipeline_name)
+            if key not in self._predictions:
+                self._predictions[key] = load_prediction(json_path)
         
-        transcription = parse_single_variant_string(transcription)
-        alignment, _selected_multivariant_blocks = solve_optimal_alignment(
-            ground_truth.tokens, transcription.tokens
-        )
-        
-        obj: _SamplePrediction = {
-            'pipeline_name': path.parts[-4],
-            'dataset_name': path.parts[-3],
-            'sample_idx': int(path.parts[-2]),
-            'transcription': transcription,
-            'alignment': alignment,
-            'timed_transcription': timed_transcription,
-        }
-        
-        pkl_path.write_bytes(pickle.dumps(obj))
-        return obj
+        # calculate alignments
+        for (dataset_name, sample_idx), preds in self.group_predictions_by_sample().items():
+            if get_dataset_info(dataset_name).unlabeled:
+                # unlabeled dataset
+                baseline_name = pref_baseline if pref_baseline in preds else sorted(preds)[0]
+                self._baseline_names[dataset_name, sample_idx] = baseline_name
+                for pipeline_name, pred in preds.items():
+                    if pipeline_name != baseline_name:
+                        key = (dataset_name, sample_idx, pipeline_name, baseline_name)
+                        if not key in self._alignments:
+                            print(
+                                f'Aligning: {dataset_name} #{sample_idx} {baseline_name} VS {pipeline_name}'
+                            )
+                            self._alignments[key] = Alignment.from_predictions(
+                                preds[baseline_name].pred, pred.pred
+                            )
+            else:
+                # labeled dataset
+                for pipeline_name, pred in preds.items():
+                    key = (dataset_name, sample_idx, pipeline_name, '')
+                    if not key in self._alignments:
+                        print(
+                            f'Aligning: {dataset_name} #{sample_idx} truth VS {pipeline_name}'
+                        )
+                        self._alignments[key] = Alignment.from_predictions(
+                            self.get_ground_truth(dataset_name, sample_idx), pred.pred
+                        )
+
+
+@dataclass
+class LoadedPrediction:
+    pred: SingleVariantTranscription
+    pred_timed: list[TimedText] | None
+    elapsed_time: float
+
+
+def load_prediction(filepath: Path) -> LoadedPrediction:
+    data = load_from_json(filepath)
+    if data['type'] == 'timed_transcription':
+        timed_transcription = data['output']
+        transcription = ' '.join(seg.text for seg in timed_transcription)
+    else:
+        timed_transcription = None
+        transcription = data['output']
+    return LoadedPrediction(
+        pred=parse_single_variant_string(transcription),
+        pred_timed=timed_transcription,
+        elapsed_time=data.get('elapsed_time', float('nan')),
+    )
+    
+
+def list_predictions(
+    root_dir: str | Path,
+    max_sample_idx: int | None = None,
+    dataset_names: Container[str] | None = None
+) -> Iterator[tuple[str, str, str, Path]]:
+    root_dir = Path(root_dir)
+    for path in sorted(root_dir.glob('*/fleurs/*/transcription.json')):
+        pipeline_name, dataset_name, sample_idx, _ = path.relative_to(root_dir).parts
+        if max_sample_idx is not None and int(sample_idx) > max_sample_idx:
+            continue
+        if dataset_names is not None and dataset_name not in dataset_names:
+            continue
+        yield dataset_name, sample_idx, pipeline_name, path

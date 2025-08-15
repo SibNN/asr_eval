@@ -1,15 +1,17 @@
 from pathlib import Path
 import io
 import tempfile
-from typing import Iterator
+from typing import Iterator, Literal
 from contextlib import contextmanager
 
 import pydub
 import librosa
 import soundfile as sf
 import numpy as np
+import torch
+import torchaudio
 
-from .types import FLOATS
+from .types import FLOATS, INTS
 
 
 __all__ = [
@@ -18,6 +20,7 @@ __all__ = [
     'waveform_to_pydub',
     'merge_synthetic_speech',
     'waveform_as_file',
+    'convert_audio_format',
 ]
 
 
@@ -45,6 +48,60 @@ def waveform_to_pydub(waveform: FLOATS, sampling_rate: int = 16_000) -> pydub.Au
     bytes = waveform_to_bytes(waveform)
     buffer = io.BytesIO(bytes)
     return pydub.AudioSegment.from_file(buffer) # type: ignore
+
+
+def resample(
+    waveform: FLOATS,
+    from_sampling_rate: int = 16_000,
+    to_sampling_rate: int = 16_000,
+) -> FLOATS:
+    '''
+    Resamples the audio.
+    
+    Note that if `to_sampling_rate != from_sampling_rate`, this function uses
+    `torchaudio.functional.resample`. If `.prepare_audio_format()` is called multiple
+    times, it is more efficient to use a precomputed `torchaudio.transforms.Resample`,
+    see https://docs.pytorch.org/audio/stable/generated/torchaudio.functional.resample.html
+    '''
+    if to_sampling_rate != from_sampling_rate:
+        waveform = torchaudio.functional.resample(
+            torch.tensor(waveform),
+            orig_freq=from_sampling_rate,
+            new_freq=to_sampling_rate,
+        ).numpy() # type: ignore
+    return waveform
+
+
+def convert_audio_format(
+    waveform: FLOATS,
+    to_audio_type: Literal['float', 'int', 'bytes', 'wav'] = 'float',
+) -> FLOATS | INTS | bytes:
+    '''
+    Accepts a float waveform with a given sampling rate. Converts to the required format
+    
+    'float': float values, preferrably from -1 to 1
+    'int': np.int16 values
+    'bytes': 2 bytes per frame
+    'wav': 2 bytes per frame and WAV header for each audio chunk
+    
+    Example conversions between formats:
+    'float' -> 'int': audio = (audio * 32768).astype(np.int16)
+    'int' -> 'bytes': audio = audio.tobytes()
+    'float' -> 'wav': audio = asr_eval.utils.audio_ops.waveform_to_bytes(audio)
+    'bytes' -> 'int':  audio = np.frombuffer(audio, dtype=np.int16)
+    
+    TODO find some python library that already supports these formats and conversions
+    or design this better
+    '''
+    match to_audio_type:
+        case 'float':
+            return waveform
+        case 'int':
+            return (waveform * 32768).astype(np.int16)
+        case 'bytes':
+            return (waveform * 32768).astype(np.int16).tobytes()
+        case 'wav':
+            return waveform_to_bytes(waveform)
 
 
 def merge_synthetic_speech(

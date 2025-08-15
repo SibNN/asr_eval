@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Generic, TypeVar
-import uuid
+from typing import Any, Generic, Literal, TypeVar, cast
 
 import numpy as np
 
-from ..utils.formatting import Formatting, FormattingSpan, apply_ansi_formatting
+from asr_eval.utils.misc import new_uid
 
+from ..utils.formatting import Formatting, FormattingSpan, apply_ansi_formatting
 
 
 __all__ = [
@@ -16,6 +16,9 @@ __all__ = [
     "Token",
     "MultiVariantBlock",
 ]
+
+
+TOKEN_UID = str
 
 
 @dataclass(slots=True)
@@ -42,7 +45,7 @@ class Token:
     - `type` is either "word", or "punct" (see `split_text_into_tokens`), or any user-defined types
     """
     value: str | Anything
-    uid: str = field(default_factory=lambda: str(uuid.uuid4()))
+    uid: TOKEN_UID = field(default_factory=new_uid)
     start_pos: int = 0
     end_pos: int = 0
     start_time: float = np.nan
@@ -63,6 +66,13 @@ class Token:
     @property
     def is_timed(self) -> bool:
         return not np.isnan(self.start_time) and not np.isnan(self.end_time)
+    
+    def to_text(self) -> str:
+        return '<*>' if isinstance(self.value, Anything) else self.value
+    
+    @property
+    def pos(self) -> tuple[int, int]:
+        return self.start_pos, self.end_pos
 
 
 @dataclass(slots=True)
@@ -74,7 +84,7 @@ class MultiVariantBlock:
     """
     options: list[list[Token]]
     pos: tuple[int, int] = (0, 0)
-    uid: str = field(default_factory=lambda: str(uuid.uuid4()))
+    uid: TOKEN_UID = field(default_factory=new_uid)
     
     def __repr__(self) -> str:
         return f'MultiVariantBlock({str(self.options)[1:-1]})'
@@ -103,8 +113,7 @@ class MultiVariantBlock:
     
     def get_option_text(self, option_index: int) -> str:
         return ' '.join(
-            ('<*>' if isinstance(t.value, Anything) else t.value)
-            for t in self.options[option_index]
+            t.to_text() for t in self.options[option_index]
         )
 
     def to_text(self) -> str:
@@ -112,9 +121,17 @@ class MultiVariantBlock:
             self.get_option_text(i) for i in range(len(self.options))
         ]) + '}'
     
+    @property
+    def start_pos(self) -> int:
+        return self.pos[0]
+    
+    @property
+    def end_pos(self) -> int:
+        return self.pos[1]
+    
     
 T = TypeVar('T', list[Token], list[Token | MultiVariantBlock])
-    
+
 
 @dataclass
 class BaseTranscription(Generic[T]):
@@ -129,7 +146,12 @@ class BaseTranscription(Generic[T]):
     text: str
     tokens: T
     
-    def itertokens(self) -> Iterator[Token]:
+    def __post_init__(self):
+        self._block_uid_to_pos: dict[TOKEN_UID, int] = {
+            block.uid: i for i, block in enumerate(self.tokens)
+        }
+    
+    def list_all_tokens(self) -> Iterator[Token]:
         for x in self.tokens:
             match x:
                 case Token():
@@ -139,7 +161,7 @@ class BaseTranscription(Generic[T]):
                         yield from option
     
     def is_timed(self) -> bool:
-        return all(t.is_timed for t in self.itertokens())
+        return all(t.is_timed for t in self.list_all_tokens())
     
     def get_starting_part(self, time: float) -> MultiVariantTranscription:
         '''
@@ -229,7 +251,7 @@ class BaseTranscription(Generic[T]):
         ]
         
         token_idx = 0
-        token_uid_to_color: dict[str, str] = {}
+        token_uid_to_color: dict[TOKEN_UID, str] = {}
         
         formatting_spans = [FormattingSpan(
             Formatting(attrs={'bold'}), 0, len(self.text)
@@ -258,68 +280,269 @@ class BaseTranscription(Generic[T]):
 
         return apply_ansi_formatting(self.text, formatting_spans)
     
-    def to_single_variant(
-        self, multivariant_indices: list[int] | None = None
-    ) -> SingleVariantTranscription:
-        '''
-        For each multivariant block, selects an option with the given index. Length of the
-        passed list should be equal to the multivariant blocks count.
-        
-        If `multivariant_indices=None`, assume there is no multivariant blocks in the transcription
-        (same as `multivariant_indices=[]`).
-        '''
-        multivariant_indices = (multivariant_indices or []).copy()
-        
-        mv_blocks_count = len([b for b in self.tokens if isinstance(b, MultiVariantBlock)])
-        assert len(multivariant_indices) == mv_blocks_count, (
-            f'The transcription has {mv_blocks_count} multivariant blocks'
-            f', but {len(multivariant_indices)} indices are provided'
+    def select_single_path(self, multivariant_choices: list[int]) -> MultiVariantTranscriptionPath:
+        return MultiVariantTranscriptionPath(
+            text=self.text,
+            tokens=cast(list[Token | MultiVariantBlock], self.tokens),
+            multivariant_choices=multivariant_choices,
         )
-        
-        tokens: list[Token] = []
-        text_replacements: list[tuple[int, int, str]] = []
-        for block in self.tokens:
-            match block:
-                case Token():
-                    tokens.append(block)
-                case MultiVariantBlock():
-                    option_index = multivariant_indices.pop(0)
-                    assert option_index < len(block.options), (
-                        f'Option index {option_index} is provided'
-                        f', but the block has only {len(block.options)} options'
-                    )
-                    option = block.options[option_index]
-                    option_text = block.get_option_text(option_index)
-                    tokens += option
-                    text_replacements.append((*block.pos, option_text))
-        
-        text = self.text
-        for start, end, replacement in text_replacements[::-1]:
-            text = text[:start] + replacement + text[end:]
-        
-        return SingleVariantTranscription(text, tokens)
     
-    @dataclass
-    class FlatView:
-        positions: list[str]
-        transitions: list[list[int]]
-        resolved_multivariant_blocks: dict[tuple[int, int], list[tuple[int, int]]]
+    # def text_span_after_block_uid(self, uid: TOKEN_UID) -> tuple[int, int]:
+    #     # TODO refactor?
+    #     block_idx = self._block_uid_to_pos[uid]
+    #     if block_idx == len(self.tokens) - 1:
+    #         # last block
+    #         return self.tokens[block_idx].end_pos, len(self.text)
+    #     else:
+    #         return self.tokens[block_idx].end_pos, self.tokens[block_idx + 1].start_pos
     
-    def flat_view(self) -> FlatView:
-        '''
-        TODO support a flat view and use it in the `solve_optimal_alignment`. A flat view is
-        - list of token uids
-        - for each flat position, list of allowed transitions
-        - dict from transition (idx1, idx2) to a list of resolved multivariant blocks and options
-        '''
-        raise NotImplementedError
+    # def text_span_before_block_uid(self, uid: TOKEN_UID) -> tuple[int, int]:
+    #     # TODO refactor?
+    #     block_idx = self._block_uid_to_pos[uid]
+    #     if block_idx == 0:
+    #         # last block
+    #         return 0, self.tokens[block_idx].start_pos
+    #     else:
+    #         return self.tokens[block_idx - 1].end_pos, self.tokens[block_idx].start_pos
 
 
 @dataclass
 class MultiVariantTranscription(BaseTranscription[list[Token | MultiVariantBlock]]):
+    '''
+    A transcription with zero or more multivariant blocks.
+    '''
     pass
                     
 
 @dataclass
 class SingleVariantTranscription(BaseTranscription[list[Token]]):
+    '''
+    A transcription without multivariant blocks.
+    '''
     pass
+
+
+Transcription = MultiVariantTranscription | SingleVariantTranscription
+
+
+MOD = Literal['at', 'pre']
+
+OUTER_LOC = tuple[MOD, int]
+
+INNER_LOC = tuple[MOD, int, MOD, int]
+
+SLOT_LOC = INNER_LOC | OUTER_LOC
+
+
+def get_outer_slots(
+    tokens: Sequence[Token | MultiVariantBlock]
+) -> list[OUTER_LOC]:
+    result: list[OUTER_LOC] = []
+    for i in range(len(tokens)):
+        result.append(('pre', i))
+        result.append(('at', i))
+    result.append(('pre', len(tokens)))
+    return result
+
+
+def get_outer_slots_values(
+    tokens: Sequence[Token | MultiVariantBlock]
+) -> list[Token | MultiVariantBlock | None]:
+    result: list[Token | MultiVariantBlock | None] = []
+    for i, token in enumerate(tokens):
+        result.append(None)
+        result.append(token)
+    result.append(None)
+    return result
+
+
+class MultiVariantTranscriptionPath(MultiVariantTranscription):
+    '''
+    A MultiVariantTranscription with a selected path, i. e. a selected option for each
+    multivariant block.
+    '''
+    
+    def __init__(
+        self,
+        text: str,
+        tokens: list[Token | MultiVariantBlock],
+        multivariant_choices: list[int],
+    ):
+        self.text = text
+        self.tokens = tokens
+        self._multivariant_choices = multivariant_choices
+        
+        # validating
+        multivariant_blocks = [b for b in self.tokens if isinstance(b, MultiVariantBlock)]
+        assert len(self._multivariant_choices) == len(multivariant_blocks), (
+            f'The transcription has {len(multivariant_blocks)} multivariant blocks'
+            f', but {len(self._multivariant_choices)} choices are provided'
+        )
+        for block, option_idx in zip(multivariant_blocks, self._multivariant_choices, strict=True):
+            assert option_idx < len(block.options), (
+                f'Option index {option_idx} is provided'
+                f', but the block has only {len(block.options)} options'
+            )
+        
+        # filling a mapping from multivariant block uid to selected option
+        self._choices_by_mvuid: dict[TOKEN_UID, int] = {}
+        for block, option_idx in zip(multivariant_blocks, self._multivariant_choices, strict=True):
+            assert block.uid not in self._choices_by_mvuid, 'duplicate multivariant block index'
+            self._choices_by_mvuid[block.uid] = option_idx
+        
+        # filling a mapping from token uid to slot position
+        self._uid_to_slot_loc: dict[TOKEN_UID, SLOT_LOC] = {}
+        for block_idx, block in enumerate(self.tokens):
+            match block:
+                case Token():
+                    self._uid_to_slot_loc[block.uid] = ('at', block_idx)
+                case MultiVariantBlock():
+                    option_idx = self._choices_by_mvuid[block.uid]
+                    selected_option = block.options[option_idx]
+                    for i, token in enumerate(selected_option):
+                        self._uid_to_slot_loc[token.uid] = ('at', block_idx, 'at', i)
+        
+        # determining slots
+        self._slot_locs = [loc := self._first_slot_loc()]
+        while True:
+            try:
+                loc = self._calc_next_slot_loc(loc)
+                self._slot_locs.append(loc)
+            except StopIteration:
+                break
+        
+        # building a reverse mapping from location to index
+        self._slot_loc_to_index: dict[SLOT_LOC, int] = {
+            loc: i for i, loc in enumerate(self._slot_locs)
+        }
+    
+    def path(self) -> Iterator[Token]:
+        multivariant_choices = self._multivariant_choices.copy()
+        for block in self.tokens:
+            match block:
+                case Token():
+                    yield block
+                case MultiVariantBlock():
+                    option_index = multivariant_choices.pop(0)
+                    yield from block.options[option_index]
+    
+    def get_block(self, index: int) -> Token | list[Token]:
+        block = self.tokens[index]
+        match block:
+            case Token():
+                return block
+            case MultiVariantBlock():
+                option_idx = self._choices_by_mvuid[block.uid]
+                return block.options[option_idx]
+    
+    def get_prev_slot(self, loc: SLOT_LOC) -> SLOT_LOC | None:
+        idx = self.slot_loc_to_idx(loc)
+        if idx == 0:
+            return None
+        return self._slot_locs[idx - 1]
+    
+    def get_next_slot(self, loc: SLOT_LOC) -> SLOT_LOC | None:
+        idx = self.slot_loc_to_idx(loc)
+        if idx == len(self._slot_locs) - 1:
+            return None
+        return self._slot_locs[idx + 1]
+    
+    def get_n_slots(self) -> int:
+        return len(self._slot_locs)
+    
+    def slot_idx_to_loc(self, index: int) -> SLOT_LOC:
+        return self._slot_locs[index]
+    
+    def slot_loc_to_idx(self, loc: SLOT_LOC) -> int:
+        return self._slot_loc_to_index[loc]
+    
+    def token_uid_to_slot(self, uid: TOKEN_UID) -> tuple[int, SLOT_LOC]:
+        try:
+            loc = self._uid_to_slot_loc[uid]
+            loc_idx = self._slot_loc_to_index[loc]
+            return loc_idx, loc
+        except KeyError:
+            raise AssertionError(f'uid {uid} is not in the selected path')
+    
+    def slot_to_token(self, loc: SLOT_LOC) -> Token:
+        mod_outer, idx_outer = loc[:2]
+        assert mod_outer == 'at', 'cannot retrieve token for "pre" loc'
+        block = self.tokens[idx_outer]
+        match block:
+            case Token():
+                assert len(loc) == 2, (
+                    'incorrect loc: at Token, cannot have inner index'
+                )
+                return block
+            case MultiVariantBlock():
+                assert len(loc) == 4, (
+                    'incorrect loc: at MultiVariantBlock, need inner index'
+                )
+                mod_inner, idx_inner = loc[2:]
+                assert mod_inner == 'at', 'cannot retrieve token for "pre" loc'
+                option_idx = self._choices_by_mvuid[block.uid]
+                selected_option = block.options[option_idx]
+                assert 0 <= idx_inner < len(selected_option), (
+                    f'incorrect loc: bad inner index {idx_inner} (at)'
+                    f' for option with length {len(selected_option)}'
+                )
+                return selected_option[idx_inner]
+    
+    def _first_slot_loc(self) -> SLOT_LOC:
+        return 'pre', 0
+    
+    def _calc_next_slot_loc(self, loc: SLOT_LOC) -> SLOT_LOC:
+        mod_outer, idx_outer = loc[:2]
+        match mod_outer:
+            case 'pre':
+                assert len(loc) == 2, (
+                    'incorrect loc: outer modifier is "pre", cannot have inner index'
+                )
+                if idx_outer == len(self.tokens):
+                    # reached the end of the transcription
+                    raise StopIteration
+                next_block = self.tokens[idx_outer]
+                match next_block:
+                    case Token():
+                        # enter the token outside a multivariant block
+                        return 'at', idx_outer
+                    case MultiVariantBlock():
+                        option_idx = self._choices_by_mvuid[next_block.uid]
+                        selected_option = next_block.options[option_idx]
+                        if len(selected_option) == 0:
+                            # step over the multivariant block with empty selected option
+                            return 'pre', idx_outer + 1
+                        else:
+                            # step into the multivariant block
+                            return 'at', idx_outer, 'at', 0
+            case 'at':
+                at_block = self.tokens[idx_outer]
+                match at_block:
+                    case Token():
+                        assert len(loc) == 2, 'incorrect loc: at Token, cannot have inner index'
+                        # exit the token outside a multivariant block
+                        return 'pre', idx_outer + 1
+                    case MultiVariantBlock():
+                        assert len(loc) == 4, 'incorrect loc: at MultiVariantBlock, need inner index'
+                        mod_inner, idx_inner = loc[2:]
+                        option_idx = self._choices_by_mvuid[at_block.uid]
+                        selected_option = at_block.options[option_idx]
+                        match mod_inner:
+                            case 'pre':
+                                assert 0 < idx_inner < len(selected_option), (
+                                    f'incorrect loc: bad inner index {idx_inner} (pre)'
+                                    f' for option with length {len(selected_option)}'
+                                )
+                                # enter the next token in the multivariant block
+                                return 'at', idx_outer, 'at', idx_inner
+                            case 'at':
+                                assert 0 <= idx_inner < len(selected_option), (
+                                    f'incorrect loc: bad inner index {idx_inner} (at)'
+                                    f' for option with length {len(selected_option)}'
+                                )
+                                if idx_inner == len(selected_option) - 1:
+                                    # exit the multivariant block
+                                    return 'pre', idx_outer + 1
+                                else:
+                                    # enter a space between tokens in the multivariant block
+                                    return 'at', idx_outer, 'pre', idx_inner + 1

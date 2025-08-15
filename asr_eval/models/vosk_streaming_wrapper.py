@@ -100,5 +100,5 @@ class VoskStreaming(StreamingASR):
     
     @property
     @override
-    def audio_type(self) -> Literal['float', 'int', 'bytes']:
+    def audio_type(self) -> Literal['bytes']:
         return 'bytes'

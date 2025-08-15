@@ -16,7 +16,6 @@ from .model import (
     StreamingASR,
     TranscriptionChunk,
     check_consistency,
-    prepare_audio_format,
 )
 from .sender import BaseStreamingAudioSender, Cutoff, StreamingAudioSender
 from .caller import receive_full_transcription
@@ -25,6 +24,7 @@ from ..align.parsing import parse_single_variant_string
 from ..align.matching import solve_optimal_alignment, Match, MatchesList
 from ..bench.recording import Recording
 from ..utils.misc import new_uid
+from ..utils.audio_ops import resample
 
 
 __all__ = [
@@ -96,16 +96,21 @@ def default_evaluation_pipeline(
     id = new_uid()
 
     # preparing input audio
-    audio, array_len_per_sec = prepare_audio_format(recording.waveform, asr)
+    audio = resample(
+        recording.waveform,
+        from_sampling_rate=16_000,
+        to_sampling_rate=asr.sampling_rate,
+    )
     
     # predicting
     sender = StreamingAudioSender(
         id=id,
         audio=audio,
-        array_len_per_sec=array_len_per_sec,
+        sampling_rate=asr.sampling_rate,
         real_time_interval_sec=real_time_interval_sec,
         speed_multiplier=speed_multiplier,
         verbose=False,
+        output_type=asr.audio_type,
     )
     output_chunks = receive_full_transcription(
         asr=asr,
@@ -141,11 +146,11 @@ def default_evaluation_pipeline(
     )
 
     # cleaning large arrays to save the results
-    sender.audio = ''
+    sender.audio = None # type: ignore
     sender.history = []
     for input_chunk in input_chunks:
         if input_chunk.data is not Signal.FINISH:
-            input_chunk.data = ''
+            input_chunk.data = None # type: ignore
         
     return RecordingStreamingEvaluation(
         recording=recording,

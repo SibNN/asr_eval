@@ -7,8 +7,10 @@ from typing import Literal, Self, override
 
 import numpy as np
 
+from ..utils.types import FLOATS
+from ..utils.audio_ops import convert_audio_format
 from .buffer import ID_TYPE
-from .model import AUDIO_CHUNK_TYPE, InputBuffer, InputChunk, Signal
+from .model import InputBuffer, InputChunk, Signal
 
 
 __all__ = [
@@ -49,9 +51,9 @@ class BaseStreamingAudioSender(ABC):
     Can be used to send audio stream to StreamingASR.
     
     Constructor fields:
-    `audio`: audio stream (int waveform, float waveform or wav bytes)
+    `audio`: audio stream in float format with values in range [-1, 1]
+    `sampling_rate`: sampling rate
     `id`: a unique recording ID (StreamingASR require a unique ID for each recording)
-    `array_len_per_sec`: array length per second in audio time scale
     `verbose`: print on each chunk sent
     `track_history`: keep a history of sent chunks in `.history` field
     
@@ -68,9 +70,10 @@ class BaseStreamingAudioSender(ABC):
     - "started": `.start_sending()` was called, but the thread is not finished yet.
     - "finished": either `.start_sending()` or `.send_all_without_delays()` finished.
     """
-    audio: AUDIO_CHUNK_TYPE
+    audio: FLOATS
+    sampling_rate: int
+    output_type: Literal['float', 'int', 'bytes', 'wav']
     id: ID_TYPE = 0
-    array_len_per_sec: int = 16_000
     verbose: bool = False
     track_history: bool = True
 
@@ -110,7 +113,7 @@ class BaseStreamingAudioSender(ABC):
 
     @property
     def audio_length_sec(self) -> float:
-        return len(self.audio) / self.array_len_per_sec
+        return len(self.audio) / self.sampling_rate
     
     def start_sending(self, send_to: InputBuffer) -> Self:
         assert self.get_status() == 'not_started'
@@ -128,8 +131,10 @@ class BaseStreamingAudioSender(ABC):
                 f'Sending: id={self.id}, real {cutoff1.t_real:.3f}..{cutoff2.t_real:.3f}'
                 f', audio {cutoff2.t_audio:.3f}..{cutoff2.t_audio:.3f}'
             )
+        data = self.audio[cutoff1.arr_pos:cutoff2.arr_pos]
+        data = convert_audio_format(data, to_audio_type=self.output_type)
         chunk = InputChunk(
-            data=self.audio[cutoff1.arr_pos:cutoff2.arr_pos],
+            data=data,
             end_time=min(cutoff2.t_audio, self.audio_length_sec),
         )
         send_to.put(chunk, id=self.id)
@@ -199,7 +204,7 @@ class StreamingAudioSender(BaseStreamingAudioSender):
             Cutoff(
                 t_audio / self.speed_multiplier,
                 t_audio,
-                int(t_audio * self.array_len_per_sec)
+                int(t_audio * self.sampling_rate)
             )
             for t_audio in audio_times.tolist()
         ]

@@ -4,12 +4,13 @@ from typing import Literal, override
 import numpy as np
 
 from .buffer import ID_TYPE
-from .model import OutputChunk, Signal, StreamingASR, TranscriptionChunk, prepare_audio_format
+from .model import OutputChunk, Signal, StreamingASR, TranscriptionChunk
 from .caller import receive_full_transcription
 from .sender import StreamingAudioSender
 from ..models.base.interfaces import Transcriber
 from ..utils.types import FLOATS
 from ..utils.misc import new_uid
+from ..utils.audio_ops import resample
 
 
 class StreamingToOffline(Transcriber):
@@ -27,11 +28,17 @@ class StreamingToOffline(Transcriber):
     @override
     def transcribe(self, waveform: FLOATS) -> str:
         id = new_uid()
-        audio, array_len_per_sec = prepare_audio_format(
-            waveform, self.streaming_model, sampling_rate=16_000
+        audio = resample(
+            waveform,
+            from_sampling_rate=16_000,
+            to_sampling_rate=self.streaming_model.sampling_rate,
         )
         sender = StreamingAudioSender(
-            id=id, audio=audio, array_len_per_sec=array_len_per_sec, track_history=False
+            id=id,
+            audio=audio,
+            sampling_rate=self.streaming_model.sampling_rate,
+            output_type=self.streaming_model.audio_type,
+            track_history=False,
         )
         sender.send_all_without_delays(self.streaming_model.input_buffer)
         output_chunks = receive_full_transcription(asr=self.streaming_model, id=id)
@@ -87,5 +94,5 @@ class OfflineToStreaming(StreamingASR):
     
     @property
     @override
-    def audio_type(self) -> Literal['float', 'int', 'bytes']:
+    def audio_type(self) -> Literal['float']:
         return 'float'

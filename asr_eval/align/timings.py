@@ -276,6 +276,11 @@ def fill_word_timings_inplace(
             # TODO make and return deep copy of all refs
             t.ref.start_time = prev_end_time
             t.ref.end_time = next_start_time
+        
+    for token in transcription.list_all_tokens():
+        # np.float64 -> float
+        token.start_time = float(token.start_time)
+        token.end_time = float(token.end_time)
 
 
 def get_word_timings_simple(

@@ -8,10 +8,17 @@
 
 # type: ignore
 
-project = 'asr_eval'
-copyright = '2025, Oleg Sedukhin'
-author = 'Oleg Sedukhin'
-release = '0.0.1'
+import tomllib
+from datetime import datetime
+from pathlib import Path
+
+with open(Path(__file__).parent.parent.parent / 'pyproject.toml', 'rb') as f:
+    project_data = tomllib.load(f)
+
+project = project_data['project']['name']
+release = project_data['project']['version']
+author = project_data['project']['authors'][0]['name']
+copyright = f'{datetime.now().year}, {author} & Siberian Neuronets LLC'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

@@ -1,16 +1,13 @@
 import argparse
-import re
-from typing import Literal, cast
+from typing import Literal
+from pathlib import Path
+
 import dash
 from dash import dcc, html, Input, Output
 from dash.development.base_component import Component
-from pathlib import Path
-
-from ..align.matching import MatchesList
+from dash_extensions import Purify
 
 from .evaluator import Evaluator
-from ..align.transcription import SingleVariantTranscription, Token
-from ..align.multiple import multiple_transcriptions_alignment
 
 
 __all__ = [
@@ -18,16 +15,17 @@ __all__ = [
 ]
 
 
-def run_dashboard(root_dir: str | Path = 'outputs'):
+def run_dashboard(root_dir: str | Path = 'outputs', cache_dir: str | Path = 'tmp/evaluator_cache'):
     '''
     Runs an interactive dashboard to visualize the results of transcriber pipelines.
     
     See asr_eval/bench/README.md for details.
     '''
-    evaluator = Evaluator(root_dir=root_dir).load_results()
+    evaluator = Evaluator(root_dir=root_dir, cache_dir=cache_dir)
+    evaluator.load_results(pref_baseline='whisper-large-v3')
     
-    dataset_names = list(evaluator.df['dataset_name'].unique()) # type: ignore
-    pipeline_names = list(evaluator.df['pipeline_name'].unique()) # type: ignore
+    dataset_names = evaluator.list_datasets()
+    pipeline_names = evaluator.list_pipelines()
     assert len(dataset_names)
     
     app = dash.Dash(__name__)
@@ -74,85 +72,24 @@ def run_dashboard(root_dir: str | Path = 'outputs'):
         pipeline_names: list[str],
         sample_filter: Literal['all', 'unequal'],
     ) -> list[Component]:
-        paragraphs: list[Component] = []
-        
-        dataset_df = evaluator.df[
-            (evaluator.df['dataset_name'] == dataset_name)
-            & evaluator.df['pipeline_name'].isin(pipeline_names) # type: ignore
-        ]
-        dataset_df = dataset_df.sort_values('sample_idx') # type: ignore
-        for sample_idx, sample_df in dataset_df.groupby('sample_idx'): # type: ignore
-            sample_df = sample_df.sort_values('pipeline_name') # type: ignore
-            ground_truth = evaluator.get_ground_truth(dataset_name, int(sample_idx)) # type: ignore
-            
-            assert all(isinstance(t, Token) for t in ground_truth.tokens)
-            ground_truth = SingleVariantTranscription(ground_truth.text, cast(list[Token], ground_truth.tokens))
-            
-            if sample_filter == 'unequal' and len(sample_df) == 2:
-                words1, words2 = cast(list[list[Token]], sample_df['transcription_words'].tolist())
-                normalized_text1 = ' '.join(str(w.value) for w in words1)
-                normalized_text2 = ' '.join(str(w.value) for w in words2)
-                if normalized_text1 == normalized_text2:
-                    continue
-            
-            alignments: dict[str, MatchesList] = {
-                row['pipeline_name']: row['alignment']
-                for i, row in sample_df.iterrows() # type: ignore
-            }
-            
-            paragraphs.append(_sample_to_paragraph(
-                sample_idx=int(sample_idx), # type: ignore
-                true_words=ground_truth.tokens,
-                alignments=alignments,
-            ))
-        
-        return paragraphs
+        multiple_alignments = evaluator.get_multiple_alignments(dataset_name, pipeline_names)
+        html_contents = ''
+        for sample_idx, multiple_alignment in multiple_alignments.items():
+            names = [multiple_alignment.baseline_name] + list(multiple_alignment.alignments)
+            timings = [
+                f'[{evaluator.get_prediction(dataset_name, sample_idx, name).elapsed_time:.2f} sec]' # type: ignore
+                if name is not True else ''
+                for name in names
+            ]
+            timings = [x.ljust(13) for x in timings]
+            html_contents += (
+                f'{sample_idx}</br>'
+                + multiple_alignment.view().render_as_text(mode='html', prefixes=timings)
+                + '</br></br>'
+            )
+        return [Purify(html='<p>' + html_contents+ '</p>')]
 
     app.run(debug=False, host='0.0.0.0', port=8050, use_reloader=False) # type: ignore
-
-
-def _sample_to_paragraph(
-    sample_idx: int,
-    true_words: list[Token],
-    alignments: dict[str, MatchesList],
-) -> html.P:
-    _msa_df, msa_string = multiple_transcriptions_alignment(true_words, alignments)
-    msa_string = msa_string.replace(' ', '\xa0')
-    header, body = msa_string.split('\n', maxsplit=1)
-    # print(msa_string)
-    return html.P(
-        [html.Span(str(sample_idx)), html.Br()]
-        + [html.Span(header, style={'font-weight': 'bold'}), html.Br()]
-        + _text_with_linebreaks_to_spans(body)
-    )
-
-
-def _colorize_uppercase(text: str) -> list[html.Span]:
-    # temporary solution to mark errors in color
-    spans: list[html.Span] = []
-    uppercase_words = list(re.finditer(r'[A-ZА-Я]+', text))
-    
-    pos = 0
-    for word in uppercase_words:
-        if word.start() > pos:
-            spans.append(html.Span(text[pos:word.start()]))
-        spans.append(html.Span(word.group().lower(), style={'background-color': '#FF9C9C'}))
-        pos = word.end()
-        
-    if pos < len(text):
-        spans.append(html.Span(text[pos:]))
-        
-    return spans
-
-
-def _text_with_linebreaks_to_spans(text: str) -> list[html.Span | html.Br]:
-    spans: list[html.Span | html.Br] = []
-    lines = text.splitlines()
-    for i, line in enumerate(lines):
-        spans += _colorize_uppercase(line)
-        if i != len(lines) - 1:
-            spans.append(html.Br())
-    return spans
 
 
 if __name__ == '__main__':

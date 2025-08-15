@@ -41,7 +41,7 @@ def test_align_recursive():
         (None, 'a')
     ]
 
-    for x in true.itertokens():
+    for x in true.list_all_tokens():
         assert true_text[x.start_pos:x.end_pos] == x.value
 
     for x in pred.tokens:

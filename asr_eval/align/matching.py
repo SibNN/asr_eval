@@ -6,7 +6,7 @@ from typing import Literal, cast
 
 import nltk
 
-from .transcription import Anything, Token, MultiVariantBlock
+from .transcription import TOKEN_UID, Anything, Token, MultiVariantBlock
 
 
 __all__ = [
@@ -20,7 +20,7 @@ __all__ = [
 
 
 @cache
-def _char_edit_distance(true: str, pred: str) -> int:
+def char_edit_distance(true: str, pred: str) -> int:
     return nltk.edit_distance(true, pred) # type: ignore
 
 
@@ -65,12 +65,12 @@ def match_from_pair(true: Token | None, pred: Token | None) -> Match:
     is_anything = T and isinstance(true.value, Anything)
     if is_anything or (T and P and true.value == pred.value):
         status = 'correct'
+    elif T and P:
+        status = 'replacement'
     elif T:
         status = 'deletion'
-    elif P:
-        status = 'insertion'
     else:
-        status = 'replacement'
+        status = 'insertion'
     
     return Match(
         true=true,
@@ -79,7 +79,7 @@ def match_from_pair(true: Token | None, pred: Token | None) -> Match:
         score=AlignmentScore(
             n_word_errors=0 if status == 'correct' else 1,
             n_correct=int(T) if status == 'correct' and not is_anything else 0,
-            n_char_errors=_char_edit_distance(
+            n_char_errors=char_edit_distance(
                 str(true.value) if T else '',
                 str(pred.value) if P else '',
             ) if (not is_anything and status != 'correct') else 0,
@@ -248,7 +248,7 @@ def solve_optimal_alignment(
     """
     assert all(isinstance(x, Token) for x in pred), 'prediction cannot be multivariant'
         
-    multivariant_prefixes: dict[tuple[str, int], list[Token]] = {}
+    multivariant_prefixes: dict[tuple[TOKEN_UID, int], list[Token]] = {}
     for x in true:
         if isinstance(x, MultiVariantBlock):
             for i, option in enumerate(x.options):
@@ -347,8 +347,11 @@ def solve_optimal_alignment(
         pos = _TranscriptionPosition(0)
         selected_options: list[int] = []
         
-        for match in result.matches:
+        for match_idx, match in enumerate(result.matches):
             if match.true is not None:
+                if match_idx > 0 and match.true is result.matches[match_idx - 1].true:
+                    # same true token for consecutive matches, happens with Token(Anything())
+                    continue
                 while True:
                     pos, selected_option_idx, selected_empty_option = (
                         pos.step_forward(true, match.true.uid)
