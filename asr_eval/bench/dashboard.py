@@ -8,7 +8,7 @@ from dash import dcc, html, Input, Output
 from dash.development.base_component import Component
 from dash_extensions import Purify
 
-from .evaluator import Evaluator
+from .evaluator2 import Evaluator
 
 
 __all__ = [
@@ -88,8 +88,8 @@ def run_dashboard(
         for sample_idx, multiple_alignment in multiple_alignments.items():
             names = [multiple_alignment.baseline_name] + list(multiple_alignment.alignments)
             timings = [
-                f'[{evaluator.get_prediction(dataset_name, sample_idx, name).elapsed_time:.2f} sec]' # type: ignore
-                if name is not True else ''
+                f'[{evaluator.get_prediction(dataset_name, sample_idx, name).elapsed_time:.2f} sec]'
+                if isinstance(name, str) else ''
                 for name in names
             ]
             timings = [x.ljust(13) for x in timings]

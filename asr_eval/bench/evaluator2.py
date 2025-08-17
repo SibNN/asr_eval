@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Container, Iterator
-from dataclasses import dataclass, fields
+from dataclasses import dataclass
 from pathlib import Path
 import pickle
 from typing import Literal, cast
 
-import pandas as pd
 from tqdm.auto import tqdm
 
+from ..utils.dataframe import DataclassDataFrame
 from .datasets import AudioSample, get_dataset, get_dataset_info
 from ..align.alignment import Alignment, MultipleAlignment
 from ..align.parsing import parse_single_variant_string, parse_multivariant_string
@@ -19,6 +19,9 @@ from ..segments.segment import TimedText
 
 __all__ = [
     'Evaluator',
+    'PredictionInfo',
+    'LoadedPrediction',
+    'PredictionDataframeRow',
 ]
     
 
@@ -77,38 +80,49 @@ class PredictionDataframeRow:
 class Evaluator:
     def __init__(self, cache_dir: str | Path = 'tmp/evaluator_cache'):
         self.cache_dir = Path(cache_dir)
-        self.df = pd.DataFrame(
-            columns=[f.name for f in fields(PredictionDataframeRow)]
-        ).set_index('path') # type: ignore
+        self.df = DataclassDataFrame[PredictionDataframeRow]()
+    
+    def list_datasets(self) -> list[str]:
+        return list(set(self.df['dataset_name']))
+    
+    def list_pipelines(self) -> list[str]:
+        return list(set(self.df['pipeline_name']))
+
+    def get_prediction(
+        self,
+        dataset_name: str,
+        sample_idx: int,
+        pipeline_name: str,
+    ) -> LoadedPrediction:
+        for row in self.df.data:
+            if (
+                row.dataset_name == dataset_name
+                and row.sample_idx == sample_idx
+                and row.pipeline_name == pipeline_name
+            ):
+                return row.pred
+        raise AssertionError(f'Cannot find a row for {dataset_name}, {sample_idx}, {pipeline_name}')
+            
     
     def get_multiple_alignments(
         self,
         dataset_name: str,
         pipeline_names: Container[str] | None = None,
     ) -> dict[int, MultipleAlignment]:
-        is_unlabeled = get_dataset_info(dataset_name).unlabeled
         results: dict[int, MultipleAlignment] = {}
-        if not is_unlabeled:
-            for dataset_name, sample_idx, df_for_sample in self.groupby_sample(dataset_name=dataset_name):
-                assert set(df_for_sample['aligned_against'].unique()) == {True} # type: ignore
+        if not get_dataset_info(dataset_name).unlabeled:
+            for sample_idx, df_for_sample in self.df.filter(dataset_name=dataset_name).groupby('sample_idx'):
                 results[sample_idx] = MultipleAlignment(
                     baseline=self.get_ground_truth_cached(dataset_name, sample_idx),
-                    alignments=dict(zip(
-                        df_for_sample['pipeline_name'], # type: ignore
-                        df_for_sample['alignment'], # type: ignore
-                    )),
+                    alignments={
+                        row.pipeline_name: cast(Alignment, row.alignment)
+                        for row in df_for_sample.data
+                        if pipeline_names is None or row.pipeline_name in pipeline_names
+                    },
                 )
         else:
             pass  # TODO support alignments for unlabeled datasets
         return results
-    
-    def groupby_sample(self, dataset_name: str | None = None) -> Iterator[tuple[str, int, pd.DataFrame]]:
-        for _dataset_name, df_for_dataset in self.df.groupby('dataset_name'): # type: ignore
-            _dataset_name = cast(str, _dataset_name)
-            if dataset_name is None or _dataset_name == dataset_name:
-                for sample_idx, df_for_sample in df_for_dataset.groupby('sample_idx'): # type: ignore
-                    sample_idx = cast(int, sample_idx)
-                    yield _dataset_name, sample_idx, df_for_sample
 
     def load_results(
         self,
@@ -121,7 +135,7 @@ class Evaluator:
         exclude_datasets: Container[str] = (),
     ):
         # list predictions not loaded yet
-        preds_on_disk = list_predictions(
+        preds_on_disk = _list_predictions(
             root_dir=root_dir,
             max_sample_idx=max_sample_idx,
             only_pipelines=only_pipelines,
@@ -129,42 +143,31 @@ class Evaluator:
             exclude_pipelines=exclude_pipelines,
             exclude_datasets=exclude_datasets,
         )
-        preds_on_disk = [p for p in preds_on_disk if p.path not in self.df.index]
+        preds_on_disk = [
+            p for p in preds_on_disk
+            if p.path not in set(self.df['path'])
+        ]
         
         # load predictions incrementally with progress bar
-        preds_rows = [
-            PredictionDataframeRow(
+        for pred_info in tqdm(list(preds_on_disk)):
+            self.df.data.append(PredictionDataframeRow(
                 **vars(pred_info),
                 pred=LoadedPrediction.load_cached(pred_info.path),
-            )
-            for pred_info in tqdm(list(preds_on_disk))
-        ]
-        self.df = pd.concat([
-            self.df,
-            pd.DataFrame([vars(row) for row in preds_rows]).set_index('path'), # type: ignore
-        ])
+            ))
         
         # calculating alignments
-        for dataset_name, sample_idx, df_for_sample in self.groupby_sample():
-            is_unlabeled = get_dataset_info(dataset_name).unlabeled
-            rows = [
-                PredictionDataframeRow(path=cast(Path, path), **row.to_dict()) # type: ignore
-                for path, row in df_for_sample.iterrows() # type: ignore
-            ]
-            if not is_unlabeled:
-                for row in rows:
-                    if row.alignment is None or row.aligned_against is not True:
-                        true = self.get_ground_truth_cached(dataset_name, sample_idx)
+        for (dataset_name, sample_idx), df_for_sample in self.df.groupby(['dataset_name', 'sample_idx']):
+            if not get_dataset_info(dataset_name).unlabeled:
+                for row in df_for_sample.data:
+                    if row.alignment is None:
+                        row.true = self.get_ground_truth_cached(dataset_name, sample_idx)
                         cache_path = row.path.with_suffix('.align.pkl')
                         if cache_path.is_file():
-                            alignment = pickle.loads(cache_path.read_bytes())
+                            row.alignment = pickle.loads(cache_path.read_bytes())
                         else:
                             print(f'Aligning: {dataset_name} #{sample_idx} truth VS {row.pipeline_name}')
-                            alignment = Alignment.from_predictions(true=true, pred=row.pred.pred)
-                            cache_path.write_bytes(pickle.dumps(alignment))
-                        self.df.at[row.path, 'true'] = true # type: ignore
-                        self.df.at[row.path, 'alignment'] = alignment # type: ignore
-                        self.df.at[row.path, 'aligned_against'] = True # type: ignore
+                            row.alignment = Alignment.from_predictions(true=row.true, pred=row.pred.pred)
+                            cache_path.write_bytes(pickle.dumps(row.alignment))
             else:
                 # baseline_name = pref_baseline if pref_baseline in preds else sorted(preds)[0]
                 pass  # TODO support alignments for unlabeled datasets
@@ -174,19 +177,20 @@ class Evaluator:
         if cache_path.is_file():
             return pickle.loads(cache_path.read_bytes())
         else:
-            result = load_ground_truth(dataset_name, sample_idx)
+            result = _load_ground_truth(dataset_name, sample_idx)
             cache_path.parent.mkdir(exist_ok=True, parents=True)
             cache_path.write_bytes(pickle.dumps(result))
             return result
+        
 
     
-def load_ground_truth(dataset_name: str, sample_idx: int) -> Transcription:
+def _load_ground_truth(dataset_name: str, sample_idx: int) -> Transcription:
     dataset = get_dataset(dataset_name)
     sample = cast(AudioSample, dataset[sample_idx])
     return parse_multivariant_string(sample['transcription'])
     
 
-def list_predictions(
+def _list_predictions(
     root_dir: str | Path,
     max_sample_idx: int | None = None,
     only_pipelines: Container[str] | None = None,
