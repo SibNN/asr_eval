@@ -8,7 +8,7 @@ from dash import dcc, html, Input, Output
 from dash.development.base_component import Component
 from dash_extensions import Purify
 
-from .evaluator2 import Evaluator
+from .evaluator import Evaluator
 
 
 __all__ = [
