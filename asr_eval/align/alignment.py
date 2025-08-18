@@ -292,6 +292,8 @@ class MultipleAlignmentView:
         self,
         mode: Literal['ansi', 'html', None] = 'ansi',
         prefixes: list[str] | None = None,
+        html_add_style: bool = True,
+        add_pipeline_names: bool = True,
     ) -> str:
         '''
         TODO docstring
@@ -359,8 +361,9 @@ class MultipleAlignmentView:
         first_row = list(zip(baseline_words, baseline_word_lengths))
         table_str.prepend_row(first_row)
         
-        table_str.prepend_col([('|', 1) for _ in range(table_str.shape[0])])
-        table_str.prepend_col([(x, len(x)) for x in [str(self.baseline_name)] + self.names])
+        if add_pipeline_names:
+            table_str.prepend_col([('|', 1) for _ in range(table_str.shape[0])])
+            table_str.prepend_col([(x, len(x)) for x in [str(self.baseline_name)] + self.names])
 
         col_lengths = [
             max([l for _, l in table_str[:, col_idx]])
@@ -383,7 +386,8 @@ class MultipleAlignmentView:
         match mode:
             case 'html':
                 text_block = '<br/>'.join(lines)
-                text_block = f'<span style="{html_style}">' + text_block + '</span>'
+                if html_add_style:
+                    text_block = f'<span style="{html_style}">' + text_block + '</span>'
             case _:
                 text_block = '\n'.join(lines)
 

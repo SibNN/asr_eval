@@ -2,11 +2,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from functools import partial
 from typing import Literal, Self
+from dataclasses import dataclass
 
 import numpy as np
-
-
-from dataclasses import dataclass
 
 
 @dataclass
