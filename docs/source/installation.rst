@@ -153,6 +153,16 @@ See :code:`asr_eval.tts.yandex_speechkit.YandexSpeechKitWrapper` docstring for i
     tmp/venv_yandex_speechkit/bin/python -m pip install yandex-speechkit
     tmp/venv_yandex_speechkit/bin/python -m asr_eval.bench.check yandex-speechkit
 
+NVIDIA Canary
+----------------------------
+
+.. code-block:: bash
+    
+    python3.12 -m venv tmp/venv_canary
+    tmp/venv_canary/bin/python -m pip install -e .
+    tmp/venv_canary/bin/python -m pip install nemo_toolkit[asr]
+    tmp/venv_canary/bin/python -m asr_eval.bench.check canary-1b-v2
+
 Building docs
 *****************
 

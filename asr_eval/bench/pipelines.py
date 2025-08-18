@@ -19,6 +19,7 @@ from ..models.legacy_pisets_wrapper import LegacyPisetsWrapper
 from ..models.pisets_wrapper import PisetsWrapper
 from ..models.qwen2_audio_wrapper import Qwen2AudioWrapper
 from ..models.flamingo_wrapper import FlamingoWrapper
+from ..models.nvidia_canary_wrapper import NvidiaCanaryWrapper
 from .datasets import AudioSample
 from ..utils.serializing import save_to_json
 from ..utils.timer import Timer
@@ -239,6 +240,11 @@ class _(TranscriberPipeline, register_as='voxtral-3B'):
 class _(TranscriberPipeline, register_as='voxtral-3B-mp3'):
     def init(self):
         return VoxtralWrapper('mistralai/Voxtral-Mini-3B-2507', language='ru', local_server_verbose=True, format='mp3')
+
+
+class _(TranscriberPipeline, register_as='canary-1b-v2'):
+    def init(self):
+        return NvidiaCanaryWrapper('nvidia/canary-1b-v2')
 
 
 class _(TimedTranscriberPipeline, register_as='yandex-speechkit'):
