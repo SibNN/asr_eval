@@ -3,7 +3,6 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)  # for pydub
 
 from asr_eval.align.alignment import *
 from asr_eval.align.matching import *
-from asr_eval.align.multiple import *
 from asr_eval.align.parsing import *
 from asr_eval.align.plots import *
 from asr_eval.align.timings import *
@@ -11,6 +10,7 @@ from asr_eval.align.transcription import *
 from asr_eval.bench.dashboard import *
 from asr_eval.bench.datasets import *
 from asr_eval.bench.evaluator import *
+from asr_eval.bench.loader import *
 from asr_eval.bench.pipelines import *
 from asr_eval.bench.recording import *
 from asr_eval.bench.run import *
