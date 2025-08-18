@@ -19,6 +19,9 @@ __all__ = [
 def run_dashboard(
     root_dir: str | Path = 'outputs',
     cache_dir: str | Path = 'tmp/evaluator_cache',
+    max_sample_idx: int | None = None,
+    only_pipelines: Container[str] | None = None,
+    only_datasets: Container[str] | None = None,
     exclude_pipelines: Container[str] = (),
     exclude_datasets: Container[str] = (),
 ):
@@ -30,7 +33,10 @@ def run_dashboard(
     evaluator = Evaluator(cache_dir=cache_dir)
     evaluator.load_results(
         root_dir=root_dir,
+        max_sample_idx=max_sample_idx,
         pref_baseline='whisper-large-v3',
+        only_pipelines=only_pipelines,
+        only_datasets=only_datasets,
         exclude_pipelines=exclude_pipelines,
         exclude_datasets=exclude_datasets,
     )
@@ -111,11 +117,17 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--cache_dir', default='tmp/evaluator_cache', help='cache dir for alignments')
     parser.add_argument('--exclude_pipeline', nargs='*')
     parser.add_argument('--exclude_dataset', nargs='*')
+    parser.add_argument('--only_pipeline', nargs='*')
+    parser.add_argument('--only_dataset', nargs='*')
+    parser.add_argument('--max_sample_idx', type=int, required=False)
     args = parser.parse_args()
     
     run_dashboard(
         root_dir=args.root_dir,
         cache_dir=args.cache_dir,
+        max_sample_idx=args.max_sample_idx,
         exclude_pipelines=args.exclude_pipeline or (),
         exclude_datasets=args.exclude_dataset or (),
+        only_pipelines=args.only_pipeline or None,
+        only_datasets=args.only_dataset or None,
     )
