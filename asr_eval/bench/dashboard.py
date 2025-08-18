@@ -8,7 +8,7 @@ from dash import dcc, html, Input, Output
 from dash.development.base_component import Component
 from dash_extensions import Purify
 
-from .evaluator import Evaluator
+from .loader import PredictionLoader
 
 
 __all__ = [
@@ -30,7 +30,7 @@ def run_dashboard(
     
     See asr_eval/bench/README.md for details.
     '''
-    evaluator = Evaluator(cache_dir=cache_dir)
+    evaluator = PredictionLoader(cache_dir=cache_dir)
     evaluator.load_results(
         root_dir=root_dir,
         max_sample_idx=max_sample_idx,
