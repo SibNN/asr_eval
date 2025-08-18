@@ -1,5 +1,7 @@
 from __future__ import annotations
-from typing import Literal
+from collections.abc import Callable
+from functools import partial
+from typing import Literal, Self
 
 import numpy as np
 
@@ -28,6 +30,10 @@ class Metrics:
         return wer
 
     def __add__(self, other: Metrics) -> Metrics:
+        if isinstance(other, int):
+            # for sum(metrics) which is equal sum(metrics, start=0)
+            assert other == 0
+            other = Metrics()
         return Metrics(
             true_len=self.true_len + other.true_len,
             n_replacements=self.n_replacements + other.n_replacements,
@@ -68,3 +74,61 @@ def average_wer(samples: list[Metrics], mode: Literal['plain', 'concat']) -> flo
             return float(np.mean([s.word_error_rate(clip=True) for s in samples]))
         case 'concat':
             return sum(samples, start=Metrics()).word_error_rate(clip=True)
+
+
+@dataclass
+class MetricDistribution:
+    main_value: float
+    bootstrap_values: list[float]
+    
+    def quantile(self, q: float) -> float:
+        return float(np.quantile(self.bootstrap_values, q))
+
+
+def bootstrap[T](
+    samples: list[T],
+    calc_metric: Callable[[list[T]], float],
+    rounds: int = 100,
+    random_seed: int | None = 0,
+) -> MetricDistribution:
+    rng = np.random.default_rng(seed=random_seed)
+    return MetricDistribution(
+        main_value=calc_metric(samples),
+        bootstrap_values=[
+            calc_metric(rng.choice(samples, size=len(samples), replace=True)) # type: ignore
+            for _ in range(rounds)
+        ]
+    )
+
+
+@dataclass
+class DatasetMetric:
+    wer: MetricDistribution
+    n_replacements: MetricDistribution
+    n_insertions: MetricDistribution
+    n_deletions: MetricDistribution
+    
+    @classmethod
+    def from_samples(
+        cls,
+        samples: list[Metrics],
+        wer_averaging_mode: Literal['plain', 'concat'] = 'concat',
+    ) -> Self:
+        return cls(
+            wer=bootstrap(
+                samples,
+                partial(average_wer, mode=wer_averaging_mode)
+            ),
+            n_replacements=bootstrap(
+                samples,
+                lambda samples: sum(samples, start=Metrics()).n_replacements
+            ),
+            n_insertions=bootstrap(
+                samples,
+                lambda samples: sum(samples, start=Metrics()).n_insertions
+            ),
+            n_deletions=bootstrap(
+                samples,
+                lambda samples: sum(samples, start=Metrics()).n_deletions
+            ),
+        )
