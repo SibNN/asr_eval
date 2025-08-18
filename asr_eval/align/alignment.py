@@ -53,6 +53,9 @@ SLOT_VALUES = list[Correct | Replacement | Insertion | Deletion]
 
 @dataclass
 class SampleMetricSummary:
+    '''
+    TODO docstring
+    '''
     true_len: int
     n_replacements: int
     n_insertions: int
@@ -67,6 +70,15 @@ class SampleMetricSummary:
         if clip:
             wer = np.clip(wer, 0, 1)
         return wer
+    
+    def __add__(self, other: SampleMetricSummary) -> SampleMetricSummary:
+        return SampleMetricSummary(
+            true_len=self.true_len + other.true_len,
+            n_replacements=self.n_replacements + other.n_replacements,
+            n_insertions=self.n_insertions + other.n_insertions,
+            n_deletions=self.n_deletions + other.n_deletions,
+        )
+
 
 @dataclass
 class Alignment:
@@ -191,6 +203,9 @@ def absorb_insertions_into_replacements_inplace(
     true: MultiVariantTranscriptionPath,
     slots: dict[SLOT_LOC, SLOT_VALUES]
 ):
+    '''
+    TODO docstring
+    '''
     slots_becoming_empty: set[SLOT_LOC] = set()
     for slot_loc, slot_values in slots.items():
         if len(slot_values) == 1 and isinstance(slot_values[0], Replacement):
@@ -238,6 +253,9 @@ def absorb_insertions_into_replacements_inplace(
 
 @dataclass
 class MultipleAlignment:
+    '''
+    TODO docstring
+    '''
     baseline: MultiVariantTranscription | SingleVariantTranscription
     baseline_name: str | Literal[True] = True
     alignments: dict[str, Alignment] = field(default_factory=dict)
