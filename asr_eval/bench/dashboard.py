@@ -18,6 +18,59 @@ __all__ = [
     'run_dashboard',
 ]
 
+
+def _display_sample_as_html(sample: SampleData) -> str:
+        display_rows: list[tuple[str, ...]] = []
+        if sample.baseline_is_ground_truth:
+            # labeled dataset
+            display_rows.append((
+                'E',  # n_errors
+                'R',  # n_replacements
+                'D',  # n_deletions
+                'I',  # n_insertions
+                'time', # elapsed_time
+                'True', # pipeline_name
+                sample.baseline_transcription_html
+            ))
+            for pipeline_name, pipeline_data in sample.pipelines.items():
+                display_rows.append((
+                    str(pipeline_data.n_errors),
+                    str(pipeline_data.n_replacements),
+                    str(pipeline_data.n_deletions),
+                    str(pipeline_data.n_insertions),
+                    f'{pipeline_data.elapsed_time:.2f}' if not np.isnan(pipeline_data.elapsed_time) else '?',
+                    pipeline_name,
+                    pipeline_data.transcription_html,
+                ))
+        else:
+            # unlabeled dataset
+            display_rows.append((
+                'time', # elapsed_time
+                sample.baseline_name,
+                sample.baseline_transcription_html
+            ))
+            for pipeline_name, pipeline_data in sample.pipelines.items():
+                display_rows.append((
+                    f'{pipeline_data.elapsed_time:.2f}',
+                    pipeline_name,
+                    pipeline_data.transcription_html,
+                ))
+            
+        df = pd.DataFrame(display_rows)
+        # the last column (transcription) contans <span> tags, so .to_string() shows it incorrectly
+        display_lines = df.iloc[:, :-1].to_string( # type: ignore
+            # col_space=5,
+            index=False,
+            header=False,
+        ).split('\n')
+        
+        # we can use <br/> or \n for white-space: pre mode
+        return f'{sample.sample_idx}<br/>' + '<br/>'.join(
+            line + ' |' + transcription
+            for line, transcription in zip(display_lines, df.iloc[:, -1]) # type: ignore
+        )
+
+
 def run_dashboard(
     root_dir: str | Path = 'outputs',
     cache_dir: str | Path = 'tmp/evaluator_cache',
@@ -75,57 +128,6 @@ def run_dashboard(
     
     app.layout = html.Div([selectors, text_field])
     
-    def display_sample_as_html(sample: SampleData) -> str:
-        display_rows: list[tuple[str, ...]] = []
-        if sample.baseline_is_ground_truth:
-            # labeled dataset
-            display_rows.append((
-                'E',  # n_errors
-                'R',  # n_replacements
-                'D',  # n_deletions
-                'I',  # n_insertions
-                'time', # elapsed_time
-                'True', # pipeline_name
-                sample.baseline_transcription_html
-            ))
-            for pipeline_name, pipeline_data in sample.pipelines.items():
-                display_rows.append((
-                    str(pipeline_data.n_errors),
-                    str(pipeline_data.n_replacements),
-                    str(pipeline_data.n_deletions),
-                    str(pipeline_data.n_insertions),
-                    f'{pipeline_data.elapsed_time:.2f}' if not np.isnan(pipeline_data.elapsed_time) else '?',
-                    pipeline_name,
-                    pipeline_data.transcription_html,
-                ))
-        else:
-            # unlabeled dataset
-            display_rows.append((
-                'time', # elapsed_time
-                sample.baseline_name,
-                sample.baseline_transcription_html
-            ))
-            for pipeline_name, pipeline_data in sample.pipelines.items():
-                display_rows.append((
-                    f'{pipeline_data.elapsed_time:.2f}',
-                    pipeline_name,
-                    pipeline_data.transcription_html,
-                ))
-            
-        df = pd.DataFrame(display_rows)
-        # the last column (transcription) contans <span> tags, so .to_string() shows it incorrectly
-        display_lines = df.iloc[:, :-1].to_string( # type: ignore
-            # col_space=5,
-            index=False,
-            header=False,
-        ).split('\n')
-        
-        # we can use <br/> or \n for white-space: pre mode
-        return f'{sample.sample_idx}<br/>' + '<br/>'.join(
-            line + ' |' + transcription
-            for line, transcription in zip(display_lines, df.iloc[:, -1]) # type: ignore
-        )
-            
     
     @app.callback( # type: ignore
         Output('multiple-alignments', 'children'),
@@ -143,7 +145,7 @@ def run_dashboard(
             pipeline_names=pipeline_names,
         )
         html_blocks = [
-            display_sample_as_html(sample)
+            _display_sample_as_html(sample)
             for sample in dataset_data.samples
         ]
         return [Purify(html='<p>' + '</br></br>'.join(html_blocks) + '</p>')]
