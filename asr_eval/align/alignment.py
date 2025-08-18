@@ -10,7 +10,7 @@ import pandas as pd
 from termcolor import colored
 
 from ..utils.table import Table2D
-from .matching import Match, char_edit_distance, solve_optimal_alignment
+from .matching import Match, char_edit_distance, select_shortest_multi_variants, solve_optimal_alignment
 from .transcription import (
     MultiVariantBlock,
     MultiVariantTranscription,
@@ -52,6 +52,23 @@ SLOT_VALUES = list[Correct | Replacement | Insertion | Deletion]
 
 
 @dataclass
+class SampleMetricSummary:
+    true_len: int
+    n_replacements: int
+    n_insertions: int
+    n_deletions: int
+    
+    @property
+    def n_errors(self) -> int:
+        return self.n_replacements + self.n_insertions + self.n_deletions
+    
+    def word_error_rate(self, clip: bool = False) -> float:
+        wer = self.n_errors / np.clip(self.true_len, 1, None)
+        if clip:
+            wer = np.clip(wer, 0, 1)
+        return wer
+
+@dataclass
 class Alignment:
     '''
     TODO docstring
@@ -59,6 +76,62 @@ class Alignment:
     true: MultiVariantTranscriptionPath
     pred: SingleVariantTranscription
     slots: dict[SLOT_LOC, SLOT_VALUES]
+    
+    def metric_summary(
+        self,
+        count_absorbed_insertions: bool = True,
+        max_consecutive_insertions: int | None = None,
+    ) -> SampleMetricSummary:
+        n_replacements = 0
+        n_insertions = 0
+        n_deletions = 0
+        
+        for _slot_loc, slot_values in self.slots.items():
+            # count <Correct | Replacement | Insertion | Deletion> per cell
+            slot_replacements = sum(isinstance(x, Replacement) for x in slot_values)
+            slot_insertions = sum(isinstance(x, Insertion) for x in slot_values)
+            slot_deletions = sum(isinstance(x, Deletion) for x in slot_values)
+            slot_correct = sum(isinstance(x, Correct) for x in slot_values)
+            
+            # determine cell type
+            has_replacements = slot_replacements > 0
+            has_insertions = slot_insertions > 0
+            has_deletions = slot_deletions > 0
+            has_corrects = slot_correct > 0
+            
+            # validate cell type
+            if has_replacements:
+                # slot of "replacement" type, may only contain absorbed insertions
+                assert not has_deletions and not has_corrects
+            else:
+                # slot of "deletion", "insertion", or "correct" type
+                assert sum((has_insertions, has_deletions, has_corrects)) == 1
+        
+            # count replacements, deletions
+            n_replacements += slot_replacements
+            n_deletions += slot_deletions
+            
+            # count insertions
+            if has_replacements:
+                # for "replacement" cells, we may count or not count absorbed insertions
+                if count_absorbed_insertions:
+                    n_insertions += slot_insertions
+            elif max_consecutive_insertions is not None:
+                # for "insertion" cell, set an upper bound for slot insertions count
+                n_insertions += min(slot_insertions, max_consecutive_insertions)
+            else:
+                n_insertions += slot_insertions
+        
+        # for multivariant block, "true length" is the length of its shortest option
+        true_len = len(select_shortest_multi_variants(self.true.tokens))
+        
+        return SampleMetricSummary(
+            true_len=true_len,
+            n_replacements=n_replacements,
+            n_insertions=n_insertions,
+            n_deletions=n_deletions,
+        )
+            
     
     @classmethod
     def from_predictions(
@@ -228,7 +301,7 @@ class MultipleAlignmentView:
     def render_as_text(
         self,
         mode: Literal['ansi', 'html', None] = 'ansi',
-        prefixes: list[str] | None = None
+        prefixes: list[str] | None = None,
     ) -> str:
         '''
         TODO docstring

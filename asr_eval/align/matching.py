@@ -11,7 +11,7 @@ from .transcription import TOKEN_UID, Anything, Token, MultiVariantBlock
 
 __all__ = [
     'match_from_pair',
-    '_select_shortest_multi_variants',
+    'select_shortest_multi_variants',
     'solve_optimal_alignment',
     'AlignmentScore',
     'Match',
@@ -154,7 +154,7 @@ class AlignmentScore:
         return self._compare(cast(AlignmentScore, other)) != '<'
     
 
-def _select_shortest_multi_variants(seq: list[Token | MultiVariantBlock]) -> list[Token]:
+def select_shortest_multi_variants(seq: list[Token | MultiVariantBlock]) -> list[Token]:
     '''
     Selects the shortest option in each muultivariant block.
     '''
@@ -273,7 +273,7 @@ def solve_optimal_alignment(
         elif len(_pred) == 0 and len(_true) > 0:
             _matches: list[Match] = []
             for token in _true:
-                if len(shortest := _select_shortest_multi_variants([token])):
+                if len(shortest := select_shortest_multi_variants([token])):
                     _matches += [match_from_pair(t, None) for t in shortest]
             return MatchesList.from_list(_matches)
         elif len(_pred) > 0 and len(_true) == 0:
