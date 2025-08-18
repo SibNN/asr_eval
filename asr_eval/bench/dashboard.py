@@ -9,6 +9,7 @@ import dash
 from dash import dcc, html, Input, Output
 from dash.development.base_component import Component
 from dash_extensions import Purify
+import numpy as np
 import pandas as pd
 
 from .loader import PredictionLoader
@@ -195,7 +196,7 @@ def run_dashboard(
                     str(pipeline_data.n_replacements),
                     str(pipeline_data.n_deletions),
                     str(pipeline_data.n_insertions),
-                    f'{pipeline_data.elapsed_time:.2f}',
+                    f'{pipeline_data.elapsed_time:.2f}' if not np.isnan(pipeline_data.elapsed_time) else '?',
                     pipeline_name,
                     pipeline_data.transcription_html,
                 ))
