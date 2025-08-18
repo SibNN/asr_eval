@@ -36,10 +36,7 @@ class Metrics:
         )
     
 
-def average_wer(
-    samples: list[Metrics],
-    mode: Literal['plain', 'concat'],
-) -> float:
+def average_wer(samples: list[Metrics], mode: Literal['plain', 'concat']) -> float:
     '''
     Two example averaging methods (not an exhaustive list of possible methods).
     
@@ -54,6 +51,7 @@ def average_wer(
     
     If true_len > 0 for all samples, the "concat" method is equal to averaging WER
     (with clip=False) for all samples, taking their true_len as averaging weights.
+    This is also roughly equal to concatenating all the transcriptions and calculating WER.
     
     Thus, in "concat" method samples with long ground truth transcription have larger effect
     on the overall metric. Also, if we have a long audio without speech, and the count of
