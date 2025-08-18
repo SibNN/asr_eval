@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from termcolor import colored
 
+from .metrics import Metrics
 from ..utils.table import Table2D
 from .matching import Match, char_edit_distance, select_shortest_multi_variants, solve_optimal_alignment
 from .transcription import (
@@ -52,35 +53,6 @@ SLOT_VALUES = list[Correct | Replacement | Insertion | Deletion]
 
 
 @dataclass
-class SampleMetricSummary:
-    '''
-    TODO docstring
-    '''
-    true_len: int
-    n_replacements: int
-    n_insertions: int
-    n_deletions: int
-    
-    @property
-    def n_errors(self) -> int:
-        return self.n_replacements + self.n_insertions + self.n_deletions
-    
-    def word_error_rate(self, clip: bool = False) -> float:
-        wer = self.n_errors / np.clip(self.true_len, 1, None)
-        if clip:
-            wer = np.clip(wer, 0, 1)
-        return wer
-    
-    def __add__(self, other: SampleMetricSummary) -> SampleMetricSummary:
-        return SampleMetricSummary(
-            true_len=self.true_len + other.true_len,
-            n_replacements=self.n_replacements + other.n_replacements,
-            n_insertions=self.n_insertions + other.n_insertions,
-            n_deletions=self.n_deletions + other.n_deletions,
-        )
-
-
-@dataclass
 class Alignment:
     '''
     TODO docstring
@@ -93,7 +65,7 @@ class Alignment:
         self,
         count_absorbed_insertions: bool = True,
         max_consecutive_insertions: int | None = None,
-    ) -> SampleMetricSummary:
+    ) -> Metrics:
         n_replacements = 0
         n_insertions = 0
         n_deletions = 0
@@ -137,7 +109,7 @@ class Alignment:
         # for multivariant block, "true length" is the length of its shortest option
         true_len = len(select_shortest_multi_variants(self.true.tokens))
         
-        return SampleMetricSummary(
+        return Metrics(
             true_len=true_len,
             n_replacements=n_replacements,
             n_insertions=n_insertions,
