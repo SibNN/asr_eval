@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from _typeshed import DataclassInstance
 
+import numpy as np
+
 class DataclassDataFrame[T: DataclassInstance]:
     '''
     A pandas-like table backed by a list of rows as dataclass objects. That is,
@@ -37,6 +39,14 @@ class DataclassDataFrame[T: DataclassInstance]:
                 key = key[0]
             groups[key].append(row)
         return [(key, DataclassDataFrame(rows)) for key, rows in groups.items()]
+    
+    def sort_values(
+        self, by: str, ascending: bool = True,
+    ) -> DataclassDataFrame[T]:
+        order = np.argsort(self[by])
+        if not ascending:
+            order = order[::-1]
+        return DataclassDataFrame[T]([self.data[i] for i in order])
     
     def __getitem__(self, key: str) -> tuple[Any, ...]:
         '''Column access. The returned value is immutable.'''
