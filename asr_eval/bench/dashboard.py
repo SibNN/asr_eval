@@ -5,9 +5,12 @@ from collections.abc import Container
 from pathlib import Path
 
 import dash
-from dash import dcc, html, Input, Output
+from dash import dcc, Input, Output
+from dash.html import Div, Label
+from dash.dcc import Dropdown, Checklist
 from dash.development.base_component import Component
 from dash_extensions import Purify
+import dash_bootstrap_components as dbc
 import numpy as np
 import pandas as pd
 
@@ -24,21 +27,21 @@ def _display_sample_as_html(sample: SampleData) -> str:
         if sample.baseline_is_ground_truth:
             # labeled dataset
             display_rows.append((
+                'time', # elapsed_time
                 'E',  # n_errors
                 'R',  # n_replacements
                 'D',  # n_deletions
                 'I',  # n_insertions
-                'time', # elapsed_time
                 'True', # pipeline_name
                 sample.baseline_transcription_html
             ))
             for pipeline_name, pipeline_data in sample.pipelines.items():
                 display_rows.append((
+                    f'{pipeline_data.elapsed_time:.2f}' if not np.isnan(pipeline_data.elapsed_time) else '?',
                     str(pipeline_data.n_errors),
                     str(pipeline_data.n_replacements),
                     str(pipeline_data.n_deletions),
                     str(pipeline_data.n_insertions),
-                    f'{pipeline_data.elapsed_time:.2f}' if not np.isnan(pipeline_data.elapsed_time) else '?',
                     pipeline_name,
                     pipeline_data.transcription_html,
                 ))
@@ -94,31 +97,56 @@ def run_dashboard(
         exclude_pipelines=exclude_pipelines,
         exclude_datasets=exclude_datasets
     )
-        
-    app = dash.Dash(__name__)
-    
     dataset_names = evaluator.list_datasets()
     assert len(dataset_names)
-    dataset_selector = dcc.Dropdown(
-        id='dataset-selector',
-        options=[{'label': name, 'value': name} for name in dataset_names],
-        value=dataset_names[0],
-        clearable=False,
-    )
-    
     pipeline_names = evaluator.list_pipelines()
     assert len(pipeline_names)
-    pipeline_selector = dcc.Dropdown(
+        
+    app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+    
+    PAD = {'padding': '5px'}
+    FLEXBOX_ROW = {'display': 'flex', 'flex-direction': 'row', 'align-items': 'center'}
+    
+    # inputs
+    
+    dataset_selector = Dropdown(
+        id='dataset-selector',
+        options=dataset_names,
+        value=dataset_names[0],
+        clearable=False,
+        style=PAD | {'flex-grow': '1'},
+    )
+    pipeline_selector = Dropdown(
         id='pipeline-selector',
-        options=[{'label': name, 'value': name} for name in pipeline_names],
+        options=pipeline_names,
         value=pipeline_names,
         clearable=False,
         multi=True,
+        style=PAD | {'flex-grow': '1'},
+    )
+    count_absorbed_insertions = Checklist(
+        id='count-absorbed-insertions',
+        options=['Count absorbed insertions'],
+        value=['Count absorbed insertions'],
+        inline=True,
+        style=PAD,
+    )
+    should_limit_insertions = Checklist(
+        id='should-limit-insertions',
+        options=['Max insertions'],
+        value=['Max insertions'],
+        inline=True,
+        style=PAD,
+    )
+    max_insertions = dcc.Input(
+        id="max-insertions",
+        type="number",
+        value= '4',
     )
     
-    selectors = html.Div([dataset_selector, pipeline_selector])
+    # outputs
     
-    text_field = html.Div(
+    multiple_alignments = Div(
         id='multiple-alignments',
         style={
             'font-family': '"Consolas", "Ubuntu Mono", "Monaco", monospace',
@@ -126,7 +154,23 @@ def run_dashboard(
         }
     )
     
-    app.layout = html.Div([selectors, text_field])
+    # layout
+    
+    app.layout = Div([
+        Div([
+            Label('Dataset:', style=PAD), dataset_selector,
+        ], style=FLEXBOX_ROW),
+        Div([
+            Label('Pipelines:', style=PAD), pipeline_selector,
+        ], style=FLEXBOX_ROW),
+        Div([
+            Label('WER settings:', style=PAD),
+            count_absorbed_insertions,
+            should_limit_insertions,
+            max_insertions,
+        ], style=FLEXBOX_ROW),
+        multiple_alignments,
+    ])
     
     
     @app.callback( # type: ignore
@@ -134,15 +178,25 @@ def run_dashboard(
         [
             Input('dataset-selector', 'value'),
             Input('pipeline-selector', 'value'),
+            Input('count-absorbed-insertions', 'value'),
+            Input('should-limit-insertions', 'value'),
+            Input('max-insertions', 'value'),
         ],
     )
     def display_dataset_summary(  # pyright:ignore[reportUnusedFunction]
         dataset_name: str,
         pipeline_names: list[str],
+        _count_absorbed_insertions: list[str],
+        _should_limit_insertions: list[str],
+        max_insertions: str,
     ) -> list[Component]:
+        count_absorbed_insertions = 'Count absorbed insertions' in _count_absorbed_insertions
+        should_limit_insertions = 'Max insertions' in _should_limit_insertions
         dataset_data = evaluator.get_dataset_data(
             dataset_name=dataset_name,
             pipeline_names=pipeline_names,
+            count_absorbed_insertions=count_absorbed_insertions,
+            max_consecutive_insertions=int(max_insertions) if should_limit_insertions else None,
         )
         html_blocks = [
             _display_sample_as_html(sample)
