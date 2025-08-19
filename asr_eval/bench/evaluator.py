@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from itertools import chain
+from typing import Literal
 
+from ..align.metrics import DatasetMetric, Metrics
 from .loader import PredictionLoader
 
 
@@ -16,6 +19,8 @@ __all__ = [
 @dataclass
 class DatasetData:
     samples: list[SampleData]
+    full_samples: list[int]
+    dataset_metric: dict[str, DatasetMetric]
 
 
 @dataclass
@@ -29,10 +34,7 @@ class SampleData:
 
 @dataclass
 class SamplePipelineData:
-    n_errors: int
-    n_replacements: int
-    n_insertions: int
-    n_deletions: int
+    metrics: Metrics
     elapsed_time: float
     transcription_html: str
 
@@ -44,6 +46,7 @@ class Evaluator(PredictionLoader):
         pipeline_names: list[str],
         count_absorbed_insertions: bool = True,
         max_consecutive_insertions: int | None = None,
+        wer_averaging_mode: Literal['plain', 'concat'] = 'concat',
     ) -> DatasetData:
         multiple_alignments = self.get_multiple_alignments(dataset_name, pipeline_names)
         
@@ -67,12 +70,9 @@ class Evaluator(PredictionLoader):
                     max_consecutive_insertions=max_consecutive_insertions
                 )
                 pipelines[pipeline_name] = SamplePipelineData(
+                    metrics=sample_metrics,
                     transcription_html=aligned_transcription,
                     elapsed_time=pred.elapsed_time,
-                    n_errors=sample_metrics.n_errors,
-                    n_replacements=sample_metrics.n_replacements,
-                    n_insertions=sample_metrics.n_insertions,
-                    n_deletions=sample_metrics.n_deletions,
                 )
             
             samples.append(SampleData(
@@ -83,4 +83,34 @@ class Evaluator(PredictionLoader):
                 baseline_name=str(multiple_alignment.baseline_name),
             ))
         
-        return DatasetData(samples=samples)
+        all_pipelines = set(chain(*[sample.pipelines for sample in samples]))
+        full_sample_indices = [
+            i for i, sample in enumerate(samples)
+            if set(sample.pipelines) == all_pipelines
+        ]
+        full_samples = [
+            sample for i, sample in enumerate(samples)
+            if i in full_sample_indices
+        ]
+        
+        dataset_metric = {
+            pipeline_name: DatasetMetric.from_samples(
+                samples=[sample.pipelines[pipeline_name].metrics for sample in full_samples],
+                wer_averaging_mode=wer_averaging_mode,
+            )
+            for pipeline_name in all_pipelines
+        }
+        
+        dataset_metric = dict(sorted(
+            dataset_metric.items(),
+            key=lambda item: item[1].wer.main_value
+        ))
+        
+        # for pipeline_name, pipeline_dataset_metric in dataset_metric.items():
+        #     print(pipeline_name, pipeline_dataset_metric.wer.main_value)
+        
+        return DatasetData(
+            samples=samples,
+            full_samples=full_sample_indices,
+            dataset_metric=dataset_metric,
+        )

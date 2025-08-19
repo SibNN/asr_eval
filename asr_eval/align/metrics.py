@@ -1,10 +1,16 @@
 from __future__ import annotations
-from collections.abc import Callable
+
+from collections.abc import Callable, Sequence
 from functools import partial
 from typing import Literal, Self
 from dataclasses import dataclass
+import base64
+import io
 
+import matplotlib.pyplot as plt
 import numpy as np
+
+from ..utils.plots import draw_line_with_ticks
 
 
 @dataclass
@@ -79,8 +85,8 @@ class MetricDistribution:
     main_value: float
     bootstrap_values: list[float]
     
-    def quantile(self, q: float) -> float:
-        return float(np.quantile(self.bootstrap_values, q))
+    def quantiles(self, q: Sequence[float]) -> list[float]:
+        return np.quantile(self.bootstrap_values, q).tolist()
 
 
 def bootstrap[T](
@@ -130,3 +136,39 @@ class DatasetMetric:
                 lambda samples: sum(samples, start=Metrics()).n_deletions
             ),
         )
+    
+def plot_dataset_metric(
+    metrics: dict[str, DatasetMetric],
+    what: Literal['wer', 'n_replacements', 'n_insertions', 'n_deletions'] = 'wer',
+    show: bool = True,
+) -> str:
+    Y_DELTA = 0.3
+    Y_PAD = 0.2
+    Y_TICK = 0.1
+    fig_height = Y_PAD * 2 + Y_DELTA * (len(metrics) - 1)
+
+    plt.figure(figsize=(5, fig_height)) # type: ignore
+    ax = plt.gca()
+    
+    plt.title(what) # type: ignore
+    
+    for i, value in enumerate(metrics.values()):
+        bootstrap_distribution = getattr(value, what)
+        q10, q90 = bootstrap_distribution.quantiles((0.1, 0.9))
+        draw_line_with_ticks(q10, q90, i, y_tick_width=Y_TICK / Y_DELTA, ax=ax, color='C0')
+        plt.scatter([bootstrap_distribution.main_value], [i], s=40, marker='|', color='C0') # type: ignore
+    
+    ax.set_yticks(range(len(metrics))) # type: ignore
+    ax.set_yticklabels(list(metrics)) # type: ignore
+    
+    ax.set_ylim(-Y_PAD / Y_DELTA, len(metrics) - 1 + Y_PAD / Y_DELTA)
+
+    buffer = io.BytesIO()
+    plt.savefig(buffer, format='png', bbox_inches='tight') # type: ignore
+    buffer.seek(0)
+    encoded_image = base64.b64encode(buffer.read()).decode()
+
+    if show:
+        plt.show() # type: ignore
+    
+    return encoded_image

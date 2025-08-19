@@ -3,10 +3,11 @@ from __future__ import annotations
 import argparse
 from collections.abc import Container
 from pathlib import Path
+from typing import Literal
 
 import dash
 from dash import dcc, Input, Output
-from dash.html import Div, Label
+from dash.html import Div, Label, Img
 from dash.dcc import Dropdown, Checklist
 from dash.development.base_component import Component
 from dash_extensions import Purify
@@ -14,6 +15,7 @@ import dash_bootstrap_components as dbc
 import numpy as np
 import pandas as pd
 
+from ..align.metrics import plot_dataset_metric
 from .evaluator import Evaluator, SampleData
 
 
@@ -38,10 +40,10 @@ def _display_sample_as_html(sample: SampleData) -> str:
             for pipeline_name, pipeline_data in sample.pipelines.items():
                 display_rows.append((
                     f'{pipeline_data.elapsed_time:.2f}' if not np.isnan(pipeline_data.elapsed_time) else '?',
-                    str(pipeline_data.n_errors),
-                    str(pipeline_data.n_replacements),
-                    str(pipeline_data.n_deletions),
-                    str(pipeline_data.n_insertions),
+                    str(pipeline_data.metrics.n_errors),
+                    str(pipeline_data.metrics.n_replacements),
+                    str(pipeline_data.metrics.n_deletions),
+                    str(pipeline_data.metrics.n_insertions),
                     pipeline_name,
                     pipeline_data.transcription_html,
                 ))
@@ -143,16 +145,17 @@ def run_dashboard(
         type="number",
         value= '4',
     )
+    wer_averaging_mode = Dropdown(
+        id='wer-averaging-mode',
+        options=['plain', 'concat'],
+        value='concat',
+        clearable=False,
+        style=PAD | {'flex-grow': '1'},
+    )
     
     # outputs
     
-    multiple_alignments = Div(
-        id='multiple-alignments',
-        style={
-            'font-family': '"Consolas", "Ubuntu Mono", "Monaco", monospace',
-            'white-space': 'pre',
-        }
-    )
+    outputs_block = Div(id='outputs', style=PAD)
     
     # layout
     
@@ -168,19 +171,22 @@ def run_dashboard(
             count_absorbed_insertions,
             should_limit_insertions,
             max_insertions,
+            Label('Averaging mode:', style=PAD),
+            wer_averaging_mode,
         ], style=FLEXBOX_ROW),
-        multiple_alignments,
+        outputs_block,
     ])
     
     
     @app.callback( # type: ignore
-        Output('multiple-alignments', 'children'),
+        Output('outputs', 'children'),
         [
             Input('dataset-selector', 'value'),
             Input('pipeline-selector', 'value'),
             Input('count-absorbed-insertions', 'value'),
             Input('should-limit-insertions', 'value'),
             Input('max-insertions', 'value'),
+            Input('wer-averaging-mode', 'value'),
         ],
     )
     def display_dataset_summary(  # pyright:ignore[reportUnusedFunction]
@@ -189,6 +195,7 @@ def run_dashboard(
         _count_absorbed_insertions: list[str],
         _should_limit_insertions: list[str],
         max_insertions: str,
+        wer_averaging_mode: Literal['plain', 'concat'],
     ) -> list[Component]:
         count_absorbed_insertions = 'Count absorbed insertions' in _count_absorbed_insertions
         should_limit_insertions = 'Max insertions' in _should_limit_insertions
@@ -197,14 +204,39 @@ def run_dashboard(
             pipeline_names=pipeline_names,
             count_absorbed_insertions=count_absorbed_insertions,
             max_consecutive_insertions=int(max_insertions) if should_limit_insertions else None,
+            wer_averaging_mode=wer_averaging_mode,
         )
         html_blocks = [
             _display_sample_as_html(sample)
             for sample in dataset_data.samples
         ]
-        return [Purify(html='<p>' + '</br></br>'.join(html_blocks) + '</p>')]
+        
+        
+        multiple_alignments = Div(
+            [Purify(html='<p>' + '</br></br>'.join(html_blocks) + '</p>')],
+            style={
+                'font-family': '"Consolas", "Ubuntu Mono", "Monaco", monospace',
+                'white-space': 'pre',
+            }
+        )
+        
+        dataset_metric = dataset_data.dataset_metric
+        wer_base64 = plot_dataset_metric(dataset_metric, what='wer', show=False)
+        n_replacements_base64 = plot_dataset_metric(dataset_metric, what='n_replacements', show=False)
+        n_insertions_base64 = plot_dataset_metric(dataset_metric, what='n_insertions', show=False)
+        n_deletions_base64 = plot_dataset_metric(dataset_metric, what='n_deletions', show=False)
+        
+        IMG_FLEX = {'flex': '1 1 auto', 'max-width': '24.5%'}
+        plots = Div([
+            Img(id='wer-plot', src=f'data:image/png;base64,' + wer_base64, style=IMG_FLEX),
+            Img(id='n-replacements-plot', src=f'data:image/png;base64,' + n_replacements_base64, style=IMG_FLEX),
+            Img(id='n-insertions-plot', src=f'data:image/png;base64,' + n_insertions_base64, style=IMG_FLEX),
+            Img(id='n-deletions-plot', src=f'data:image/png;base64,' + n_deletions_base64, style=IMG_FLEX),
+        ], style=FLEXBOX_ROW | PAD)
+        
+        return [plots, multiple_alignments]
 
-    app.run(debug=False, host='0.0.0.0', port=8050, use_reloader=False) # type: ignore
+    app.run(debug=False, host='0.0.0.0', port=8051, use_reloader=False) # type: ignore
 
 
 if __name__ == '__main__':
