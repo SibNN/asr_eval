@@ -51,3 +51,6 @@ class DataclassDataFrame[T: DataclassInstance]:
     def __getitem__(self, key: str) -> tuple[Any, ...]:
         '''Column access. The returned value is immutable.'''
         return tuple(getattr(row, key) for row in self.data)
+    
+    def __len__(self) -> int:
+        return len(self.data)

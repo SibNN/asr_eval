@@ -34,7 +34,8 @@ class TokenContainerMixin:
 
 
 class Deletion:
-    pass
+    def __repr__(self) -> str:
+        return 'Deletion()'
 
 
 class Correct(TokenContainerMixin):
@@ -115,6 +116,12 @@ class Alignment:
             n_insertions=n_insertions,
             n_deletions=n_deletions,
         )
+    
+    def to_outer_slots(self) -> dict[OUTER_LOC, SLOT_VALUES]:
+        result: dict[OUTER_LOC, SLOT_VALUES] = defaultdict(list)
+        for loc, value in self.slots.items():
+            result[loc[:2]] += value
+        return dict(result)
             
     
     @classmethod
