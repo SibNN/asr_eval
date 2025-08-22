@@ -7,7 +7,7 @@ from typing import Literal
 
 import dash
 from dash import dcc, Input, Output
-from dash.html import Div, Label, Img
+from dash.html import Div, Label, Img, Span, Br
 from dash.dcc import Dropdown, Checklist
 from dash.development.base_component import Component
 from dash_extensions import Purify
@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 from ..align.metrics import plot_dataset_metric
-from .evaluator import Evaluator, SampleData
+from .evaluator import DatasetData, Evaluator, SampleData, UnevenError
 
 
 __all__ = [
@@ -76,6 +76,24 @@ def _display_sample_as_html(sample: SampleData) -> str:
         )
 
 
+def _display_uneven_errors(errors: list[tuple[str, list[UnevenError]]]) -> list[Component]:
+    result: list[Component] = []
+    total_errs = sum([len(group) for _true_text, group in errors])
+    errors = errors[:10]
+    sum_errs = 0
+    for i, (true_text, group) in enumerate(errors):
+        n_errs = len(group)
+        sum_errs += n_errs
+        result.append(Span(
+            f'{true_text}: {n_errs} errors'
+            f' [{n_errs / total_errs * 100:.0f}%'
+            f', Σ={sum_errs / total_errs * 100:.0f}%]'
+        ))
+        if i != len(errors):
+            result.append(Br())
+    return result
+
+
 def run_dashboard(
     root_dir: str | Path = 'outputs',
     cache_dir: str | Path = 'tmp/evaluator_cache',
@@ -103,6 +121,7 @@ def run_dashboard(
     assert len(dataset_names)
     pipeline_names = evaluator.list_pipelines()
     assert len(pipeline_names)
+    dataset_data: DatasetData | None = None
         
     app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
     
@@ -197,6 +216,7 @@ def run_dashboard(
         max_insertions: str,
         wer_averaging_mode: Literal['plain', 'concat'],
     ) -> list[Component]:
+        nonlocal dataset_data
         count_absorbed_insertions = 'Count absorbed insertions' in _count_absorbed_insertions
         should_limit_insertions = 'Max insertions' in _should_limit_insertions
         dataset_data = evaluator.get_dataset_data(
@@ -227,14 +247,87 @@ def run_dashboard(
         n_deletions_base64 = plot_dataset_metric(dataset_metric, what='n_deletions', show=False)
         
         IMG_FLEX = {'flex': '1 1 auto', 'max-width': '24.5%'}
+        BASE64_HEADER = 'data:image/png;base64,'
         plots = Div([
-            Img(id='wer-plot', src=f'data:image/png;base64,' + wer_base64, style=IMG_FLEX),
-            Img(id='n-replacements-plot', src=f'data:image/png;base64,' + n_replacements_base64, style=IMG_FLEX),
-            Img(id='n-insertions-plot', src=f'data:image/png;base64,' + n_insertions_base64, style=IMG_FLEX),
-            Img(id='n-deletions-plot', src=f'data:image/png;base64,' + n_deletions_base64, style=IMG_FLEX),
+            Img(id='wer-plot', src=BASE64_HEADER + wer_base64, style=IMG_FLEX),
+            Img(id='n-replacements-plot', src=BASE64_HEADER + n_replacements_base64, style=IMG_FLEX),
+            Img(id='n-insertions-plot', src=BASE64_HEADER + n_insertions_base64, style=IMG_FLEX),
+            Img(id='n-deletions-plot', src=BASE64_HEADER + n_deletions_base64, style=IMG_FLEX),
         ], style=FLEXBOX_ROW | PAD)
         
-        return [plots, multiple_alignments]
+        # pipeline pair comparison: inputs
+        
+        all_pipelines = dataset_data.get_all_pipelines()
+    
+        pipeline_1_selector = Dropdown(
+            id='comparison-pipeline-1-selector',
+            options=all_pipelines,
+            value=all_pipelines[0] if len(all_pipelines) else None,
+            clearable=True,
+            style=PAD | {'flex-grow': '1'},
+        )
+    
+        pipeline_2_selector = Dropdown(
+            id='comparison-pipeline-2-selector',
+            options=all_pipelines,
+            value=all_pipelines[1] if len(all_pipelines) > 1 else None,
+            clearable=True,
+            style=PAD | {'flex-grow': '1'},
+        )
+        
+        # pipeline pair comparison: outputs
+        
+        comparison_block = Div(id='comparison-outputs', style=PAD)
+        
+        return [
+            plots,
+            Div([
+                Label('First pipeline to compare:', style=PAD),
+                pipeline_1_selector,
+                Label('Second pipeline to compare:', style=PAD),
+                pipeline_2_selector,
+            ], style=FLEXBOX_ROW),
+            comparison_block,
+            multiple_alignments
+        ]
+    
+    
+    @app.callback( # type: ignore
+        Output('comparison-outputs', 'children'),
+        [
+            Input('comparison-pipeline-1-selector', 'value'),
+            Input('comparison-pipeline-2-selector', 'value'),
+        ],
+    )
+    def pipeline_pair_comparison(  # pyright:ignore[reportUnusedFunction]
+        pipeline_name_1: str | None,
+        pipeline_name_2: str | None,
+    ) -> list[Component]:
+        nonlocal dataset_data
+        assert dataset_data is not None
+        if pipeline_name_1 is None or pipeline_name_2 is None:
+            return []
+        
+        comparison_results = evaluator.compare_pipelines(
+            dataset_data=dataset_data,
+            pipeline_name_1=pipeline_name_1,
+            pipeline_name_2=pipeline_name_2
+        )
+        
+        return [Div([
+            Div([
+                Label('First pipeline errors (correct in the second)', style={'font-weight': 'bold'}),
+                Br(),
+                *_display_uneven_errors(comparison_results.errors_1_but_not_2),
+            ], style=PAD | {'flex-grow': '1', 'text-align': 'right'}),
+            Div(style={'margin': '5px 15px', 'width': '2px', 'background-color': 'black'}),
+            Div([
+                Label('Second pipeline errors (correct in the first)', style={'font-weight': 'bold'}),
+                Br(),
+                *_display_uneven_errors(comparison_results.errors_2_but_not_1),
+            ], style=PAD | {'flex-grow': '1', 'text-align': 'left'}),
+        ], style=FLEXBOX_ROW | PAD | {'align-items': 'stretch'})]
+
 
     app.run(debug=False, host='0.0.0.0', port=8051, use_reloader=False) # type: ignore
 
