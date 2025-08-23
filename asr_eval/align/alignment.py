@@ -54,7 +54,7 @@ SLOT_VALUES = list[Correct | Replacement | Insertion | Deletion]
 
 
 @dataclass
-class ErrorPosition:
+class ErrorListingElement:
     '''
     An outer slot when a model made a mistake.
     '''
@@ -65,6 +65,7 @@ class ErrorPosition:
     n_replacements: int
     n_insertions: int
     n_deletions: int
+    sample_idx: int | None = None
     
     @property
     def n_errors(self) -> int:
@@ -80,19 +81,19 @@ class Alignment:
     pred: SingleVariantTranscription
     slots: dict[SLOT_LOC, SLOT_VALUES]
     
-    def group_and_count_errors(
+    def error_listing(
         self,
         count_absorbed_insertions: bool = True,
         max_consecutive_insertions: int | None = None,
-    ) -> tuple[list[ErrorPosition], Metrics]:
-        err_positions_dict: dict[OUTER_LOC, ErrorPosition] = {}
+    ) -> tuple[list[ErrorListingElement], Metrics]:
+        err_positions_dict: dict[OUTER_LOC, ErrorListingElement] = {}
         for loc, slot_values in self.slots.items():
             assert len(slot_values)
             
             outer_mod, outer_idx = outer_loc = loc[:2]
             if not outer_loc in err_positions_dict:
                 true = self.true.tokens[outer_idx] if outer_mod == 'at' else None
-                err_positions_dict[outer_loc] = ErrorPosition(
+                err_positions_dict[outer_loc] = ErrorListingElement(
                     outer_loc=outer_loc,
                     true=true,
                     true_text=true.to_text() if true is not None else None,

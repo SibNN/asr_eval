@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from itertools import chain
 from typing import Literal
 
 from ..utils.dataframe import DataclassDataFrame
-from ..align.alignment import Alignment, ErrorPosition
+from ..align.alignment import Alignment, ErrorListingElement
 from ..align.metrics import DatasetMetric, Metrics
 from .loader import PredictionLoader
 
@@ -21,15 +21,10 @@ __all__ = [
 SAMPLE_IDX = int
 
 
-@dataclass
-class ErrorPositionWithSampleIdx(ErrorPosition):
-    sample_idx: int
-
-
 def group_by_true_text(
-    errors: list[ErrorPositionWithSampleIdx]
-) -> list[tuple[str, list[ErrorPositionWithSampleIdx]]]:
-    groups = DataclassDataFrame[ErrorPositionWithSampleIdx](errors).groupby('true_text')
+    errors: list[ErrorListingElement]
+) -> list[tuple[str, list[ErrorListingElement]]]:
+    groups = DataclassDataFrame[ErrorListingElement](errors).groupby('true_text')
     top_groups = sorted(groups, key=lambda item: -len(item[1].data))
     return [(true_text, group.data) for true_text, group in top_groups]
 
@@ -48,12 +43,14 @@ class DatasetData:
 class DatasetPipelinePairComparison:
     pipeline_name_1: str
     pipeline_name_2: str
-    insertions_1: list[ErrorPositionWithSampleIdx]
-    insertions_2: list[ErrorPositionWithSampleIdx]
-    errors_in_1_both: list[ErrorPositionWithSampleIdx]
-    errors_in_2_both: list[ErrorPositionWithSampleIdx]
-    errors_in_1_but_not_2: list[ErrorPositionWithSampleIdx]
-    errors_in_2_but_not_1: list[ErrorPositionWithSampleIdx]
+    error_listing_1: DataclassDataFrame[ErrorListingElement]
+    error_listing_2: DataclassDataFrame[ErrorListingElement]
+    # insertions_1: list[ErrorListingElement]
+    # insertions_2: list[ErrorListingElement]
+    # errors_in_1_both: list[ErrorListingElement]
+    # errors_in_2_both: list[ErrorListingElement]
+    # errors_in_1_but_not_2: list[ErrorListingElement]
+    # errors_in_2_but_not_1: list[ErrorListingElement]
 
 
 @dataclass
@@ -67,7 +64,7 @@ class SampleData:
 
 @dataclass
 class SamplePipelineData:
-    err_positions: list[ErrorPosition]
+    err_positions: list[ErrorListingElement]
     metrics: Metrics
     elapsed_time: float
     transcription_html: str
@@ -100,7 +97,7 @@ class Evaluator(PredictionLoader):
                 multiple_alignment.alignments.items(), aligned_html[1:]
             ):
                 pred = self.get_prediction(dataset_name, sample_idx, pipeline_name)
-                err_positions, sample_metrics = alignment.group_and_count_errors(
+                err_positions, sample_metrics = alignment.error_listing(
                     count_absorbed_insertions=count_absorbed_insertions,
                     max_consecutive_insertions=max_consecutive_insertions
                 )
@@ -155,62 +152,67 @@ class Evaluator(PredictionLoader):
         pipeline_name_1: str,
         pipeline_name_2: str,
     ) -> DatasetPipelinePairComparison:
-        result = DatasetPipelinePairComparison(
-            pipeline_name_1=pipeline_name_1,
-            pipeline_name_2=pipeline_name_2,
-            insertions_1=[],
-            insertions_2=[],
-            errors_in_1_both=[],
-            errors_in_2_both=[],
-            errors_in_1_but_not_2=[],
-            errors_in_2_but_not_1=[],
-        )
+        err_positions_1: list[ErrorListingElement] = []
+        err_positions_2: list[ErrorListingElement] = []
         
         for sample_idx, sample in enumerate(dataset_data.samples):
             if pipeline_name_1 in sample.pipelines and pipeline_name_2 in sample.pipelines:
+                for pos in sample.pipelines[pipeline_name_1].err_positions:
+                    err_positions_1.append(replace(pos, sample_idx=sample_idx))
+                for pos in sample.pipelines[pipeline_name_2].err_positions:
+                    err_positions_2.append(replace(pos, sample_idx=sample_idx))
+        
+        return DatasetPipelinePairComparison(
+            pipeline_name_1=pipeline_name_1,
+            pipeline_name_2=pipeline_name_2,
+            error_listing_1=DataclassDataFrame[ErrorListingElement](err_positions_1),
+            error_listing_2=DataclassDataFrame[ErrorListingElement](err_positions_2),
+        )
+        
+        # result = DatasetPipelinePairComparison(
+        #     pipeline_name_1=pipeline_name_1,
+        #     pipeline_name_2=pipeline_name_2,
+        #     insertions_1=[],
+        #     insertions_2=[],
+        #     errors_in_1_both=[],
+        #     errors_in_2_both=[],
+        #     errors_in_1_but_not_2=[],
+        #     errors_in_2_but_not_1=[],
+        # )
+        
+        # for sample_idx, sample in enumerate(dataset_data.samples):
+        #     if pipeline_name_1 in sample.pipelines and pipeline_name_2 in sample.pipelines:
                 
-                err_positions_1 = sample.pipelines[pipeline_name_1].err_positions
-                err_positions_2 = sample.pipelines[pipeline_name_2].err_positions
+        #         err_positions_1 = sample.pipelines[pipeline_name_1].err_positions
+        #         err_positions_2 = sample.pipelines[pipeline_name_2].err_positions
                 
-                # 1. for outer "pre" positions (insertions)
+        #         # 1. for outer "pre" positions (insertions)
                 
-                pre_1 = [pos for pos in err_positions_1 if pos.outer_loc[0] == 'pre']
-                pre_2 = [pos for pos in err_positions_2 if pos.outer_loc[0] == 'pre']
+        #         pre_1 = [pos for pos in err_positions_1 if pos.outer_loc[0] == 'pre']
+        #         pre_2 = [pos for pos in err_positions_2 if pos.outer_loc[0] == 'pre']
                 
-                for pos in pre_1:
-                    result.insertions_1.append(
-                        ErrorPositionWithSampleIdx(sample_idx=sample_idx, **vars(pos))
-                    )
-                for pos in pre_2:
-                    result.insertions_2.append(
-                        ErrorPositionWithSampleIdx(sample_idx=sample_idx, **vars(pos))
-                    )
+        #         for pos in pre_1:
+        #             result.insertions_1.append(replace(pos, sample_idx=sample_idx))
+        #         for pos in pre_2:
+        #             result.insertions_2.append(replace(pos, sample_idx=sample_idx))
                 
-                # 2. for outer "at" positions (insertions)
+        #         # 2. for outer "at" positions (insertions)
                 
-                at_1 = [pos for pos in err_positions_1 if pos.outer_loc[0] == 'at']
-                at_2 = [pos for pos in err_positions_2 if pos.outer_loc[0] == 'at']
+        #         at_1 = [pos for pos in err_positions_1 if pos.outer_loc[0] == 'at']
+        #         at_2 = [pos for pos in err_positions_2 if pos.outer_loc[0] == 'at']
                 
-                locs_1 = set([pos.outer_loc for pos in at_1])
-                locs_2 = set([pos.outer_loc for pos in at_2])
+        #         locs_1 = set([pos.outer_loc for pos in at_1])
+        #         locs_2 = set([pos.outer_loc for pos in at_2])
                 
-                for pos in at_1:
-                    if pos.outer_loc in locs_2:
-                        result.errors_in_1_both.append(
-                            ErrorPositionWithSampleIdx(sample_idx=sample_idx, **vars(pos))
-                        )
-                    else:
-                        result.errors_in_1_but_not_2.append(
-                            ErrorPositionWithSampleIdx(sample_idx=sample_idx, **vars(pos))
-                        )
-                for pos in at_2:
-                    if pos.outer_loc in locs_1:
-                        result.errors_in_2_both.append(
-                            ErrorPositionWithSampleIdx(sample_idx=sample_idx, **vars(pos))
-                        )
-                    else:
-                        result.errors_in_2_but_not_1.append(
-                            ErrorPositionWithSampleIdx(sample_idx=sample_idx, **vars(pos))
-                        )
+        #         for pos in at_1:
+        #             if pos.outer_loc in locs_2:
+        #                 result.errors_in_1_both.append(replace(pos, sample_idx=sample_idx))
+        #             else:
+        #                 result.errors_in_1_but_not_2.append(replace(pos, sample_idx=sample_idx))
+        #         for pos in at_2:
+        #             if pos.outer_loc in locs_1:
+        #                 result.errors_in_2_both.append(replace(pos, sample_idx=sample_idx))
+        #             else:
+        #                 result.errors_in_2_but_not_1.append(replace(pos, sample_idx=sample_idx))
                 
-        return result
+        # return result
