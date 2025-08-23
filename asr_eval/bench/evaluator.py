@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from itertools import chain
-from typing import Literal
+from typing import Literal, cast
 
+from ..align.transcription import OUTER_LOC
 from ..utils.dataframe import DataclassDataFrame
 from ..align.alignment import Alignment, ErrorListingElement
 from ..align.metrics import DatasetMetric, Metrics
@@ -45,6 +46,8 @@ class DatasetPipelinePairComparison:
     pipeline_name_2: str
     error_listing_1: DataclassDataFrame[ErrorListingElement]
     error_listing_2: DataclassDataFrame[ErrorListingElement]
+    both_errors: set[tuple[SAMPLE_IDX, OUTER_LOC]]
+    
     # insertions_1: list[ErrorListingElement]
     # insertions_2: list[ErrorListingElement]
     # errors_in_1_both: list[ErrorListingElement]
@@ -162,11 +165,23 @@ class Evaluator(PredictionLoader):
                 for pos in sample.pipelines[pipeline_name_2].err_positions:
                     err_positions_2.append(replace(pos, sample_idx=sample_idx))
         
+        at_locs_1 = set([
+            (cast(int, pos.sample_idx), pos.outer_loc)
+            for pos in err_positions_1
+            if pos.outer_loc[0] == 'at'
+        ])
+        at_locs_2 = set([
+            (cast(int, pos.sample_idx), pos.outer_loc)
+            for pos in err_positions_2
+            if pos.outer_loc[0] == 'at'
+        ])
+        
         return DatasetPipelinePairComparison(
             pipeline_name_1=pipeline_name_1,
             pipeline_name_2=pipeline_name_2,
             error_listing_1=DataclassDataFrame[ErrorListingElement](err_positions_1),
             error_listing_2=DataclassDataFrame[ErrorListingElement](err_positions_2),
+            both_errors=at_locs_1.intersection(at_locs_2),
         )
         
         # result = DatasetPipelinePairComparison(
