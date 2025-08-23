@@ -54,6 +54,24 @@ SLOT_VALUES = list[Correct | Replacement | Insertion | Deletion]
 
 
 @dataclass
+class ErrorPosition:
+    '''
+    An outer slot when a model made a mistake.
+    '''
+    outer_loc: OUTER_LOC
+    true: Token | MultiVariantBlock | None
+    true_text: str | None
+    pred: SLOT_VALUES
+    n_replacements: int
+    n_insertions: int
+    n_deletions: int
+    
+    @property
+    def n_errors(self) -> int:
+        return self.n_replacements + self.n_insertions + self.n_deletions
+
+
+@dataclass
 class Alignment:
     '''
     TODO docstring
@@ -62,16 +80,31 @@ class Alignment:
     pred: SingleVariantTranscription
     slots: dict[SLOT_LOC, SLOT_VALUES]
     
-    def metric_summary(
+    def group_and_count_errors(
         self,
         count_absorbed_insertions: bool = True,
         max_consecutive_insertions: int | None = None,
-    ) -> Metrics:
-        n_replacements = 0
-        n_insertions = 0
-        n_deletions = 0
-        
-        for _slot_loc, slot_values in self.slots.items():
+    ) -> tuple[list[ErrorPosition], Metrics]:
+        err_positions_dict: dict[OUTER_LOC, ErrorPosition] = {}
+        for loc, slot_values in self.slots.items():
+            assert len(slot_values)
+            
+            outer_mod, outer_idx = outer_loc = loc[:2]
+            if not outer_loc in err_positions_dict:
+                true = self.true.tokens[outer_idx] if outer_mod == 'at' else None
+                err_positions_dict[outer_loc] = ErrorPosition(
+                    outer_loc=outer_loc,
+                    true=true,
+                    true_text=true.to_text() if true is not None else None,
+                    pred=[],
+                    n_replacements=0,
+                    n_insertions=0,
+                    n_deletions=0,
+                )
+            
+            err_pos = err_positions_dict[outer_loc]
+            err_pos.pred += slot_values
+            
             # count <Correct | Replacement | Insertion | Deletion> per cell
             slot_replacements = sum(isinstance(x, Replacement) for x in slot_values)
             slot_insertions = sum(isinstance(x, Insertion) for x in slot_values)
@@ -93,36 +126,38 @@ class Alignment:
                 assert sum((has_insertions, has_deletions, has_corrects)) == 1
         
             # count replacements, deletions
-            n_replacements += slot_replacements
-            n_deletions += slot_deletions
+            err_pos.n_replacements += slot_replacements
+            err_pos.n_deletions += slot_deletions
             
             # count insertions
             if has_replacements:
                 # for "replacement" cells, we may count or not count absorbed insertions
                 if count_absorbed_insertions:
-                    n_insertions += slot_insertions
+                    err_pos.n_insertions += slot_insertions
             elif max_consecutive_insertions is not None:
                 # for "insertion" cell, set an upper bound for slot insertions count
-                n_insertions += min(slot_insertions, max_consecutive_insertions)
+                err_pos.n_insertions += min(slot_insertions, max_consecutive_insertions)
             else:
-                n_insertions += slot_insertions
+                err_pos.n_insertions += slot_insertions
         
-        # for multivariant block, "true length" is the length of its shortest option
-        true_len = len(select_shortest_multi_variants(self.true.tokens))
+        err_positions = [pos for pos in err_positions_dict.values() if pos.n_errors > 0]
         
-        return Metrics(
-            true_len=true_len,
-            n_replacements=n_replacements,
-            n_insertions=n_insertions,
-            n_deletions=n_deletions,
+        metrics = Metrics(
+            true_len=self.get_true_len(),
+            n_replacements=sum([pos.n_replacements for pos in err_positions]),
+            n_insertions=sum([pos.n_insertions for pos in err_positions]),
+            n_deletions=sum([pos.n_deletions for pos in err_positions]),
         )
+        return err_positions, metrics
+          
+    def get_true_len(self) -> int:
+        return len(select_shortest_multi_variants(self.true.tokens))
     
-    def to_outer_slots(self) -> dict[OUTER_LOC, SLOT_VALUES]:
-        result: dict[OUTER_LOC, SLOT_VALUES] = defaultdict(list)
-        for loc, value in self.slots.items():
-            result[loc[:2]] += value
-        return dict(result)
-            
+    # def to_outer_slots(self) -> dict[OUTER_LOC, SLOT_VALUES]:
+    #     result: dict[OUTER_LOC, SLOT_VALUES] = defaultdict(list)
+    #     for loc, value in self.slots.items():
+    #         result[loc[:2]] += value
+    #     return dict(result)
     
     @classmethod
     def from_predictions(

@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 from ..align.metrics import plot_dataset_metric
-from .evaluator import DatasetData, Evaluator, SampleData, UnevenError
+from .evaluator import DatasetData, ErrorPositionWithSampleIdx, Evaluator, SampleData, group_by_true_text
 
 
 __all__ = [
@@ -76,18 +76,19 @@ def _display_sample_as_html(sample: SampleData) -> str:
         )
 
 
-def _display_uneven_errors(errors: list[tuple[str, list[UnevenError]]]) -> list[Component]:
+def _display_uneven_errors(errors: list[ErrorPositionWithSampleIdx]) -> list[Component]:
+    error_groups = group_by_true_text(errors)
     result: list[Component] = []
-    total_errs = sum([len(group) for _true_text, group in errors])
-    errors = errors[:10]
-    sum_errs = 0
-    for i, (true_text, group) in enumerate(errors):
-        n_errs = len(group)
-        sum_errs += n_errs
+    total_errs = sum([sum([pos.n_errors for pos in group]) for _true_text, group in error_groups])
+    error_groups = error_groups[:10]
+    cumulative_errs = 0
+    for i, (true_text, group) in enumerate(error_groups):
+        n_errs = sum([pos.n_errors for pos in group])
+        cumulative_errs += n_errs
         result.append(Span(
             f'{true_text}: {n_errs} errors'
             f' [{n_errs / total_errs * 100:.0f}%'
-            f', Σ={sum_errs / total_errs * 100:.0f}%]'
+            f', Σ={cumulative_errs / total_errs * 100:.0f}%]'
         ))
         if i != len(errors):
             result.append(Br())
@@ -318,13 +319,13 @@ def run_dashboard(
             Div([
                 Label('First pipeline errors (correct in the second)', style={'font-weight': 'bold'}),
                 Br(),
-                *_display_uneven_errors(comparison_results.errors_1_but_not_2),
+                *_display_uneven_errors(comparison_results.errors_in_1_but_not_2),
             ], style=PAD | {'flex-grow': '1', 'text-align': 'right'}),
             Div(style={'margin': '5px 15px', 'width': '2px', 'background-color': 'black'}),
             Div([
                 Label('Second pipeline errors (correct in the first)', style={'font-weight': 'bold'}),
                 Br(),
-                *_display_uneven_errors(comparison_results.errors_2_but_not_1),
+                *_display_uneven_errors(comparison_results.errors_in_2_but_not_1),
             ], style=PAD | {'flex-grow': '1', 'text-align': 'left'}),
         ], style=FLEXBOX_ROW | PAD | {'align-items': 'stretch'})]
 

@@ -5,8 +5,7 @@ from itertools import chain
 from typing import Literal
 
 from ..utils.dataframe import DataclassDataFrame
-from ..align.transcription import OUTER_LOC, MultiVariantBlock, Token
-from ..align.alignment import SLOT_VALUES, Alignment, Correct
+from ..align.alignment import Alignment, ErrorPosition
 from ..align.metrics import DatasetMetric, Metrics
 from .loader import PredictionLoader
 
@@ -19,10 +18,26 @@ __all__ = [
 ]
 
 
+SAMPLE_IDX = int
+
+
+@dataclass
+class ErrorPositionWithSampleIdx(ErrorPosition):
+    sample_idx: int
+
+
+def group_by_true_text(
+    errors: list[ErrorPositionWithSampleIdx]
+) -> list[tuple[str, list[ErrorPositionWithSampleIdx]]]:
+    groups = DataclassDataFrame[ErrorPositionWithSampleIdx](errors).groupby('true_text')
+    top_groups = sorted(groups, key=lambda item: -len(item[1].data))
+    return [(true_text, group.data) for true_text, group in top_groups]
+
+
 @dataclass
 class DatasetData:
     samples: list[SampleData]
-    full_samples: list[int]
+    full_samples: list[SAMPLE_IDX]
     dataset_metric: dict[str, DatasetMetric]
     
     def get_all_pipelines(self) -> list[str]:
@@ -33,13 +48,17 @@ class DatasetData:
 class DatasetPipelinePairComparison:
     pipeline_name_1: str
     pipeline_name_2: str
-    errors_1_but_not_2: list[tuple[str, list[UnevenError]]]
-    errors_2_but_not_1: list[tuple[str, list[UnevenError]]]
+    insertions_1: list[ErrorPositionWithSampleIdx]
+    insertions_2: list[ErrorPositionWithSampleIdx]
+    errors_in_1_both: list[ErrorPositionWithSampleIdx]
+    errors_in_2_both: list[ErrorPositionWithSampleIdx]
+    errors_in_1_but_not_2: list[ErrorPositionWithSampleIdx]
+    errors_in_2_but_not_1: list[ErrorPositionWithSampleIdx]
 
 
 @dataclass
 class SampleData:
-    sample_idx: int
+    sample_idx: SAMPLE_IDX
     baseline_transcription_html: str
     baseline_is_ground_truth: bool
     pipelines: dict[str, SamplePipelineData]
@@ -48,25 +67,11 @@ class SampleData:
 
 @dataclass
 class SamplePipelineData:
+    err_positions: list[ErrorPosition]
     metrics: Metrics
     elapsed_time: float
     transcription_html: str
     alignment: Alignment
-
-
-@dataclass
-class UnevenError:
-    '''
-    An outer slot when only one of two models made a mistake. Typically deletions
-    or replacements, insertions may be included only if part of a multivariant block.
-    
-    TODO better docstring
-    '''
-    sample_idx: int
-    outer_loc: OUTER_LOC
-    true: Token | MultiVariantBlock
-    true_text: str
-    pred: SLOT_VALUES
 
 
 class Evaluator(PredictionLoader):
@@ -95,11 +100,12 @@ class Evaluator(PredictionLoader):
                 multiple_alignment.alignments.items(), aligned_html[1:]
             ):
                 pred = self.get_prediction(dataset_name, sample_idx, pipeline_name)
-                sample_metrics = alignment.metric_summary(
+                err_positions, sample_metrics = alignment.group_and_count_errors(
                     count_absorbed_insertions=count_absorbed_insertions,
                     max_consecutive_insertions=max_consecutive_insertions
                 )
                 pipelines[pipeline_name] = SamplePipelineData(
+                    err_positions=err_positions,
                     metrics=sample_metrics,
                     transcription_html=aligned_transcription,
                     elapsed_time=pred.elapsed_time,
@@ -137,9 +143,6 @@ class Evaluator(PredictionLoader):
             key=lambda item: item[1].wer.main_value
         ))
         
-        # for pipeline_name, pipeline_dataset_metric in dataset_metric.items():
-        #     print(pipeline_name, pipeline_dataset_metric.wer.main_value)
-        
         return DatasetData(
             samples=samples,
             full_samples=full_sample_indices,
@@ -152,54 +155,62 @@ class Evaluator(PredictionLoader):
         pipeline_name_1: str,
         pipeline_name_2: str,
     ) -> DatasetPipelinePairComparison:
-        errors_1_but_not_2: list[UnevenError] = []
-        errors_2_but_not_1: list[UnevenError] = []
-        for sample_idx, sample in enumerate(dataset_data.samples):
-            if pipeline_name_1 in sample.pipelines and pipeline_name_2 in sample.pipelines:
-                alignment_1 = sample.pipelines[pipeline_name_1].alignment
-                alignment_2 = sample.pipelines[pipeline_name_2].alignment
-                true = alignment_1.true
-                
-                outer_values_1 = alignment_1.to_outer_slots()
-                outer_values_2 = alignment_2.to_outer_slots()
-                outer_locs = set(outer_values_1).intersection(set(outer_values_2))
-                
-                for outer_loc in outer_locs:
-                    outer_mod, outer_idx = outer_loc
-                    if outer_mod == 'at':
-                        true_block = true.tokens[outer_idx]
-                        values_1 = outer_values_1[outer_loc]
-                        values_2 = outer_values_2[outer_loc]
-                        has_errors_1 = any(not isinstance(x, Correct) for x in values_1)
-                        has_errors_2 = any(not isinstance(x, Correct) for x in values_2)
-                        if has_errors_1 and not has_errors_2:
-                            errors_1_but_not_2.append(UnevenError(
-                                sample_idx=sample_idx,
-                                outer_loc=outer_loc,
-                                true=true_block,
-                                true_text=true_block.to_text(),
-                                pred=values_1,
-                            ))
-                        elif has_errors_2 and not has_errors_1:
-                            errors_2_but_not_1.append(UnevenError(
-                                sample_idx=sample_idx,
-                                outer_loc=outer_loc,
-                                true=true_block,
-                                true_text=true_block.to_text(),
-                                pred=values_2,
-                            ))
-        
-        return DatasetPipelinePairComparison(
+        result = DatasetPipelinePairComparison(
             pipeline_name_1=pipeline_name_1,
             pipeline_name_2=pipeline_name_2,
-            errors_1_but_not_2=_uneven_errors_to_sorted_groups(errors_1_but_not_2),
-            errors_2_but_not_1=_uneven_errors_to_sorted_groups(errors_2_but_not_1),
+            insertions_1=[],
+            insertions_2=[],
+            errors_in_1_both=[],
+            errors_in_2_both=[],
+            errors_in_1_but_not_2=[],
+            errors_in_2_but_not_1=[],
         )
-
-
-def _uneven_errors_to_sorted_groups(
-    errors: list[UnevenError]
-) -> list[tuple[str, list[UnevenError]]]:
-    groups = DataclassDataFrame[UnevenError](errors).groupby('true_text')
-    top_groups = sorted(groups, key=lambda item: -len(item[1].data))
-    return [(true_text, group.data) for true_text, group in top_groups]
+        
+        for sample_idx, sample in enumerate(dataset_data.samples):
+            if pipeline_name_1 in sample.pipelines and pipeline_name_2 in sample.pipelines:
+                
+                err_positions_1 = sample.pipelines[pipeline_name_1].err_positions
+                err_positions_2 = sample.pipelines[pipeline_name_2].err_positions
+                
+                # 1. for outer "pre" positions (insertions)
+                
+                pre_1 = [pos for pos in err_positions_1 if pos.outer_loc[0] == 'pre']
+                pre_2 = [pos for pos in err_positions_2 if pos.outer_loc[0] == 'pre']
+                
+                for pos in pre_1:
+                    result.insertions_1.append(
+                        ErrorPositionWithSampleIdx(sample_idx=sample_idx, **vars(pos))
+                    )
+                for pos in pre_2:
+                    result.insertions_2.append(
+                        ErrorPositionWithSampleIdx(sample_idx=sample_idx, **vars(pos))
+                    )
+                
+                # 2. for outer "at" positions (insertions)
+                
+                at_1 = [pos for pos in err_positions_1 if pos.outer_loc[0] == 'at']
+                at_2 = [pos for pos in err_positions_2 if pos.outer_loc[0] == 'at']
+                
+                locs_1 = set([pos.outer_loc for pos in at_1])
+                locs_2 = set([pos.outer_loc for pos in at_2])
+                
+                for pos in at_1:
+                    if pos.outer_loc in locs_2:
+                        result.errors_in_1_both.append(
+                            ErrorPositionWithSampleIdx(sample_idx=sample_idx, **vars(pos))
+                        )
+                    else:
+                        result.errors_in_1_but_not_2.append(
+                            ErrorPositionWithSampleIdx(sample_idx=sample_idx, **vars(pos))
+                        )
+                for pos in at_2:
+                    if pos.outer_loc in locs_1:
+                        result.errors_in_2_both.append(
+                            ErrorPositionWithSampleIdx(sample_idx=sample_idx, **vars(pos))
+                        )
+                    else:
+                        result.errors_in_2_but_not_1.append(
+                            ErrorPositionWithSampleIdx(sample_idx=sample_idx, **vars(pos))
+                        )
+                
+        return result
