@@ -7,7 +7,7 @@ from typing import Literal
 
 import dash
 from dash import dcc, Input, Output
-from dash.html import Div, Label, Img, Span, Br
+from dash.html import Div, Label, Img
 from dash.dcc import Dropdown, Checklist
 from dash.development.base_component import Component
 from dash_extensions import Purify
@@ -17,7 +17,6 @@ import pandas as pd
 
 from ..align.metrics import plot_dataset_metric
 from .evaluator import DatasetData, Evaluator, SampleData
-from ..utils.misc import list_join
 
 __all__ = [
     'run_dashboard',
