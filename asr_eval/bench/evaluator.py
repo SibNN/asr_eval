@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass, replace
 from itertools import chain
 from typing import Literal, cast
 
-from ..align.transcription import OUTER_LOC
+import matplotlib.pyplot as plt
+import pandas as pd
+import plotly.express as px
+from plotly.graph_objs._figure import Figure
+
 from ..utils.dataframe import DataclassDataFrame
 from ..align.alignment import Alignment, ErrorListingElement
 from ..align.metrics import DatasetMetric, Metrics
@@ -44,16 +49,64 @@ class DatasetData:
 class DatasetPipelinePairComparison:
     pipeline_name_1: str
     pipeline_name_2: str
-    error_listing_1: DataclassDataFrame[ErrorListingElement]
-    error_listing_2: DataclassDataFrame[ErrorListingElement]
-    both_errors: set[tuple[SAMPLE_IDX, OUTER_LOC]]
+    errs_1_shared: list[ErrorListingElement]
+    errs_2_shared: list[ErrorListingElement]
+    errs_1_unique_insertions: list[ErrorListingElement]
+    errs_2_unique_insertions: list[ErrorListingElement]
+    unique_replacements_top: list[str]
+    errs_1_unique_replacements_top: list[list[ErrorListingElement]]
+    errs_2_unique_replacements_top: list[list[ErrorListingElement]]
+    errs_1_unique_replacements_other: list[ErrorListingElement]
+    errs_2_unique_replacements_other: list[ErrorListingElement]
     
-    # insertions_1: list[ErrorListingElement]
-    # insertions_2: list[ErrorListingElement]
-    # errors_in_1_both: list[ErrorListingElement]
-    # errors_in_2_both: list[ErrorListingElement]
-    # errors_in_1_but_not_2: list[ErrorListingElement]
-    # errors_in_2_but_not_1: list[ErrorListingElement]
+    def counts(self) -> list[tuple[str, int, int]]:
+        result: list[tuple[str, int, int]] = [
+            (
+                'shared_errors',
+                sum([pos.n_errors for pos in self.errs_1_shared]),
+                sum([pos.n_errors for pos in self.errs_2_shared]),
+            ),
+            (
+                'insertions',
+                sum([pos.n_errors for pos in self.errs_1_unique_insertions]),
+                sum([pos.n_errors for pos in self.errs_2_unique_insertions]),
+            ),
+            (
+                'other_unique',
+                sum([pos.n_errors for pos in self.errs_1_unique_replacements_other]),
+                sum([pos.n_errors for pos in self.errs_2_unique_replacements_other]),
+            ),
+        ]
+        
+        for word, listing_1, listing_2 in zip(
+            self.unique_replacements_top,
+            self.errs_1_unique_replacements_top,
+            self.errs_2_unique_replacements_top,
+        ):
+            result.append((
+                word,
+                sum([pos.n_errors for pos in listing_1]),
+                sum([pos.n_errors for pos in listing_2]),
+            ))
+        
+        return result
+    
+    def plot(self) -> Figure:
+        counts = self.counts()
+        labels = [_label for _label, _count1, _count2 in counts]
+        counts1 = [_count1 for _label, _count1, _count2 in counts]
+        counts2 = [_count2 for _label, _count1, _count2 in counts]
+        
+        df = pd.concat([
+            pd.DataFrame({'pipeline': 'pipeline 1', 'type': labels, 'n_errs': counts1}),
+            pd.DataFrame({'pipeline': 'pipeline 2', 'type': labels, 'n_errs': counts2}),
+        ])
+
+        fig = plt.figure(figsize=(20, 3)) # type: ignore
+        fig = px.bar(df, y="pipeline", x="n_errs", color="type", width=1000, height=300) # type: ignore
+        
+        return fig
+    
 
 
 @dataclass
@@ -154,6 +207,7 @@ class Evaluator(PredictionLoader):
         dataset_data: DatasetData,
         pipeline_name_1: str,
         pipeline_name_2: str,
+        n_top_words: int = 10,
     ) -> DatasetPipelinePairComparison:
         err_positions_1: list[ErrorListingElement] = []
         err_positions_2: list[ErrorListingElement] = []
@@ -175,59 +229,62 @@ class Evaluator(PredictionLoader):
             for pos in err_positions_2
             if pos.outer_loc[0] == 'at'
         ])
+        both_errors = at_locs_1.intersection(at_locs_2)
+        
+        errs_1_shared = [
+            pos for pos in err_positions_1
+            if (pos.sample_idx, pos.outer_loc) in both_errors
+        ]
+        errs_2_shared = [
+            pos for pos in err_positions_2
+            if (pos.sample_idx, pos.outer_loc) in both_errors
+        ]
+        errs_1_unique = [
+            pos for pos in err_positions_1
+            if (pos.sample_idx, pos.outer_loc) not in both_errors
+        ]
+        errs_2_unique = [
+            pos for pos in err_positions_2
+            if (pos.sample_idx, pos.outer_loc) not in both_errors
+        ]
+        errs_1_unique_insertions = [pos for pos in errs_1_unique if pos.outer_loc[0] == 'pre']
+        errs_2_unique_insertions = [pos for pos in errs_2_unique if pos.outer_loc[0] == 'pre']
+        errs_1_unique_replacements = [pos for pos in errs_1_unique if pos.outer_loc[0] == 'at']
+        errs_2_unique_replacements = [pos for pos in errs_2_unique if pos.outer_loc[0] == 'at']
+        
+        unique_replacements_top_texts = Counter(
+            [cast(str, pos.true_text) for pos in errs_1_unique_replacements]
+            + [cast(str, pos.true_text) for pos in errs_2_unique_replacements]
+        ).most_common(n_top_words)
+        
+        unique_replacements_top = [text for text, _ in unique_replacements_top_texts]
+        errs_1_unique_replacements_top = [
+            [pos for pos in errs_1_unique_replacements if pos.true_text == text]
+            for text, _ in unique_replacements_top_texts
+        ]
+        errs_2_unique_replacements_top = [
+            [pos for pos in errs_2_unique_replacements if pos.true_text == text]
+            for text, _ in unique_replacements_top_texts
+        ]
+        errs_1_unique_replacements_other = [
+            pos for pos in errs_1_unique_replacements
+            if pos.true_text not in unique_replacements_top
+        ]
+        errs_2_unique_replacements_other = [
+            pos for pos in errs_2_unique_replacements
+            if pos.true_text not in unique_replacements_top
+        ]
         
         return DatasetPipelinePairComparison(
             pipeline_name_1=pipeline_name_1,
             pipeline_name_2=pipeline_name_2,
-            error_listing_1=DataclassDataFrame[ErrorListingElement](err_positions_1),
-            error_listing_2=DataclassDataFrame[ErrorListingElement](err_positions_2),
-            both_errors=at_locs_1.intersection(at_locs_2),
+            errs_1_shared=errs_1_shared,
+            errs_2_shared=errs_2_shared,
+            errs_1_unique_insertions=errs_1_unique_insertions,
+            errs_2_unique_insertions=errs_2_unique_insertions,
+            unique_replacements_top=unique_replacements_top,
+            errs_1_unique_replacements_top=errs_1_unique_replacements_top,
+            errs_2_unique_replacements_top=errs_2_unique_replacements_top,
+            errs_1_unique_replacements_other=errs_1_unique_replacements_other,
+            errs_2_unique_replacements_other=errs_2_unique_replacements_other,
         )
-        
-        # result = DatasetPipelinePairComparison(
-        #     pipeline_name_1=pipeline_name_1,
-        #     pipeline_name_2=pipeline_name_2,
-        #     insertions_1=[],
-        #     insertions_2=[],
-        #     errors_in_1_both=[],
-        #     errors_in_2_both=[],
-        #     errors_in_1_but_not_2=[],
-        #     errors_in_2_but_not_1=[],
-        # )
-        
-        # for sample_idx, sample in enumerate(dataset_data.samples):
-        #     if pipeline_name_1 in sample.pipelines and pipeline_name_2 in sample.pipelines:
-                
-        #         err_positions_1 = sample.pipelines[pipeline_name_1].err_positions
-        #         err_positions_2 = sample.pipelines[pipeline_name_2].err_positions
-                
-        #         # 1. for outer "pre" positions (insertions)
-                
-        #         pre_1 = [pos for pos in err_positions_1 if pos.outer_loc[0] == 'pre']
-        #         pre_2 = [pos for pos in err_positions_2 if pos.outer_loc[0] == 'pre']
-                
-        #         for pos in pre_1:
-        #             result.insertions_1.append(replace(pos, sample_idx=sample_idx))
-        #         for pos in pre_2:
-        #             result.insertions_2.append(replace(pos, sample_idx=sample_idx))
-                
-        #         # 2. for outer "at" positions (insertions)
-                
-        #         at_1 = [pos for pos in err_positions_1 if pos.outer_loc[0] == 'at']
-        #         at_2 = [pos for pos in err_positions_2 if pos.outer_loc[0] == 'at']
-                
-        #         locs_1 = set([pos.outer_loc for pos in at_1])
-        #         locs_2 = set([pos.outer_loc for pos in at_2])
-                
-        #         for pos in at_1:
-        #             if pos.outer_loc in locs_2:
-        #                 result.errors_in_1_both.append(replace(pos, sample_idx=sample_idx))
-        #             else:
-        #                 result.errors_in_1_but_not_2.append(replace(pos, sample_idx=sample_idx))
-        #         for pos in at_2:
-        #             if pos.outer_loc in locs_1:
-        #                 result.errors_in_2_both.append(replace(pos, sample_idx=sample_idx))
-        #             else:
-        #                 result.errors_in_2_but_not_1.append(replace(pos, sample_idx=sample_idx))
-                
-        # return result

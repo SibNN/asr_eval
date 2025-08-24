@@ -16,8 +16,8 @@ import numpy as np
 import pandas as pd
 
 from ..align.metrics import plot_dataset_metric
-from .evaluator import DatasetData, ErrorPositionWithSampleIdx, Evaluator, SampleData, group_by_true_text
-
+from .evaluator import DatasetData, Evaluator, SampleData
+from ..utils.misc import list_join
 
 __all__ = [
     'run_dashboard',
@@ -74,25 +74,6 @@ def _display_sample_as_html(sample: SampleData) -> str:
             line + ' |' + transcription
             for line, transcription in zip(display_lines, df.iloc[:, -1]) # type: ignore
         )
-
-
-def _display_uneven_errors(errors: list[ErrorPositionWithSampleIdx]) -> list[Component]:
-    error_groups = group_by_true_text(errors)
-    result: list[Component] = []
-    total_errs = sum([sum([pos.n_errors for pos in group]) for _true_text, group in error_groups])
-    error_groups = error_groups[:10]
-    cumulative_errs = 0
-    for i, (true_text, group) in enumerate(error_groups):
-        n_errs = sum([pos.n_errors for pos in group])
-        cumulative_errs += n_errs
-        result.append(Span(
-            f'{true_text}: {n_errs} errors'
-            f' [{n_errs / total_errs * 100:.0f}%'
-            f', Σ={cumulative_errs / total_errs * 100:.0f}%]'
-        ))
-        if i != len(errors):
-            result.append(Br())
-    return result
 
 
 def run_dashboard(
@@ -314,20 +295,29 @@ def run_dashboard(
             pipeline_name_1=pipeline_name_1,
             pipeline_name_2=pipeline_name_2
         )
+        fig = comparison_results.plot()
         
-        return [Div([
-            Div([
-                Label('First pipeline errors (correct in the second)', style={'font-weight': 'bold'}),
-                Br(),
-                *_display_uneven_errors(comparison_results.errors_in_1_but_not_2),
-            ], style=PAD | {'flex-grow': '1', 'text-align': 'right'}),
-            Div(style={'margin': '5px 15px', 'width': '2px', 'background-color': 'black'}),
-            Div([
-                Label('Second pipeline errors (correct in the first)', style={'font-weight': 'bold'}),
-                Br(),
-                *_display_uneven_errors(comparison_results.errors_in_2_but_not_1),
-            ], style=PAD | {'flex-grow': '1', 'text-align': 'left'}),
-        ], style=FLEXBOX_ROW | PAD | {'align-items': 'stretch'})]
+        return [dcc.Graph(figure=fig, responsive=True)]
+        
+        # columns = [
+        #     Div(
+        #         list_join(Br(), [Span(text) for text in labels]),
+        #         style=PAD | {'flex-grow': '1', 'text-align': 'right'},
+        #     ),
+        #     Div(style={'margin': '5px 15px', 'width': '2px', 'background-color': 'black'}),
+        #     Div(
+        #         list_join(Br(), [Span(str(x)) for x in counts1]),
+        #         style=PAD | {'flex-grow': '1', 'text-align': 'right'},
+        #     ),
+        #     Div(style={'margin': '5px 15px', 'width': '2px', 'background-color': 'black'}),
+        #     Div(
+        #         list_join(Br(), [Span(str(x)) for x in counts2]),
+        #         style=PAD | {'flex-grow': '1', 'text-align': 'right'},
+        #     ),
+            
+        # ]
+        
+        # return [Div(columns, style=FLEXBOX_ROW | PAD | {'align-items': 'stretch'})]
 
 
     app.run(debug=False, host='0.0.0.0', port=8051, use_reloader=False) # type: ignore

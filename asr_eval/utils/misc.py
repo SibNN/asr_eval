@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import uuid
-from typing import TypeVar
-from itertools import groupby
+from typing import Any, TypeVar
+from itertools import groupby, chain
 from collections.abc import Iterable
 
 
@@ -10,6 +10,7 @@ __all__ = [
     'new_uid',
     'groupby_into_spans',
     'self_product_nonequal',
+    'list_join',
 ]
 
 
@@ -56,3 +57,17 @@ def self_product_nonequal(iterable: Iterable[T], triangle: bool) -> Iterable[tup
                 or (not triangle and x1_idx != x2_idx)
             ):
                 yield (x1, x2)
+
+
+
+def list_join[T: Any](sep: T, iterable: Iterable[T]) -> list[T]:
+    """Interleave separator between iterable items (like str.join for lists)."""
+    it = iter(iterable)
+    try:
+        first = [next(it)]
+    except StopIteration:
+        return []
+    return list(chain(
+        first,
+        *([sep, x] for x in it),
+    ))
