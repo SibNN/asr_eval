@@ -1,1 +1,1 @@
-python -m asr_eval.bench.dashboard --exclude_dataset youtube-lectures
+python -m asr_eval.bench.dashboard --exclude_dataset youtube-lectures multivariant-v1-200

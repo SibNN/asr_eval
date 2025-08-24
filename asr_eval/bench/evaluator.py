@@ -252,10 +252,10 @@ class Evaluator(PredictionLoader):
         errs_1_unique_replacements = [pos for pos in errs_1_unique if pos.outer_loc[0] == 'at']
         errs_2_unique_replacements = [pos for pos in errs_2_unique if pos.outer_loc[0] == 'at']
         
-        unique_replacements_top_texts = Counter(
+        unique_replacements_top_texts = Counter(sorted(
             [cast(str, pos.true_text) for pos in errs_1_unique_replacements]
             + [cast(str, pos.true_text) for pos in errs_2_unique_replacements]
-        ).most_common(n_top_words)
+        )).most_common(n_top_words)
         
         unique_replacements_top = [text for text, _ in unique_replacements_top_texts]
         errs_1_unique_replacements_top = [
