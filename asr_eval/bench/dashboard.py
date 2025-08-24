@@ -292,7 +292,8 @@ def run_dashboard(
         comparison_results = evaluator.compare_pipelines(
             dataset_data=dataset_data,
             pipeline_name_1=pipeline_name_1,
-            pipeline_name_2=pipeline_name_2
+            pipeline_name_2=pipeline_name_2,
+            n_top_words=20,
         )
         fig = comparison_results.plot()
         
