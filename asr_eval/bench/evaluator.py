@@ -204,7 +204,7 @@ class Evaluator(PredictionLoader):
         dataset_data: DatasetData,
         pipeline_name_1: str,
         pipeline_name_2: str,
-        n_top_words: int = 10,
+        max_top_words: int = 100,
     ) -> DatasetPipelinePairComparison:
         err_positions_1: list[ErrorListingElement] = []
         err_positions_2: list[ErrorListingElement] = []
@@ -249,19 +249,25 @@ class Evaluator(PredictionLoader):
         errs_1_unique_replacements = [pos for pos in errs_1_unique if pos.outer_loc[0] == 'at']
         errs_2_unique_replacements = [pos for pos in errs_2_unique if pos.outer_loc[0] == 'at']
         
-        unique_replacements_top_texts = Counter(sorted(
+        texts_and_counts = Counter(sorted(
             [cast(str, pos.true_text) for pos in errs_1_unique_replacements]
             + [cast(str, pos.true_text) for pos in errs_2_unique_replacements]
-        )).most_common(n_top_words)
+        ))
         
-        unique_replacements_top = [text for text, _ in unique_replacements_top_texts]
+        unique_replacements_top_texts: list[str] = []
+        for text, count in texts_and_counts.most_common(max_top_words):
+            if count < 2:
+                break
+            unique_replacements_top_texts.append(text)
+        
+        unique_replacements_top = [text for text in unique_replacements_top_texts]
         errs_1_unique_replacements_top = [
             [pos for pos in errs_1_unique_replacements if pos.true_text == text]
-            for text, _ in unique_replacements_top_texts
+            for text in unique_replacements_top_texts
         ]
         errs_2_unique_replacements_top = [
             [pos for pos in errs_2_unique_replacements if pos.true_text == text]
-            for text, _ in unique_replacements_top_texts
+            for text in unique_replacements_top_texts
         ]
         errs_1_unique_replacements_other = [
             pos for pos in errs_1_unique_replacements
