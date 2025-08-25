@@ -293,7 +293,7 @@ def run_dashboard(
             dataset_data=dataset_data,
             pipeline_name_1=pipeline_name_1,
             pipeline_name_2=pipeline_name_2,
-            n_top_words=20,
+            n_top_words=100,
         )
         fig = comparison_results.plot()
         

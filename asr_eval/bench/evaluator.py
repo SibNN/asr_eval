@@ -5,7 +5,6 @@ from dataclasses import dataclass, replace
 from itertools import chain
 from typing import Literal, cast
 
-import matplotlib.pyplot as plt
 import pandas as pd
 import plotly.express as px
 from plotly.graph_objs._figure import Figure
@@ -102,9 +101,7 @@ class DatasetPipelinePairComparison:
             pd.DataFrame({'pipeline': 'pipeline 2', 'type': labels, 'n_errs': counts2}),
         ])
 
-        fig = plt.figure(figsize=(20, 3)) # type: ignore
-        fig = px.bar(df, y="pipeline", x="n_errs", color="type", width=1000, height=300) # type: ignore
-        
+        fig = px.bar(df, y="pipeline", x="n_errs", color="type", width=1000, height=250) # type: ignore
         return fig
     
 
