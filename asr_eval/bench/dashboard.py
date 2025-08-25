@@ -297,7 +297,7 @@ def run_dashboard(
         )
         fig = comparison_results.plot()
         
-        return [dcc.Graph(figure=fig, responsive=True)]
+        return [dcc.Graph(figure=fig, responsive=True, style={'height': '450px'})]
         
         # columns = [
         #     Div(
