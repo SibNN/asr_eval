@@ -134,9 +134,10 @@ class PredictionLoader:
         max_sample_idx: int | None = None,
         only_pipelines: Container[str] | None = None,
         only_datasets: Container[str] | None = None,
-        pref_baseline: str | None = None,
+        pref_baseline: str | None = None,  # TODO for unlabeled data
         exclude_pipelines: Container[str] = (),
         exclude_datasets: Container[str] = (),
+        with_relabelings: bool = True,
     ):
         # list predictions not loaded yet
         preds_on_disk = _list_predictions(

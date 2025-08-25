@@ -1,8 +1,10 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cache
+from pathlib import Path
 from typing import Callable, TypedDict
 from datasets import Audio, load_dataset, load_from_disk, Dataset, concatenate_datasets # type: ignore
 
+from asr_eval import ROOT_DIR # type: ignore
 from ..utils.types import FLOATS # type: ignore
 
 
@@ -27,11 +29,15 @@ class AudioSample(TypedDict):
     transcription: str
     
 
+RELABELING_TYPE = dict[int, str]
+
+
 @dataclass
 class DatasetInfo:
     '''Info for a registered ASR dataset.'''
     instantiate_fn: Callable[[], Dataset]
     unlabeled: bool
+    relabelings: dict[str, Callable[[], RELABELING_TYPE]] = field(default_factory=dict)
 
 
 datasets_registry: dict[str, DatasetInfo] = {}
@@ -67,6 +73,29 @@ def register_dataset(name: str, unlabeled: bool = False):
         return fn
     return decorator
 
+
+def register_relabeling(dataset_name: str, name: str):
+    '''
+    Register a new relabeling for a registered ASR dataset. See the examples in the current file.
+    '''
+    global datasets_registry
+    def decorator(fn: Callable[[], RELABELING_TYPE]):
+        assert dataset_name in datasets_registry
+        assert name not in datasets_registry[dataset_name].relabelings
+        datasets_registry[dataset_name].relabelings[name] = fn
+        return fn
+    return decorator
+
+def load_relabeling_from_file(path: str | Path) -> RELABELING_TYPE:
+    raw_text = Path(path).read_text()
+    relabeling: RELABELING_TYPE = {}
+    for line in raw_text.splitlines():
+        if not line.lstrip().startswith('#'):
+            idx, transcription = line.lstrip().split(' ', 1)
+            relabeling[int(idx)] = transcription
+    return relabeling
+
+
 @register_dataset('multivariant-v1-200')
 def load_multivariant_v1_200() -> Dataset:
     return (
@@ -96,6 +125,10 @@ def load_golos_farfield() -> Dataset:
         .cast_column('audio', Audio(sampling_rate=16_000)) # type: ignore
         .shuffle(0)
     )
+
+@register_relabeling('golos-farfield', 'multivariant')
+def load_golos_farfield_multivariant() -> RELABELING_TYPE:
+    return load_relabeling_from_file(ROOT_DIR / 'datasets/relabelings/golos-farfield.txt')
 
 @register_dataset('rulibrispeech')
 def load_rulibrispeech() -> Dataset:
