@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass, replace
 from itertools import chain
+import textwrap
 from typing import Literal, cast
 
 import pandas as pd
@@ -58,22 +59,28 @@ class DatasetPipelinePairComparison:
     errs_1_unique_replacements_other: list[ErrorListingElement]
     errs_2_unique_replacements_other: list[ErrorListingElement]
     
-    def counts(self) -> list[tuple[str, int, int]]:
-        result: list[tuple[str, int, int]] = [
+    def counts(self) -> list[tuple[str, int, int, str, str]]:
+        result: list[tuple[str, int, int, str, str]] = [
             (
                 'shared_errors',
                 sum([pos.n_errors for pos in self.errs_1_shared]),
                 sum([pos.n_errors for pos in self.errs_2_shared]),
+                ', '.join([f'{str(pos.true_text)}(~{pos.pred_text})' for pos in self.errs_1_shared]),
+                ', '.join([f'{str(pos.true_text)}(~{pos.pred_text})' for pos in self.errs_2_shared]),
             ),
             (
                 'insertions',
                 sum([pos.n_errors for pos in self.errs_1_unique_insertions]),
                 sum([pos.n_errors for pos in self.errs_2_unique_insertions]),
+                ', '.join([pos.pred_text for pos in self.errs_1_unique_insertions]),
+                ', '.join([pos.pred_text for pos in self.errs_2_unique_insertions]),
             ),
             (
                 'other_unique',
                 sum([pos.n_errors for pos in self.errs_1_unique_replacements_other]),
                 sum([pos.n_errors for pos in self.errs_2_unique_replacements_other]),
+                ', '.join([f'{str(pos.true_text)}(~{pos.pred_text})' for pos in self.errs_1_unique_replacements_other]),
+                ', '.join([f'{str(pos.true_text)}(~{pos.pred_text})' for pos in self.errs_2_unique_replacements_other]),
             ),
         ]
         
@@ -83,25 +90,47 @@ class DatasetPipelinePairComparison:
             self.errs_2_unique_replacements_top,
         ):
             result.append((
-                word,
+                '"' + word + '"',
                 sum([pos.n_errors for pos in listing_1]),
                 sum([pos.n_errors for pos in listing_2]),
+                ', '.join([f'{str(pos.true_text)}(~{pos.pred_text})' for pos in listing_1]),
+                ', '.join([f'{str(pos.true_text)}(~{pos.pred_text})' for pos in listing_2]),
             ))
         
         return result
     
     def plot(self) -> Figure:
         counts = self.counts()
-        labels = [_label for _label, _count1, _count2 in counts]
-        counts1 = [_count1 for _label, _count1, _count2 in counts]
-        counts2 = [_count2 for _label, _count1, _count2 in counts]
+        labels = [f'{label} ({count1} vs {count2})' for label, count1, count2, _desc1, _desc2 in counts]
+        counts1 = [count1 for _label, count1, _count2, _desc1, _desc2 in counts]
+        counts2 = [count2 for _label, _count1, count2, _desc1, _desc2 in counts]
+        desc1 = ['<br>'.join(textwrap.wrap(desc1, width=150)) for _label, _count1, _count2, desc1, _desc2 in counts]
+        desc2 = ['<br>'.join(textwrap.wrap(desc2, width=150)) for _label, _count1, _count2, _desc1, desc2 in counts]
         
         df = pd.concat([
-            pd.DataFrame({'pipeline': 'pipeline 1', 'type': labels, 'n_errs': counts1}),
-            pd.DataFrame({'pipeline': 'pipeline 2', 'type': labels, 'n_errs': counts2}),
+            pd.DataFrame({
+                'pipeline': self.pipeline_name_2,
+                'type': labels,
+                'n_errs': counts2,
+                'details': desc2,
+            }),
+            pd.DataFrame({
+                'pipeline': self.pipeline_name_1,
+                'type': labels,
+                'n_errs': counts1,
+                'details': desc1,
+            }),
         ])
 
-        fig = px.bar(df, y="pipeline", x="n_errs", color="type", width=1000, height=250) # type: ignore
+        fig = px.bar( # type: ignore
+            df,
+            y="pipeline",
+            x="n_errs",
+            color="type",
+            hover_data='details',
+            width=1000,
+            height=250
+        )
         return fig
     
 
@@ -204,7 +233,7 @@ class Evaluator(PredictionLoader):
         dataset_data: DatasetData,
         pipeline_name_1: str,
         pipeline_name_2: str,
-        max_top_words: int = 100,
+        # mode: Literal['basic', 'detailed'],
     ) -> DatasetPipelinePairComparison:
         err_positions_1: list[ErrorListingElement] = []
         err_positions_2: list[ErrorListingElement] = []
@@ -249,33 +278,34 @@ class Evaluator(PredictionLoader):
         errs_1_unique_replacements = [pos for pos in errs_1_unique if pos.outer_loc[0] == 'at']
         errs_2_unique_replacements = [pos for pos in errs_2_unique if pos.outer_loc[0] == 'at']
         
-        texts_and_counts = Counter(sorted(
-            [cast(str, pos.true_text) for pos in errs_1_unique_replacements]
-            + [cast(str, pos.true_text) for pos in errs_2_unique_replacements]
-        ))
+        texts_and_counts_1 = Counter(sorted([cast(str, pos.true_text) for pos in errs_1_unique_replacements]))
+        texts_and_counts_2 = Counter(sorted([cast(str, pos.true_text) for pos in errs_1_unique_replacements]))
+        texts_and_counts = texts_and_counts_1 | texts_and_counts_2
         
-        unique_replacements_top_texts: list[str] = []
+        max_top_words = 100
+        min_count = 2
+        
+        top_texts: list[str] = []
         for text, count in texts_and_counts.most_common(max_top_words):
-            if count < 2:
+            if count < min_count:
                 break
-            unique_replacements_top_texts.append(text)
+            top_texts.append(text)
         
-        unique_replacements_top = [text for text in unique_replacements_top_texts]
         errs_1_unique_replacements_top = [
             [pos for pos in errs_1_unique_replacements if pos.true_text == text]
-            for text in unique_replacements_top_texts
+            for text in top_texts
         ]
         errs_2_unique_replacements_top = [
             [pos for pos in errs_2_unique_replacements if pos.true_text == text]
-            for text in unique_replacements_top_texts
+            for text in top_texts
         ]
         errs_1_unique_replacements_other = [
             pos for pos in errs_1_unique_replacements
-            if pos.true_text not in unique_replacements_top
+            if pos.true_text not in top_texts
         ]
         errs_2_unique_replacements_other = [
             pos for pos in errs_2_unique_replacements
-            if pos.true_text not in unique_replacements_top
+            if pos.true_text not in top_texts
         ]
         
         return DatasetPipelinePairComparison(
@@ -285,7 +315,7 @@ class Evaluator(PredictionLoader):
             errs_2_shared=errs_2_shared,
             errs_1_unique_insertions=errs_1_unique_insertions,
             errs_2_unique_insertions=errs_2_unique_insertions,
-            unique_replacements_top=unique_replacements_top,
+            unique_replacements_top=top_texts,
             errs_1_unique_replacements_top=errs_1_unique_replacements_top,
             errs_2_unique_replacements_top=errs_2_unique_replacements_top,
             errs_1_unique_replacements_other=errs_1_unique_replacements_other,

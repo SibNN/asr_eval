@@ -70,6 +70,10 @@ class ErrorListingElement:
     @property
     def n_errors(self) -> int:
         return self.n_replacements + self.n_insertions + self.n_deletions
+    
+    @property
+    def pred_text(self) -> str:
+        return ' '.join([('' if isinstance(x, Deletion) else x.token.to_text()) for x in self.pred])
 
 
 @dataclass

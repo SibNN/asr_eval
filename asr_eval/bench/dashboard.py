@@ -258,10 +258,11 @@ def run_dashboard(
             style=PAD | {'flex-grow': '1'},
         )
     
-        # max_top_words_selector = dcc.Input(
-        #     id="max-top-words-selector",
-        #     type="number",
-        #     value='100',
+        # mode_selector = Dropdown(
+        #     id='comparison-mode-selector',
+        #     options=['basic', 'detailed'],
+        #     value='basic',
+        #     clearable=False,
         #     style=PAD | {'width': '100px'},
         # )
         
@@ -272,8 +273,8 @@ def run_dashboard(
         return [
             plots,
             Div([
-                # Label('max top words:', style=PAD),
-                # max_top_words_selector,
+                # Label('Mode:', style=PAD),
+                # mode_selector,
                 Label('First pipeline to compare:', style=PAD),
                 pipeline_1_selector,
                 Label('Second pipeline to compare:', style=PAD),
@@ -289,18 +290,16 @@ def run_dashboard(
         [
             Input('comparison-pipeline-1-selector', 'value'),
             Input('comparison-pipeline-2-selector', 'value'),
-            # Input('max-top-words-selector', 'value'),
+            # Input('comparison-mode-selector', 'value'),
         ],
     )
     def pipeline_pair_comparison(  # pyright:ignore[reportUnusedFunction]
         pipeline_name_1: str | None,
         pipeline_name_2: str | None,
-        # _max_top_words: str,
+        # comparison_mode: Literal['basic', 'detailed'],
     ) -> list[Component]:
         nonlocal dataset_data
         assert dataset_data is not None
-        
-        # max_top_words = int(_max_top_words)
         
         if pipeline_name_1 is None or pipeline_name_2 is None:
             return []
@@ -309,7 +308,7 @@ def run_dashboard(
             dataset_data=dataset_data,
             pipeline_name_1=pipeline_name_1,
             pipeline_name_2=pipeline_name_2,
-            # max_top_words=max_top_words,
+            # mode=comparison_mode,
         )
         fig = comparison_results.plot()
         
