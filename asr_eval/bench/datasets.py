@@ -43,6 +43,12 @@ def get_dataset(name: str) -> Dataset:
     return get_dataset_info(name).instantiate_fn()
 
 
+@cache
+def get_dataset_index(name: str) -> int:
+    '''Get an index (in registration order) for a registered ASR dataset.'''
+    return list(datasets_registry).index(name)
+
+
 def get_dataset_info(name: str) -> DatasetInfo:
     '''Get info for a registered ASR dataset.'''
     if name not in datasets_registry:
@@ -61,7 +67,6 @@ def register_dataset(name: str, unlabeled: bool = False):
         return fn
     return decorator
 
-
 @register_dataset('multivariant-v1-200')
 def load_multivariant_v1_200() -> Dataset:
     return (
@@ -70,22 +75,16 @@ def load_multivariant_v1_200() -> Dataset:
         .shuffle(0)
     )
 
-@register_dataset('ontico-unlabeled', unlabeled=True)
-def load_ontico_unlabeled() -> Dataset:
+@register_dataset('common-voice-17.0')
+def load_common_voice_17_0() -> Dataset:
     return (
-        load_from_disk('/asr_datasets/ontico_unlabeled')
-        .cast_column('audio', Audio(sampling_rate=16_000)) # type: ignore
-        .shuffle(0)
-    )
-
-@register_dataset('youtube-lectures')
-def load_youtube_lectures() -> Dataset:
-    # "train" is a single split here
-    # loading dangrebenkin/long_audio_youtube_lectures from HF gives an error with datasets==3.6.0
-    # https://github.com/huggingface/datasets/issues/7676
-    # return cast(Dataset, load_dataset('dangrebenkin/long_audio_youtube_lectures', split='train'))
-    return (
-        load_from_disk('/asr_datasets/long_audio_youtube_lectures')
+        load_dataset(
+            'mozilla-foundation/common_voice_17_0',
+            name='ru',
+            split='test',
+            trust_remote_code=True,
+        )
+        .rename_column('sentence', 'transcription')
         .cast_column('audio', Audio(sampling_rate=16_000)) # type: ignore
         .shuffle(0)
     )
@@ -177,16 +176,22 @@ def load_speech_massive() -> Dataset:
         .shuffle(0)
     )
 
-@register_dataset('common-voice-17.0')
-def load_common_voice_17_0() -> Dataset:
+@register_dataset('youtube-lectures')
+def load_youtube_lectures() -> Dataset:
+    # "train" is a single split here
+    # loading dangrebenkin/long_audio_youtube_lectures from HF gives an error with datasets==3.6.0
+    # https://github.com/huggingface/datasets/issues/7676
+    # return cast(Dataset, load_dataset('dangrebenkin/long_audio_youtube_lectures', split='train'))
     return (
-        load_dataset(
-            'mozilla-foundation/common_voice_17_0',
-            name='ru',
-            split='test',
-            trust_remote_code=True,
-        )
-        .rename_column('sentence', 'transcription')
+        load_from_disk('/asr_datasets/long_audio_youtube_lectures')
+        .cast_column('audio', Audio(sampling_rate=16_000)) # type: ignore
+        .shuffle(0)
+    )
+
+@register_dataset('ontico-unlabeled', unlabeled=True)
+def load_ontico_unlabeled() -> Dataset:
+    return (
+        load_from_disk('/asr_datasets/ontico_unlabeled')
         .cast_column('audio', Audio(sampling_rate=16_000)) # type: ignore
         .shuffle(0)
     )

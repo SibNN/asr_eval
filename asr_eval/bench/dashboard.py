@@ -15,6 +15,8 @@ import dash_bootstrap_components as dbc
 import numpy as np
 import pandas as pd
 
+from ..bench.datasets import get_dataset_index
+from ..bench.pipelines import get_pipeline_index
 from ..align.metrics import plot_dataset_metric
 from .evaluator import DatasetData, Evaluator, SampleData
 
@@ -98,9 +100,9 @@ def run_dashboard(
         exclude_pipelines=exclude_pipelines,
         exclude_datasets=exclude_datasets
     )
-    dataset_names = evaluator.list_datasets()
+    dataset_names = sorted(evaluator.list_datasets(), key=get_dataset_index)
     assert len(dataset_names)
-    pipeline_names = evaluator.list_pipelines()
+    pipeline_names = sorted(evaluator.list_pipelines(), key=get_pipeline_index)
     assert len(pipeline_names)
     dataset_data: DatasetData | None = None
         
@@ -238,7 +240,7 @@ def run_dashboard(
         
         # pipeline pair comparison: inputs
         
-        all_pipelines = dataset_data.get_all_pipelines()
+        all_pipelines = sorted(dataset_data.get_all_pipelines(), key=get_pipeline_index)
     
         pipeline_1_selector = Dropdown(
             id='comparison-pipeline-1-selector',
@@ -255,6 +257,13 @@ def run_dashboard(
             clearable=True,
             style=PAD | {'flex-grow': '1'},
         )
+    
+        # max_top_words_selector = dcc.Input(
+        #     id="max-top-words-selector",
+        #     type="number",
+        #     value='100',
+        #     style=PAD | {'width': '100px'},
+        # )
         
         # pipeline pair comparison: outputs
         
@@ -263,6 +272,8 @@ def run_dashboard(
         return [
             plots,
             Div([
+                # Label('max top words:', style=PAD),
+                # max_top_words_selector,
                 Label('First pipeline to compare:', style=PAD),
                 pipeline_1_selector,
                 Label('Second pipeline to compare:', style=PAD),
@@ -278,14 +289,19 @@ def run_dashboard(
         [
             Input('comparison-pipeline-1-selector', 'value'),
             Input('comparison-pipeline-2-selector', 'value'),
+            # Input('max-top-words-selector', 'value'),
         ],
     )
     def pipeline_pair_comparison(  # pyright:ignore[reportUnusedFunction]
         pipeline_name_1: str | None,
         pipeline_name_2: str | None,
+        # _max_top_words: str,
     ) -> list[Component]:
         nonlocal dataset_data
         assert dataset_data is not None
+        
+        # max_top_words = int(_max_top_words)
+        
         if pipeline_name_1 is None or pipeline_name_2 is None:
             return []
         
@@ -293,7 +309,7 @@ def run_dashboard(
             dataset_data=dataset_data,
             pipeline_name_1=pipeline_name_1,
             pipeline_name_2=pipeline_name_2,
-            n_top_words=100,
+            # max_top_words=max_top_words,
         )
         fig = comparison_results.plot()
         

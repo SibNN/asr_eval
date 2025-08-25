@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from functools import cache
 import os
 from pathlib import Path
 from typing import Any, override
@@ -45,6 +46,12 @@ def get_pipeline(name: str) -> type[Pipeline]:
     if name not in pipelines_registry:
         raise ValueError(f'Pipeline does not exist: {name}')
     return pipelines_registry[name]
+
+
+@cache
+def get_pipeline_index(name: str) -> int:
+    '''Get an index (in registration order) for a registered pipeline.'''
+    return list(pipelines_registry).index(name)
 
 
 class Pipeline(ABC):
@@ -142,34 +149,29 @@ class TimedTranscriberPipeline(Pipeline):
 # TODO check if we need VAD for Vosk54
 
 
-class _(TranscriberPipeline, register_as='whisper-tiny'):
-    def init(self):
-        return WhisperLongformWrapper('openai/whisper-tiny')
-
-class _(TranscriberPipeline, register_as='whisper-small'):
-    def init(self):
-        return WhisperLongformWrapper('openai/whisper-small')
-
-
 class _(TranscriberPipeline, register_as='whisper-large-v3'):
     def init(self):
         return WhisperLongformWrapper('openai/whisper-large-v3')
-
 
 class _(TranscriberPipeline, register_as='whisper-large-v3-turbo'):
     def init(self):
         return WhisperLongformWrapper('openai/whisper-large-v3-turbo')
 
-
 class _(TranscriberPipeline, register_as='whisper-podlodka-turbo'):
     def init(self):
         return WhisperLongformWrapper('bond005/whisper-podlodka-turbo')
 
+class _(TranscriberPipeline, register_as='whisper-small'):
+    def init(self):
+        return WhisperLongformWrapper('openai/whisper-small')
+
+class _(TranscriberPipeline, register_as='whisper-tiny'):
+    def init(self):
+        return WhisperLongformWrapper('openai/whisper-tiny')
 
 class _(TranscriberPipeline, register_as='gigaam-ctc'):
     def init(self):
         return LongformCTC(GigaAMShortformCTC())
-
 
 class _(TimedTranscriberPipeline, register_as='gigaam-ctc-vad'):
     def init(self):
@@ -180,6 +182,35 @@ class _(TimedTranscriberPipeline, register_as='gigaam-rnnt-vad'):
     def init(self):
         return LongformVAD(GigaAMShortformRNNT(), PyannoteSegmenter())
 
+class _(TimedTranscriberPipeline, register_as='t-one-vad'):
+    def init(self):
+        return LongformVAD(TOneWrapper(), PyannoteSegmenter())
+
+class _(TimedTranscriberPipeline, register_as='yandex-speechkit'):
+    def init(self):
+        return YandexSpeechKitWrapper(
+            api_key=os.environ['YANDEX_API_KEY'], language='ru-RU', normalize=False
+        )
+
+class _(TimedTranscriberPipeline, register_as='vosk-0.54-vad'):
+    def init(self):
+        return LongformVAD(VoskV54(), PyannoteSegmenter())
+
+class _(TimedTranscriberPipeline, register_as='pisets-legacy'):
+    def init(self):
+        return LegacyPisetsWrapper(repo_dir='tmp/pisets_legacy')
+
+class _(TimedTranscriberPipeline, register_as='pisets-ru-whisper-large-v3'):
+    def init(self):
+        return PisetsWrapper(
+            language='ru', recognizer='openai/whisper-large-v3', diarization=None
+        )
+
+class _(TimedTranscriberPipeline, register_as='pisets-podlodka'):
+    def init(self):
+        return PisetsWrapper(
+            language='ru', recognizer='bond005/whisper-large-v3-ru-podlodka', diarization=None
+        )
 
 class _(TimedTranscriberPipeline, register_as='flamingo-ru-vad'):
     def init(self):
@@ -197,39 +228,9 @@ class _(TimedTranscriberPipeline, register_as='gemma3n-ru-vad-contextual'):
             Gemma3nWrapper(lang='ru'), PyannoteSegmenter(), max_history_words=100
         )
 
-
-class _(TimedTranscriberPipeline, register_as='pisets-legacy'):
-    def init(self):
-        return LegacyPisetsWrapper(repo_dir='tmp/pisets_legacy')
-
-
-class _(TimedTranscriberPipeline, register_as='pisets-ru-whisper-large-v3'):
-    def init(self):
-        return PisetsWrapper(
-            language='ru', recognizer='openai/whisper-large-v3', diarization=None
-        )
-
-
-class _(TimedTranscriberPipeline, register_as='pisets-podlodka'):
-    def init(self):
-        return PisetsWrapper(
-            language='ru', recognizer='bond005/whisper-large-v3-ru-podlodka', diarization=None
-        )
-
-
 class _(TimedTranscriberPipeline, register_as='qwen2-audio-vad'):
     def init(self):
         return LongformVAD(Qwen2AudioWrapper(), PyannoteSegmenter())
-
-
-class _(TimedTranscriberPipeline, register_as='t-one-vad'):
-    def init(self):
-        return LongformVAD(TOneWrapper(), PyannoteSegmenter())
-
-
-class _(TimedTranscriberPipeline, register_as='vosk-0.54-vad'):
-    def init(self):
-        return LongformVAD(VoskV54(), PyannoteSegmenter())
 
 
 class _(TranscriberPipeline, register_as='voxtral-3B'):
@@ -245,10 +246,3 @@ class _(TranscriberPipeline, register_as='voxtral-3B-mp3'):
 class _(TranscriberPipeline, register_as='canary-1b-v2'):
     def init(self):
         return NvidiaCanaryWrapper('nvidia/canary-1b-v2')
-
-
-class _(TimedTranscriberPipeline, register_as='yandex-speechkit'):
-    def init(self):
-        return YandexSpeechKitWrapper(
-            api_key=os.environ['YANDEX_API_KEY'], language='ru-RU', normalize=False
-        )
