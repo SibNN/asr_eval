@@ -4,12 +4,13 @@ from collections.abc import Container, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 import pickle
+import re
 from typing import Literal, cast
 
 from tqdm.auto import tqdm
 
 from ..utils.dataframe import DataclassDataFrame
-from .datasets import AudioSample, get_dataset, get_dataset_info
+from .datasets import AudioSample, get_dataset, get_dataset_info, get_relabeling
 from ..align.alignment import Alignment, MultipleAlignment
 from ..align.parsing import parse_single_variant_string, parse_multivariant_string
 from ..align.transcription import SingleVariantTranscription, Transcription
@@ -155,40 +156,83 @@ class PredictionLoader:
         
         # load predictions incrementally with progress bar
         for pred_info in tqdm(list(preds_on_disk)):
+            pred = LoadedPrediction.load_cached(pred_info.path)
             self.df.data.append(PredictionDataframeRow(
-                **vars(pred_info),
-                pred=LoadedPrediction.load_cached(pred_info.path),
+                dataset_name=pred_info.dataset_name,
+                sample_idx=pred_info.sample_idx,
+                pipeline_name=pred_info.pipeline_name,
+                path=pred_info.path,
+                pred=pred,
             ))
+            if with_relabelings:
+                for relabeling_name in get_dataset_info(pred_info.dataset_name).relabelings:
+                    self.df.data.append(PredictionDataframeRow(
+                        dataset_name=f'{pred_info.dataset_name}[{relabeling_name}]',
+                        sample_idx=pred_info.sample_idx,
+                        pipeline_name=pred_info.pipeline_name,
+                        path=pred_info.path,
+                        pred=pred,
+                    ))
         
         # calculating alignments
-        for (dataset_name, sample_idx), df_for_sample in self.df.groupby(['dataset_name', 'sample_idx']):
+        for (dataset_name, sample_idx), df_for_sample in (
+            self.df.groupby(['dataset_name', 'sample_idx'])
+        ):
+            if match := re.fullmatch(r'([^\[\]]*)\[([^\[\]]*)\]', dataset_name):
+                dataset_name, relabeling_name = match.groups()
+            else:
+                relabeling_name = None
             if not get_dataset_info(dataset_name).unlabeled:
                 for row in df_for_sample.data:
                     if row.alignment is None:
-                        row.true = self.get_ground_truth_cached(dataset_name, sample_idx)
-                        cache_path = row.path.with_suffix('.align.pkl')
+                        row.true = self.get_ground_truth_cached(dataset_name, sample_idx, relabeling_name)
+                        cache_path = (
+                            row.path.with_suffix('.align.pkl')
+                            if relabeling_name is None
+                            else row.path.with_suffix(f'.align.{relabeling_name}.pkl')
+                        )
                         if cache_path.is_file():
                             row.alignment = pickle.loads(cache_path.read_bytes())
                         else:
-                            print(f'Aligning: {dataset_name} #{sample_idx} truth VS {row.pipeline_name}')
+                            displayname = (
+                                dataset_name
+                                if relabeling_name is None
+                                else f'{dataset_name}[{relabeling_name}]'
+                            )
+                            print(f'Aligning: {displayname} #{sample_idx} truth VS {row.pipeline_name}')
                             row.alignment = Alignment.from_predictions(true=row.true, pred=row.pred.pred)
                             cache_path.write_bytes(pickle.dumps(row.alignment))
             else:
                 # baseline_name = pref_baseline if pref_baseline in preds else sorted(preds)[0]
                 pass  # TODO support alignments for unlabeled datasets
     
-    def get_ground_truth_cached(self, dataset_name: str, sample_idx: int) -> Transcription:
-        cache_path = self.cache_dir / dataset_name / str(sample_idx) / 'true.pkl'
+    def get_ground_truth_cached(
+        self,
+        dataset_name: str,
+        sample_idx: int,
+        relabeling_name: str | None = None,
+    ) -> Transcription:
+        cache_path = self.cache_dir / dataset_name / str(sample_idx) / (
+            'true.pkl' if relabeling_name is None else f'true.{relabeling_name}.pkl'
+        )
         if cache_path.is_file():
             return pickle.loads(cache_path.read_bytes())
         else:
-            result = _load_ground_truth(dataset_name, sample_idx)
+            result = _load_ground_truth(dataset_name, sample_idx, relabeling_name=relabeling_name)
             cache_path.parent.mkdir(exist_ok=True, parents=True)
             cache_path.write_bytes(pickle.dumps(result))
             return result
 
     
-def _load_ground_truth(dataset_name: str, sample_idx: int) -> Transcription:
+def _load_ground_truth(
+    dataset_name: str,
+    sample_idx: int,
+    relabeling_name: str | None = None,
+) -> Transcription:
+    if relabeling_name is not None:
+        relabeling = get_relabeling(dataset_name, relabeling_name)
+        if sample_idx in relabeling:
+            return parse_multivariant_string(relabeling[sample_idx])
     dataset = get_dataset(dataset_name)
     sample = cast(AudioSample, dataset[sample_idx])
     return parse_multivariant_string(sample['transcription'])

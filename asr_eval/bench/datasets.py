@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from functools import cache
 from pathlib import Path
+import re
 from typing import Callable, TypedDict
 from datasets import Audio, load_dataset, load_from_disk, Dataset, concatenate_datasets # type: ignore
 
@@ -50,13 +51,23 @@ def get_dataset(name: str) -> Dataset:
 
 
 @cache
+def get_relabeling(dataset_name: str, name: str) -> RELABELING_TYPE:
+    '''Get a registered ASR dataset. See the examples in the current file.'''
+    return get_dataset_info(dataset_name).relabelings[name]()
+
+
+@cache
 def get_dataset_index(name: str) -> int:
     '''Get an index (in registration order) for a registered ASR dataset.'''
+    if match := re.fullmatch(r'([^\[\]]*)\[([^\[\]]*)\]', name):
+        name = match.group(1)  # remove relabeling name
     return list(datasets_registry).index(name)
 
 
 def get_dataset_info(name: str) -> DatasetInfo:
     '''Get info for a registered ASR dataset.'''
+    if match := re.fullmatch(r'([^\[\]]*)\[([^\[\]]*)\]', name):
+        name = match.group(1)  # remove relabeling name
     if name not in datasets_registry:
         raise ValueError(f'Dataset does not exist: {name}')
     return datasets_registry[name]
