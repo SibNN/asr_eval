@@ -128,8 +128,13 @@ class DatasetPipelinePairComparison:
             x="n_errs",
             color="type",
             hover_data='details',
-            width=1000,
-            height=250
+            # width=100,
+            # height=250,
+            color_discrete_sequence=px.colors.qualitative.Set3,
+        )
+        fig.update_traces(width=0.3) # type: ignore
+        fig.update_layout( # type: ignore
+            margin=dict(l=20, r=20, t=20, b=20),
         )
         return fig
     

@@ -312,27 +312,12 @@ def run_dashboard(
         )
         fig = comparison_results.plot()
         
-        return [dcc.Graph(figure=fig, responsive=True, style={'height': '450px'})]
-        
-        # columns = [
-        #     Div(
-        #         list_join(Br(), [Span(text) for text in labels]),
-        #         style=PAD | {'flex-grow': '1', 'text-align': 'right'},
-        #     ),
-        #     Div(style={'margin': '5px 15px', 'width': '2px', 'background-color': 'black'}),
-        #     Div(
-        #         list_join(Br(), [Span(str(x)) for x in counts1]),
-        #         style=PAD | {'flex-grow': '1', 'text-align': 'right'},
-        #     ),
-        #     Div(style={'margin': '5px 15px', 'width': '2px', 'background-color': 'black'}),
-        #     Div(
-        #         list_join(Br(), [Span(str(x)) for x in counts2]),
-        #         style=PAD | {'flex-grow': '1', 'text-align': 'right'},
-        #     ),
-            
-        # ]
-        
-        # return [Div(columns, style=FLEXBOX_ROW | PAD | {'align-items': 'stretch'})]
+        return [dcc.Graph(
+            figure=fig,
+            responsive=True,
+            config ={'displayModeBar': False},
+            style={'height': '250px'},
+        )]
 
 
     app.run(debug=False, host='0.0.0.0', port=8051, use_reloader=False) # type: ignore
