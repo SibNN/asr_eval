@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from termcolor import colored
 
+from ..bench.pipelines import get_pipeline_index
 from .metrics import Metrics
 from ..utils.table import Table2D
 from .matching import Match, char_edit_distance, select_shortest_multi_variants, solve_optimal_alignment
@@ -287,11 +288,15 @@ class MultipleAlignment:
             name: alignment for name, alignment in self.alignments.items()
             if name in names
         })
+    
+    def sort_pipelines(self) -> MultipleAlignment:
+        alignments = dict(sorted(self.alignments.items(), key=lambda item: get_pipeline_index(item[0])))
+        return replace(self, alignments=alignments)
         
-    def view(self) -> MultipleAlignmentView:
+    def view(self, sort_pipelines: bool = False) -> MultipleAlignmentView:
         outer_slots = get_outer_slots(self.baseline.tokens)
         outer_slot_to_index: dict[OUTER_LOC, int] = {loc: i for i, loc in enumerate(outer_slots)}
-
+        
         outer_slot_values = Table2D[SLOT_VALUES].construct(
             rows=len(self.alignments),
             cols=len(outer_slots),
@@ -351,8 +356,6 @@ class MultipleAlignmentView:
         '''
         unlabeled = self.baseline_name is not True
         
-        html_err_color = '#FF9C9C' if not unlabeled else '#FFDB85'
-        ansi_err_on_color = 'on_yellow'  # on_red is too dark
         
         # length of colored spans for Deletion()
         baseline_words = [
@@ -361,18 +364,33 @@ class MultipleAlignmentView:
         ]
         baseline_word_lengths = [len(w) for w in baseline_words]
         
-        def colorize_err(text: str) -> tuple[str, int]:
-            nonlocal mode, html_err_color, ansi_err_on_color
+        def colorize_err(
+            text: str,
+            mode: Literal['ansi', 'html', None],
+            type: Literal['unlabeled', 'err', 'err_first', 'err_second', 'err_both'] = 'err',
+        ) -> tuple[str, int]:
             match mode:
                 case None:
                     return text, len(text)
                 case 'html':
+                    match type:
+                        case 'unlabeled':
+                            color = '#FFDB85'
+                        case 'err':
+                            color = '#FF9C9C'
+                        case 'err_first':
+                            color = '#BAFFEF'  # second model is better
+                        case 'err_second':
+                            color = '#FFE8B0'  # baseline is better
+                        case 'err_both':
+                            color = '#C9C9C9'  # both baseline and second model made an error
                     return (
-                        f'<span style="background-color: {html_err_color};">'
+                        f'<span style="background-color: {color};">'
                         + text
                         + '</span>'
                     ), len(text)
                 case 'ansi':
+                    ansi_err_on_color = 'on_yellow'  # on_red is too dark
                     return colored(text, on_color=ansi_err_on_color), len(text)
 
         def render_cell(
@@ -394,13 +412,35 @@ class MultipleAlignmentView:
                 )
                 text_len = len(text)
                 if not isinstance(x, Correct):
-                    text, text_len = colorize_err(text)
+                    if unlabeled:
+                        type = 'unlabeled'
+                    elif self.table.shape[0] != 2:
+                        type = 'err'
+                    else:
+                        # model1 vs model2 vs ground truth
+                        cell_first = self.table[0, col]
+                        cell_second = self.table[1, col]
+                        first_has_errors = any(not isinstance(x, Correct) for x in cell_first)
+                        second_has_errors = any(not isinstance(x, Correct) for x in cell_second)
+                        both_have_errors = first_has_errors and second_has_errors
+                        is_second = row == 1
+                        # print(self.names, text, row, col, first_has_errors, second_has_errors)
+                        if both_have_errors:
+                            type = 'err_both'
+                        elif is_second:
+                            type = 'err_second'
+                        else:
+                            type = 'err_first'
+                    text, text_len = colorize_err(text, mode, type=type)
                 words.append(text)
                 lengths.append(text_len)
             return (
                 ' '.join(words),
                 sum(lengths) + max(0, len(lengths) - 1)
             )
+        
+        # print(self.names)
+        # print(self.table.to_pandas())
 
         # table_str keeps (text, text_len) tuple in each cell
         table_str: Table2D[tuple[str, int]] = self.table.map_with_indices(render_cell)
@@ -437,5 +477,5 @@ class MultipleAlignmentView:
                     text_block = f'<span style="{html_style}">' + text_block + '</span>'
             case _:
                 text_block = '\n'.join(lines)
-
+        
         return text_block

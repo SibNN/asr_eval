@@ -207,6 +207,8 @@ class Evaluator(PredictionLoader):
         
         samples: list[SampleData] = []
         for sample_idx, multiple_alignment in multiple_alignments.items():
+            # sort_pipelines=True is important for correct coloring when 2 pipelines
+            multiple_alignment = multiple_alignment.sort_pipelines()
             baseline_is_ground_truth = multiple_alignment.baseline_name is True
             aligned_html = (
                 multiple_alignment
