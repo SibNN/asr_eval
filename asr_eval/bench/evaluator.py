@@ -130,7 +130,7 @@ class DatasetPipelinePairComparison:
             hover_data='details',
             # width=100,
             # height=250,
-            color_discrete_sequence=px.colors.qualitative.Set3,
+            color_discrete_sequence=px.colors.qualitative.Dark24,
         )
         fig.update_traces(width=0.3) # type: ignore
         fig.update_layout( # type: ignore
