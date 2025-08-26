@@ -143,6 +143,10 @@ class DatasetPipelinePairComparison:
         fig.update_traces(width=0.3) # type: ignore
         fig.update_layout( # type: ignore
             margin=dict(l=20, r=20, t=20, b=20),
+            xaxis=dict(showgrid=False),
+            yaxis=dict(showgrid=False),
+            yaxis_title=None,
+            xaxis_title=None,
         )
         return fig
     
