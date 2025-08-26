@@ -104,8 +104,16 @@ class DatasetPipelinePairComparison:
         labels = [f'{label} ({count1} vs {count2})' for label, count1, count2, _desc1, _desc2 in counts]
         counts1 = [count1 for _label, count1, _count2, _desc1, _desc2 in counts]
         counts2 = [count2 for _label, _count1, count2, _desc1, _desc2 in counts]
-        desc1 = ['<br>'.join(textwrap.wrap(desc1, width=150)) for _label, _count1, _count2, desc1, _desc2 in counts]
-        desc2 = ['<br>'.join(textwrap.wrap(desc2, width=150)) for _label, _count1, _count2, _desc1, desc2 in counts]
+        
+        def wrap_text(text: str) -> str:
+            lines = textwrap.wrap(text, width=150)
+            if len(lines) > 10:
+                # otherwise plotly does not show any text at all
+                lines = lines[:10] + [f'... + {len(lines) - 10} rows hidden']
+            return '<br>'.join(lines)
+        
+        desc1 = [wrap_text(desc1) for _label, _count1, _count2, desc1, _desc2 in counts]
+        desc2 = [wrap_text(desc2) for _label, _count1, _count2, _desc1, desc2 in counts]
         
         df = pd.concat([
             pd.DataFrame({

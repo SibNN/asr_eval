@@ -230,7 +230,7 @@ def run_dashboard(
         n_deletions_base64 = plot_dataset_metric(dataset_metric, what='n_deletions', show=False)
         
         IMG_FLEX = {'flex': '1 1 auto', 'max-width': '24.5%'}
-        BASE64_HEADER = 'data:image/png;base64,'
+        BASE64_HEADER = 'data:image/svg+xml;base64,'
         plots = Div([
             Img(id='wer-plot', src=BASE64_HEADER + wer_base64, style=IMG_FLEX),
             Img(id='n-replacements-plot', src=BASE64_HEADER + n_replacements_base64, style=IMG_FLEX),

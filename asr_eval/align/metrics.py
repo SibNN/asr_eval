@@ -164,7 +164,7 @@ def plot_dataset_metric(
     ax.set_ylim(-Y_PAD / Y_DELTA, len(metrics) - 1 + Y_PAD / Y_DELTA)
 
     buffer = io.BytesIO()
-    plt.savefig(buffer, format='png', bbox_inches='tight') # type: ignore
+    plt.savefig(buffer, format='svg', bbox_inches='tight') # type: ignore
     buffer.seek(0)
     encoded_image = base64.b64encode(buffer.read()).decode()
 
