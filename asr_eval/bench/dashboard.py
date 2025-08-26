@@ -38,7 +38,10 @@ def _display_sample_as_html(sample: SampleData) -> str:
                 'True', # pipeline_name
                 sample.baseline_transcription_html
             ))
-            for pipeline_name, pipeline_data in sample.pipelines.items():
+            for pipeline_name, pipeline_data in sorted(
+                sample.pipelines.items(),
+                key=lambda item: get_pipeline_index(item[0]),
+            ):
                 display_rows.append((
                     f'{pipeline_data.elapsed_time:.2f}' if not np.isnan(pipeline_data.elapsed_time) else '?',
                     str(pipeline_data.metrics.n_errors),

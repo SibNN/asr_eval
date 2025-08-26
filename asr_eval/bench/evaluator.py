@@ -65,22 +65,40 @@ class DatasetPipelinePairComparison:
                 'shared_errors',
                 sum([pos.n_errors for pos in self.errs_1_shared]),
                 sum([pos.n_errors for pos in self.errs_2_shared]),
-                '#IDX TRUE PRED: ' + ', '.join([f'#{pos.sample_idx} T={str(pos.true_text)} P={pos.pred_text}' for pos in self.errs_1_shared]),
-                '#IDX TRUE PRED: ' + ', '.join([f'#{pos.sample_idx} T={str(pos.true_text)} P={pos.pred_text}' for pos in self.errs_2_shared]),
+                '#IDX TRUE PRED: ' + ', '.join([
+                    f'#{pos.sample_idx} T={str(pos.true_text)} P={pos.pred_text}'
+                    for pos in self.errs_1_shared
+                ]),
+                '#IDX TRUE PRED: ' + ', '.join([
+                    f'#{pos.sample_idx} T={str(pos.true_text)} P={pos.pred_text}'
+                    for pos in self.errs_2_shared
+                ]),
             ),
             (
                 'insertions',
                 sum([pos.n_errors for pos in self.errs_1_unique_insertions]),
                 sum([pos.n_errors for pos in self.errs_2_unique_insertions]),
-                '#IDX PRED: ' + ', '.join([f'#{pos.sample_idx} {pos.pred_text}' for pos in self.errs_1_unique_insertions]),
-                '#IDX PRED: ' + ', '.join([f'#{pos.sample_idx} {pos.pred_text}' for pos in self.errs_2_unique_insertions]),
+                '#IDX PRED: ' + ', '.join([
+                    f'#{pos.sample_idx} {pos.pred_text}'
+                    for pos in self.errs_1_unique_insertions
+                ]),
+                '#IDX PRED: ' + ', '.join([
+                    f'#{pos.sample_idx} {pos.pred_text}'
+                    for pos in self.errs_2_unique_insertions
+                ]),
             ),
             (
                 'other_unique',
                 sum([pos.n_errors for pos in self.errs_1_unique_replacements_other]),
                 sum([pos.n_errors for pos in self.errs_2_unique_replacements_other]),
-                '#IDX TRUE PRED: ' + ', '.join([f'#{pos.sample_idx} T={str(pos.true_text)} P={pos.pred_text}' for pos in self.errs_1_unique_replacements_other]),
-                '#IDX TRUE PRED: ' + ', '.join([f'#{pos.sample_idx} T={str(pos.true_text)} P={pos.pred_text}' for pos in self.errs_2_unique_replacements_other]),
+                '#IDX TRUE PRED: ' + ', '.join([
+                    f'#{pos.sample_idx} T={str(pos.true_text)} P={pos.pred_text}'
+                    for pos in self.errs_1_unique_replacements_other
+                ]),
+                '#IDX TRUE PRED: ' + ', '.join([
+                    f'#{pos.sample_idx} T={str(pos.true_text)} P={pos.pred_text}'
+                    for pos in self.errs_2_unique_replacements_other
+                ]),
             ),
         ]
         
@@ -93,8 +111,14 @@ class DatasetPipelinePairComparison:
                 '"' + word + '"',
                 sum([pos.n_errors for pos in listing_1]),
                 sum([pos.n_errors for pos in listing_2]),
-                '#IDX TRUE PRED: ' + ', '.join([f'#{pos.sample_idx} T={str(pos.true_text)} P={pos.pred_text}' for pos in listing_1]),
-                '#IDX TRUE PRED: ' + ', '.join([f'#{pos.sample_idx} T={str(pos.true_text)} P={pos.pred_text}' for pos in listing_2]),
+                '#IDX TRUE PRED: ' + ', '.join([
+                    f'#{pos.sample_idx} T={str(pos.true_text)} P={pos.pred_text}'
+                    for pos in listing_1
+                ]),
+                '#IDX TRUE PRED: ' + ', '.join([
+                    f'#{pos.sample_idx} T={str(pos.true_text)} P={pos.pred_text}'
+                    for pos in listing_2
+                ]),
             ))
         
         return result
