@@ -11,7 +11,7 @@ import plotly.express as px
 from plotly.graph_objs._figure import Figure
 
 from ..utils.dataframe import DataclassDataFrame
-from ..align.alignment import Alignment, ErrorListingElement
+from ..align.alignment import Alignment, ErrorListingElement, MultipleAlignment
 from ..align.metrics import DatasetMetric, Metrics
 from .loader import PredictionLoader
 
@@ -202,11 +202,24 @@ class Evaluator(PredictionLoader):
         count_absorbed_insertions: bool = True,
         max_consecutive_insertions: int | None = None,
         wer_averaging_mode: Literal['plain', 'concat'] = 'concat',
+        exclude_samples_with_digits: bool = False,
     ) -> DatasetData:
         multiple_alignments = self.get_multiple_alignments(dataset_name, pipeline_names)
         
+        def has_digits(multiple_alignment: MultipleAlignment)-> bool:
+            for token in multiple_alignment.baseline.tokens:
+                if any(char.isdigit() for char in token.to_text()):
+                    return True
+            for alignment in multiple_alignment.alignments.values():
+                for token in alignment.pred.tokens:
+                    if any(char.isdigit() for char in token.to_text()):
+                        return True
+            return False
+        
         samples: list[SampleData] = []
         for sample_idx, multiple_alignment in multiple_alignments.items():
+            if exclude_samples_with_digits and has_digits(multiple_alignment):
+                continue
             # sort_pipelines=True is important for correct coloring when 2 pipelines
             multiple_alignment = multiple_alignment.sort_pipelines()
             baseline_is_ground_truth = multiple_alignment.baseline_name is True

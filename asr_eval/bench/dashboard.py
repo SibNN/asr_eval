@@ -131,6 +131,13 @@ def run_dashboard(
         multi=True,
         style=PAD | {'flex-grow': '1'},
     )
+    exclude_samples_with_digits = Checklist(
+        id='exclude-samples-with-digits',
+        options=['Exclude samples with digits'],
+        value=[],
+        inline=True,
+        style=PAD,
+    )
     count_absorbed_insertions = Checklist(
         id='count-absorbed-insertions',
         options=['Count absorbed insertions'],
@@ -172,6 +179,7 @@ def run_dashboard(
             Label('Pipelines:', style=PAD), pipeline_selector,
         ], style=FLEXBOX_ROW),
         Div([
+            exclude_samples_with_digits,
             Label('WER settings:', style=PAD),
             count_absorbed_insertions,
             should_limit_insertions,
@@ -188,6 +196,7 @@ def run_dashboard(
         [
             Input('dataset-selector', 'value'),
             Input('pipeline-selector', 'value'),
+            Input('exclude-samples-with-digits', 'value'),
             Input('count-absorbed-insertions', 'value'),
             Input('should-limit-insertions', 'value'),
             Input('max-insertions', 'value'),
@@ -197,12 +206,14 @@ def run_dashboard(
     def display_dataset_summary(  # pyright:ignore[reportUnusedFunction]
         dataset_name: str,
         pipeline_names: list[str],
+        _exclude_samples_with_digits: list[str],
         _count_absorbed_insertions: list[str],
         _should_limit_insertions: list[str],
         max_insertions: str,
         wer_averaging_mode: Literal['plain', 'concat'],
     ) -> list[Component]:
         nonlocal dataset_data
+        exclude_samples_with_digits = 'Exclude samples with digits' in _exclude_samples_with_digits
         count_absorbed_insertions = 'Count absorbed insertions' in _count_absorbed_insertions
         should_limit_insertions = 'Max insertions' in _should_limit_insertions
         dataset_data = evaluator.get_dataset_data(
@@ -211,6 +222,7 @@ def run_dashboard(
             count_absorbed_insertions=count_absorbed_insertions,
             max_consecutive_insertions=int(max_insertions) if should_limit_insertions else None,
             wer_averaging_mode=wer_averaging_mode,
+            exclude_samples_with_digits=exclude_samples_with_digits,
         )
         html_blocks = [
             _display_sample_as_html(sample)
