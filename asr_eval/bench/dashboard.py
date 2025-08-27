@@ -126,7 +126,7 @@ def run_dashboard(
     pipeline_selector = Dropdown(
         id='pipeline-selector',
         options=pipeline_names,
-        value=pipeline_names,
+        value=pipeline_names[:2],
         clearable=False,
         multi=True,
         style=PAD | {'flex-grow': '1'},
