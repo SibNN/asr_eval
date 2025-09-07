@@ -92,7 +92,8 @@ class YandexSpeechKitWrapper(TimedTranscriber):
                 ))
         else:
             # return a list of unnormalized words
-            assert result.words is not None
+            if result.words is None:
+                return []
             for x in result.words:
                 outputs.append(TimedText(
                     x.start_time_ms / 1000, x.end_time_ms / 1000, x.word
