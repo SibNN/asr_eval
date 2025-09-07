@@ -1,5 +1,5 @@
 DATASETS="-d multivariant-v1-200 common-voice-17.0 resd fleurs golos-farfield \
-speech-massive rulibrispeech podlodka-full sova-rudevices -n 500"
+speech-massive rulibrispeech podlodka-full sova-rudevices youtube-lectures -m 500"
 
 tmp/venv_whisper/bin/python -m asr_eval.bench.run -p whisper-large-v3 $DATASETS
 tmp/venv_whisper/bin/python -m asr_eval.bench.run -p whisper-large-v3-turbo $DATASETS
@@ -11,8 +11,11 @@ tmp/venv_vosk/bin/python -m asr_eval.bench.run -p vosk-0.54-vad $DATASETS
 tmp/venv_yandex_speechkit/bin/python -m asr_eval.bench.run -p yandex-speechkit $DATASETS
 
 tmp/venv_voxtral/bin/python -m asr_eval.bench.run -p voxtral-3B $DATASETS
+tmp/venv_voxtral/bin/python -m asr_eval.bench.run -p voxtral-24B $DATASETS
 tmp/venv_flamingo/bin/python -m asr_eval.bench.run -p flamingo-ru-vad $DATASETS
 tmp/venv_qwen2audio/bin/python -m asr_eval.bench.run -p qwen2-audio-vad $DATASETS
+
+tmp/venv_vosk/bin/python -m asr_eval.bench.run -p vosk-ru-0.42-offline $DATASETS
 
 python -m asr_eval.bench.dashboard
 
