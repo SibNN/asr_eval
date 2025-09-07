@@ -6,6 +6,9 @@ import os
 from pathlib import Path
 from typing import Any, override
 
+from asr_eval.models.vosk_streaming_wrapper import VoskStreaming
+from asr_eval.streaming.wrappers import StreamingToOffline
+
 from ..models.base.interfaces import TimedTranscriber, Transcriber
 from ..models.base.longform import ContextualLongformVAD, LongformCTC, LongformVAD
 from ..models.pyannote_segmenter import PyannoteSegmenter
@@ -243,6 +246,21 @@ class _(TranscriberPipeline, register_as='voxtral-3B-mp3'):
         return VoxtralWrapper('mistralai/Voxtral-Mini-3B-2507', language='ru', local_server_verbose=True, format='mp3')
 
 
+class _(TranscriberPipeline, register_as='voxtral-24B'):
+    def init(self):
+        return VoxtralWrapper('mistralai/Voxtral-Small-24B-2507', language='ru', local_server_verbose=True)
+
+
+class _(TranscriberPipeline, register_as='voxtral-24B-mp3'):
+    def init(self):
+        return VoxtralWrapper('mistralai/Voxtral-Small-24B-2507', language='ru', local_server_verbose=True, format='mp3')
+
+
 class _(TranscriberPipeline, register_as='canary-1b-v2'):
     def init(self):
         return NvidiaCanaryWrapper('nvidia/canary-1b-v2')
+
+
+class _(TranscriberPipeline, register_as='vosk-ru-0.42-offline'):
+    def init(self):
+        return StreamingToOffline(VoskStreaming('vosk-model-ru-0.42', chunk_length_sec=1))
