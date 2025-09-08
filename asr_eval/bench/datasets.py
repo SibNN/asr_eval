@@ -137,9 +137,9 @@ def load_golos_farfield() -> Dataset:
         .shuffle(0)
     )
 
-@register_relabeling('golos-farfield', 'multivariant')
-def load_golos_farfield_multivariant() -> RELABELING_TYPE:
-    return load_relabeling_from_file(ROOT_DIR / 'datasets/relabelings/golos-farfield.txt')
+# @register_relabeling('golos-farfield', 'multivariant')
+# def load_golos_farfield_multivariant() -> RELABELING_TYPE:
+#     return load_relabeling_from_file(ROOT_DIR / 'datasets/relabelings/golos-farfield.txt')
 
 @register_dataset('rulibrispeech')
 def load_rulibrispeech() -> Dataset:
