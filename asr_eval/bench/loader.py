@@ -247,7 +247,11 @@ def _list_predictions(
     exclude_datasets: Container[str] = (),
 ) -> Iterator[PredictionInfo]:
     root_dir = Path(root_dir)
-    for path in sorted(root_dir.glob('*/*/*/transcription.json')):
+    pattern = '*/*/*/transcription.json'
+    paths = list(root_dir.glob(pattern))
+    if not paths:
+        print(f'Warning: no prediction files found for {root_dir.resolve()}/{pattern}')
+    for path in sorted(paths):
         pipeline_name, dataset_name, sample_idx, _ = path.relative_to(root_dir).parts
         sample_idx = int(sample_idx)
         if exclude_pipelines in exclude_pipelines:
