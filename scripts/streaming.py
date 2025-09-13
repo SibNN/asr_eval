@@ -7,11 +7,7 @@ import pickle
 from asr_eval.bench.datasets import get_dataset
 from asr_eval.bench.datasets import AudioSample
 from asr_eval.bench.recording import Recording
-# from asr_eval.models.base.longform import LongformCTC
-# from asr_eval.models.gigaam_wrapper import GigaAMShortformCTC
-# from asr_eval.models.whisper_wrapper import WhisperLongformWrapper
 from asr_eval.streaming.evaluation import default_evaluation_pipeline
-
 
 # from asr_eval.models.vosk_streaming_wrapper import VoskStreaming
 # model_save_name = 'vosk-model-ru-0.42-0.5s'
@@ -25,10 +21,13 @@ from asr_eval.streaming.evaluation import default_evaluation_pipeline
 # model_save_name = 'psz-dev-branch-commit-hash-be884dcf-clarification'
 # model = SibnnPszStreamingWrapper(src_path='tmp/psz/src', clarification=True)
 
+# from asr_eval.models.whisper_wrapper import WhisperLongformWrapper
 # from asr_eval.streaming.wrappers import OfflineToStreaming
 # model_save_name = 'whisper-large-v3-quasi-streaming-0.5sec'
 # model = OfflineToStreaming(WhisperLongformWrapper('openai/whisper-large-v3'), interval=0.5)
 
+# from asr_eval.models.gigaam_wrapper import GigaAMShortformCTC
+# from asr_eval.models.base.longform import LongformCTC
 # from asr_eval.streaming.wrappers import OfflineToStreaming
 # model_save_name = 'gigaam-ctc-quasi-streaming-0.5sec'
 # model = OfflineToStreaming(LongformCTC(GigaAMShortformCTC()), interval=0.5)
