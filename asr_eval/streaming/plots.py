@@ -84,7 +84,8 @@ def partial_alignments_plot(
         eval.recording.transcription,
         y_pos=y0,
         y_delta=-(y2 - y1) / 15,
-        graybox_y=(y0, y2)
+        graybox_y=(y0, y2),
+        ax=ax,
     )
 
     for partial_alignment in eval.partial_alignments:
@@ -93,8 +94,8 @@ def partial_alignments_plot(
     real_times = np.linspace(eval.start_timestamp, eval.finish_timestamp, num=3000)
     sent_times = [get_audio_seconds_sent(t, eval.input_chunks) for t in real_times]
     processed_times = [get_audio_seconds_processed(t, eval.output_chunks) for t in real_times]
-    plt.plot(processed_times, real_times, color='darkgreen', zorder=1) # type: ignore
-    plt.plot(sent_times, real_times, color='grey', zorder=0) # type: ignore
+    ax.plot(processed_times, real_times, color='darkgreen', zorder=1) # type: ignore
+    ax.plot(sent_times, real_times, color='grey', zorder=0) # type: ignore
         
     ax.set_xlabel('Audio time') # type: ignore
     ax.set_ylabel('Real time') # type: ignore
@@ -194,7 +195,7 @@ def latency_plot(
     for eval in evals:
         sent = np.array([pa.audio_seconds_sent for pa in eval.partial_alignments])
         processed = np.array([pa.audio_seconds_processed for pa in eval.partial_alignments])
-        ax.plot(processed, sent, alpha=0.5, lw=3, color='C0') # type: ignore
+        ax.plot(processed, sent, alpha=0.3, lw=1, color='C0') # type: ignore
 
     ax.set_xlabel('Audio time processed, sec') # type: ignore
     ax.set_ylabel('Audio time sent, sec') # type: ignore
