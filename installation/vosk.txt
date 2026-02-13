@@ -1,0 +1,12 @@
+pyannote.audio<4
+vosk
+sentencepiece
+torch==2.5.1
+torchaudio==2.5.1
+huggingface_hub<1
+-f https://csukuangfj.github.io/kaldifeat/cuda.html
+kaldifeat==1.25.5.dev20250203+cuda12.4.torch2.5.1
+-f https://k2-fsa.github.io/k2/cuda.html
+k2==1.24.4.dev20250208+cuda12.4.torch2.5.1 
+git+https://github.com/lhotse-speech/lhotse
+git+https://github.com/k2-fsa/icefall

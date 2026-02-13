@@ -1,0 +1,32 @@
+:is(dl.class, dl.function, dl.data) > .sig {
+  display: table;
+  margin: 6px 0;
+  line-height: normal;
+  background: #e7f2fa;
+  color: #222;
+  border-top: 3px solid #6ab0de;
+  padding: 6px;
+  position: relative;
+  font-size: 90%;
+  font-weight: 700;
+}
+dl.class > .sig :is(.property, .sig-param) {
+  color: #2980b9;
+}
+dd > dl > .sig {
+  display: table;
+  margin: 6px 0;
+  line-height: normal;
+  background: #f0f0f0;
+  color: #222;
+  border-left: 3px solid #ccc;
+  padding: 6px;
+  font-size: 90%;
+  font-weight: 700;
+}
+code.xref {
+  font-weight: normal;
+}
+a:has(code.xref) {
+  text-decoration: none;
+}

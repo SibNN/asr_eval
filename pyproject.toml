@@ -1,0 +1,71 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = {attr = "asr_eval.__version__"}
+
+[project]
+name = "asr_eval"
+dynamic = ["version"]
+requires-python = ">=3.12"
+description = "Evaluation tools for Automatic Speech Recognition"
+authors = [{name = "Oleg Sedukhin", email = "sedukhin@sibnn.ai"}]
+dependencies = [
+    "numpy",
+    "librosa",
+    "matplotlib",
+    "srt",
+    "termcolor",
+    "nltk",
+    "pydantic_extra_types",
+    "numba>=0.61",  # uv tries to install old numba version (for librosa) which causes error
+    "pycountry", # required by pydantic_extra_types.language_code.LanguageAlpha2
+    "openai",
+    "pandas",
+    "python-dotenv",
+    "appdirs",
+    "polars",
+    "biopython",
+    "wcmatch",
+    "ansi2html",
+]
+
+[project.optional-dependencies]
+datasets = ["datasets<4"]  # to support trust_remote_code=True
+dash = [
+    "dash",
+    "dash-extensions",
+    "dash-bootstrap-components",
+    "hydra-core",
+    "diskcache",
+    "hydra_zen",  # for serializing to .csv
+]
+dev = [
+    "pytest",
+    "hydra-core", # registers itself as a pytest plugin, so wil fail if installed in --no-deps mode
+    "dash", # registers itself as a pytest plugin, so wil fail if installed in --no-deps mode
+    "pytest-cov",
+    "coverage[toml]",
+    "sphinx==9.0.*",
+    "sphinx_autodoc_typehints",
+    "pyright",
+    "xdoctest",
+]
+normalize = [  # russian text normalization for evaluating
+    "pymorphy3",
+    "torch",
+]
+
+[tool.setuptools.packages.find]
+include = ["asr_eval*"]
+
+[tool.setuptools.package-data]
+"asr_eval" = ["py.typed", "_data/**"]
+
+[project.urls]
+# if changed, update also in docs/source/_themes/sphinx13/layout.html
+Repository = "https://gitlab.sibnn.ai/research/asr_eval"
+
+[tool.coverage.report]
+skip_empty = true

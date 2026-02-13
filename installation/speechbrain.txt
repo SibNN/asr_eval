@@ -1,0 +1,5 @@
+torch~=2.8.0
+torchaudio~=2.8.0
+torchcodec==0.7
+speechbrain
+huggingface_hub<1

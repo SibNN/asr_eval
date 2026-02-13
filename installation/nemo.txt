@@ -1,0 +1,6 @@
+nemo_toolkit[asr]
+cuda-python>=12.3
+
+# Pyannote
+pyannote.audio>=4
+lightning<2.6  # for pyannote.audio

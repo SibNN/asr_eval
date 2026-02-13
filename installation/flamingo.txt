@@ -1,0 +1,13 @@
+numpy==1.26.4
+whisper
+accelerate==0.34.2
+pytorchvideo==0.1.5
+torchvision
+deepspeed==0.15.4
+transformers==4.46.0
+opencv-python-headless==4.8.0.76
+kaldiio
+loguru
+
+# Pyannote with numpy 1.x support
+pyannote.audio<4
