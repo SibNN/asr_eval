@@ -1,5 +1,4 @@
 from __future__ import annotations
-from pathlib import Path
 import sys
 from typing import TYPE_CHECKING, Any, Literal, cast, override
 import io
