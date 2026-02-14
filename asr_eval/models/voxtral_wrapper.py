@@ -1,7 +1,10 @@
+from __future__ import annotations
 import sys
-from typing import Literal, override
-from openai import OpenAI
-from pydantic_extra_types.language_code import LanguageAlpha2
+from typing import TYPE_CHECKING, Literal, override
+
+if TYPE_CHECKING:
+    from pydantic_extra_types.language_code import LanguageAlpha2
+    from openai import OpenAI
 
 from asr_eval.models.base.openai_wrapper import APITranscriber
 
@@ -49,7 +52,7 @@ class VoxtralWrapper(APITranscriber):
         self,
         model_name: str = 'mistralai/Voxtral-Mini-3B-2507',
         client: OpenAI | Literal['run_local_server'] = 'run_local_server',
-        language: str | LanguageAlpha2 = 'ru',
+        language: str | LanguageAlpha2 | None = None,
         temperature: float = 0.7,
         local_server_verbose: bool = False,
         format: str = 'flac',
@@ -67,8 +70,8 @@ class VoxtralWrapper(APITranscriber):
     @override
     def vllm_run_args(self) -> list[str]:
         return [
-            sys.executable.removesuffix('/python') + '/vllm',
-            'serve',
+            *self.vllm_api_server_args(),
+            '--model',
             self.model_name,
             '--tokenizer_mode',
             'mistral',

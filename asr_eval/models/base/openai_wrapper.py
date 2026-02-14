@@ -1,19 +1,18 @@
+from __future__ import annotations
+from pathlib import Path
 import sys
 from typing import TYPE_CHECKING, Any, Literal, cast, override
 import io
 
-from openai import OpenAI, Omit, omit
-from openai.types.chat import (
-    ChatCompletionUserMessageParam, ChatCompletionTokenLogprob
-)
-from openai.types.audio import Transcription
-from openai.types.audio.transcription_create_params import (
-    ChunkingStrategyVadConfig
-)
-from openai.types.audio.transcription import Logprob
-from pydantic_extra_types.language_code import LanguageAlpha2
-
 if TYPE_CHECKING:
+    from openai import OpenAI, Omit
+    from openai.types.audio import Transcription
+    from openai.types.chat import ChatCompletionTokenLogprob
+    from openai.types.audio.transcription import Logprob
+    from openai.types.audio.transcription_create_params import (
+        ChunkingStrategyVadConfig
+    )
+    from pydantic_extra_types.language_code import LanguageAlpha2
     from mistral_common.protocol.instruct.messages import UserContentChunk
 
 from asr_eval.models.base.interfaces import Transcriber
@@ -76,15 +75,17 @@ class APITranscriber(Transcriber):
         self,
         model_name: str = 'mistralai/Voxtral-Mini-3B-2507',
         client: OpenAI | Literal['run_local_server'] = 'run_local_server',
-        language: str | LanguageAlpha2 = 'ru',
+        language: str | LanguageAlpha2 | None = None,
         prompt: str | None = None,
         chunking_strategy: (
-            Literal['auto'] | ChunkingStrategyVadConfig | Omit
-        ) = omit,
+            Literal['auto', 'omit'] | ChunkingStrategyVadConfig | Omit
+        ) = 'omit',
         temperature: float = 0.7,
         format: str = 'flac',
         local_server_verbose: bool = False,
     ):
+        from openai import OpenAI, omit
+
         if client == 'run_local_server':
             self.vllm_proc = ServerAsSubprocess(
                 (
@@ -106,7 +107,7 @@ class APITranscriber(Transcriber):
         self.prompt = prompt
         self.chunking_strategy: (
             Literal['auto'] | ChunkingStrategyVadConfig | Omit
-        ) = chunking_strategy
+        ) = omit if chunking_strategy == 'omit' else chunking_strategy
         self.temperature = temperature
         self.format = format
     
@@ -125,10 +126,13 @@ class APITranscriber(Transcriber):
         )
         return text
     
+    def vllm_api_server_args(self) -> list[str]:
+        return [sys.executable, '-m',  'vllm.entrypoints.openai.api_server']
+    
     def vllm_run_args(self) -> list[str]:
         return [
-            sys.executable.removesuffix('/python') + '/vllm',
-            'serve',
+            *self.vllm_api_server_args(),
+            '--model',
             self.model_name,
         ]
     
@@ -141,11 +145,11 @@ def api_transcribe(
     client: OpenAI,
     waveform: FLOATS,
     model_name: str,
-    language: str | LanguageAlpha2 = 'en',
+    language: str | LanguageAlpha2 | None = None,
     prompt: str | None = None,
     chunking_strategy: (
-        Literal['auto'] | ChunkingStrategyVadConfig | Omit
-    ) = omit,
+        Literal['auto', 'omit'] | ChunkingStrategyVadConfig | Omit
+    ) = 'omit',
     temperature: float = 0.7,
     format: str = 'flac',
 ) -> tuple[str, list[Logprob] | None]:
@@ -180,6 +184,12 @@ def api_transcribe(
         openai.NotFoundError: If cannot find the specified model_name
         InternalServerError: In some cases (happened with VseGPT)
     """
+
+    from pydantic_extra_types.language_code import LanguageAlpha2
+    from openai import omit
+
+    if chunking_strategy == 'omit':
+        chunking_strategy = omit
     
     file = io.BytesIO(waveform_to_bytes(
         waveform, sampling_rate=16_000, format=format
@@ -189,7 +199,7 @@ def api_transcribe(
         prompt=prompt if prompt is not None else omit,
         temperature=temperature,
         model=model_name,
-        language=LanguageAlpha2(language),
+        language=LanguageAlpha2(language) if language else omit,
         chunking_strategy=chunking_strategy,
         include=['logprobs'],
     )
@@ -226,6 +236,7 @@ def api_chat_completion(
         TextChunk, UserMessage
     )
     from mistral_common.audio import Audio
+    from openai.types.chat import ChatCompletionUserMessageParam
     
     try:
         from mistral_common.protocol.instruct.chunk import AudioChunk
