@@ -190,7 +190,6 @@ Summarizing a dataset
     For this section, we need a support for ASR models and datasets. Please
     install the required packages:
     :code:`pip install asr_eval[datasets,models_stable]`.
-    Refer to the :doc:`guide_installation` for more ASR models.
 
 Let's retrieve a Russian dataset Podlodka-speech. It is annotated
 with a normal single-reference annotation.

@@ -21,7 +21,6 @@ Dashboard quickstart
 
     For this section, please install the following packages:
     :code:`pip install asr_eval[datasets,ru_norm,dash]`.
-    Refer to the :doc:`guide_installation` for more ASR models.
 
 The *asr_eval* package provides a dashboard to compare multiple models on multiple
 datasets, customize WER calculations and compare normalization strategies. This section
@@ -268,8 +267,6 @@ Framework recipes
         pip install asr_eval[datasets,ru_norm,dash,models_stable] \
             git+https://github.com/salute-developers/GigaAM
 
-    Other torch/torchaudio/torchcodec versions should also work.
-    Refer to the :doc:`guide_installation` for more ASR models.
 
 Let's run some pipelines and save their predictions.
 
