@@ -24,33 +24,33 @@ jobs:
           wget -qO- https://astral.sh/uv/install.sh | sh
       - name: test imports
         run: |
-          uv sync
+          uv sync --link-mode=symlink
           uv pip install pytest
           uv run python -m pytest tests/test_imports.py
       - name: pyright
         run: |
-          uv sync --extra all --extra dev
+          uv sync --extra all --extra dev --link-mode=symlink
           uv pip install -r installation/type_checking.txt --no-deps
           uv run python -m pyright -p pyrightconfig.json asr_eval
       - name: tests
         run: |
-          uv sync --extra all --extra dev
+          uv sync --extra all --extra dev --link-mode=symlink
           uv run python -m pytest tests
       - name: xdoctest
         run: |
-          uv sync --extra all --extra dev
+          uv sync --extra all --extra dev --link-mode=symlink
           uv pip install git+https://github.com/salute-developers/GigaAM
           uv run python -m xdoctest asr_eval --verbose 1
       # - name: sphinx doctest  # disabled until doctesting fixed
       #   run: |
-      #     uv sync --extra all --extra dev
+      #     uv sync --extra all --extra dev --link-mode=symlink
       #     uv pip install git+https://github.com/salute-developers/GigaAM
       #     uv run sphinx-build -M doctest docs/source docs/build docs/source/guide_alignment_wer.rst
       #     uv run sphinx-build -M doctest docs/source docs/build docs/source/guide_streaming_evaluation.rst
       #     uv run sphinx-build -M doctest docs/source docs/build docs/source/guide_evaluation_dashboard.rst
       - name: build docs
         run: |
-          uv sync --extra dev --extra dev
+          uv sync --extra dev --extra dev --link-mode=symlink
           rm -rf docs/build
           uv run sphinx-build docs/source docs/build
           (cd docs && uv run make simplepdf)
