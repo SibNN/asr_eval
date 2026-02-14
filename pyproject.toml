@@ -33,7 +33,7 @@ datasets = [
     # supports loading the registered datasets
     # you can install :code:`datasets>=4`, but some of the datasets won't load,
     # becuse they do not work without :code:`trust_remote_code=True`.
-    "datasets<4", # to support trust_remote_code=True
+    "datasets==3.*", # to support trust_remote_code=True
     "librosa",  # for loading audio with Hugging Face lib
     "numba>=0.61",  # uv tries to install old numba version (for librosa) which causes error
     "srt",  # for multivariant-v2
