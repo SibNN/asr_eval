@@ -12,6 +12,14 @@ class _(TranscriberPipeline, register_as='yandex-speechkit'):
     def init(self):
         return YandexSpeechKitWrapper(
             api_key=os.environ['YANDEX_API_KEY'],
+            language='auto',
+            normalize=False,
+        )
+
+class _(TranscriberPipeline, register_as='yandex-speechkit-ru'):
+    def init(self):
+        return YandexSpeechKitWrapper(
+            api_key=os.environ['YANDEX_API_KEY'],
             language='ru-RU',
             normalize=False,
         )
@@ -20,4 +28,12 @@ class _(TranscriberPipeline, register_as='yandex-speechkit'):
 
 class _(TranscriberPipeline, register_as='salute-api'):
     def init(self):
-        return SaluteWrapper(api_key=os.environ['SALUTE_KEY'])
+        return SaluteWrapper(
+            api_key=os.environ['SALUTE_KEY'],
+        )
+
+class _(TranscriberPipeline, register_as='salute-api-ru'):
+    def init(self):
+        return SaluteWrapper(
+            api_key=os.environ['SALUTE_KEY'], language='ru-RU'
+        )

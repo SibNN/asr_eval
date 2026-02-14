@@ -1,11 +1,13 @@
+from __future__ import annotations
 from collections.abc import Iterator
 import csv
 import json
 from pathlib import Path
-from typing import Any, override
+from typing import TYPE_CHECKING, Any, override
 import warnings
 
-import polars as pl
+if TYPE_CHECKING:
+    import polars as pl
 
 from asr_eval.utils.serializing import deserialize_object, serialize_object
 from asr_eval.utils.storage.base_storage import VALUE, BaseStorage
@@ -37,6 +39,8 @@ class CSVStorage(BaseStorage):
     # specific rows. Both actions require a full file rewriting.
 
     def __init__(self, path: str | Path):
+        import polars as pl
+
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -95,6 +99,8 @@ class CSVStorage(BaseStorage):
         1. All provided keys match the column values.
         2. All columns NOT provided in keys are Null.
         """
+        
+        import polars as pl
 
         conditions: list[pl.Expr] = []
         
@@ -126,6 +132,8 @@ class CSVStorage(BaseStorage):
         return self._df.select(mask.any()).item()
 
     def _write_csv(self):
+        import polars as pl
+
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             df = self._df.with_columns(
@@ -136,6 +144,8 @@ class CSVStorage(BaseStorage):
 
     @override
     def add_row(self, value: Any, overwrite: bool = True, **keys: VALUE):
+        import polars as pl
+        
         # self._check_csv_compability(value)
         value = self._maybe_serialize(value)
         
@@ -251,6 +261,8 @@ class CSVStorage(BaseStorage):
         load_values: bool = False,
         **keys: VALUE,
     ) -> pl.DataFrame:
+        import polars as pl
+
         if self._df.is_empty():
             # Return empty schema-compliant or completely empty DF?
             # BaseStorage implies returning what we have.
@@ -325,6 +337,8 @@ class CSVStorage(BaseStorage):
 
     @override
     def delete_all(self, **keys: VALUE):
+        import polars as pl
+        
         if self._df.is_empty():
             return
 

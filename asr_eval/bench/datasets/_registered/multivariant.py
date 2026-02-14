@@ -1,5 +1,4 @@
 from datasets import Audio, load_from_disk, Dataset, Features, Value # type: ignore
-import srt
 
 from asr_eval.bench.datasets._registry import DATASETS_DIR, register_dataset
 from asr_eval.bench.datasets.mappers import assign_sample_ids
@@ -18,6 +17,8 @@ def load_multivariant_v1_200(split: str = 'test') -> Dataset:
 
 @register_dataset('multivariant-v2')
 def load_multivariant_v2(split: str = 'test') -> Dataset:
+    import srt
+
     wav_paths = sorted((DATASETS_DIR / 'multivariant_v2').glob('*.wav'))
     srts = [
         list(srt.parse(p.with_suffix('.srt').read_text())) for p in wav_paths  # type: ignore

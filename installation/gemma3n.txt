@@ -1,11 +1,5 @@
-torch~=2.8.0
-torchaudio~=2.8.0
-torchcodec==0.7
+asr_eval[models_stable]
 transformers==4.54.1
 torchvision
 accelerate
 timm
-
-# Pyannote
-pyannote.audio>=4
-lightning<2.6  # for pyannote.audio

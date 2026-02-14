@@ -1,5 +1,4 @@
 import pytest
-import librosa
 
 from asr_eval.streaming.caller import receive_transcription
 from asr_eval.streaming.evaluation import make_sender
@@ -12,6 +11,8 @@ from asr_eval.utils.audio_ops import resample
 @pytest.mark.skip(reason='todo decide how to test optional dependencies')
 @pytest.mark.filterwarnings('ignore::FutureWarning:', 'ignore::DeprecationWarning:')
 def test_speechbrain_streaming():
+    import librosa
+    
     waveform: FLOATS = librosa.load('tests/testdata/vosk.wav', sr=16_000)[0] # type: ignore
     
     asr = SpeechbrainStreaming()

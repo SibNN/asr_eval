@@ -1,8 +1,6 @@
 from datetime import timedelta
 from pathlib import Path
 
-import srt
-
 from asr_eval.segments.segment import TimedText
 
 
@@ -14,6 +12,8 @@ __all__ = [
 
 def utterances_to_srt(utterances: list[tuple[str, float, float]]) -> str:
     """Composes an SRT file contents from texts, start and end times."""
+
+    import srt
     
     return srt.compose([ # type: ignore
         srt.Subtitle(
@@ -29,6 +29,8 @@ def utterances_to_srt(utterances: list[tuple[str, float, float]]) -> str:
 
 def read_srt(path: str | Path) -> list[TimedText]:
     """Reads .srt transcription file into a list of :code:`TimedText`."""
+
+    import srt
 
     return [
         TimedText(

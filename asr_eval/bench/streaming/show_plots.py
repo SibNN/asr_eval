@@ -3,9 +3,7 @@ import os
 from pathlib import Path
 import re
 from typing import Any
-import dash
-from dash import dcc, html, Input, Output
-import flask
+
 
 description = """A command line utility for streaming evaluation.
 
@@ -54,7 +52,12 @@ parser.description = description
 
 
 if __name__ == '__main__':
-    # LLM code (rare in this project but fine for tools like this)
+    # LLM code
+
+    import dash
+    import flask
+    from dash import dcc, html, Input, Output
+
     args = parser.parse_args()
     
     ROOT_DIR = Path(args.dir)

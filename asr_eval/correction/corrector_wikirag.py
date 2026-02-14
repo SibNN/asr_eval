@@ -4,7 +4,6 @@ from collections import Counter
 import sys
 from typing import cast, override
 
-from sklearn.metrics.pairwise import cosine_similarity as _cosine_similarity # type: ignore
 import nltk
 from nltk.tokenize import word_tokenize # type: ignore
 from nltk.corpus import stopwords
@@ -22,9 +21,9 @@ __all__ = [
 
 
 def _vectors_cosine_similarity(vec1: FLOATS, vec2: FLOATS) -> float:
-    return _cosine_similarity(vec1[None], vec2[None])[0, 0]  # type:ignore
+    from sklearn.metrics.pairwise import cosine_similarity # type: ignore
+    return cosine_similarity(vec1[None], vec2[None])[0, 0]  # type:ignore
     
-
 
 def _download_nltk_resources():
     resources = [

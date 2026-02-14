@@ -2,6 +2,7 @@ import os
 import signal
 import subprocess
 import threading
+import atexit
 
 
 __all__ = [
@@ -42,6 +43,7 @@ class ServerAsSubprocess:
         self.process = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
         )
+        atexit.register(self.stop)
         
         # Waiting until the server is ready
         if ready_message is not None:
@@ -65,20 +67,35 @@ class ServerAsSubprocess:
         self.logger_thread.start()
         
     def _readline(self) -> str | None:
-        assert self.process and self.process.stdout
-        line_bytes = self.process.stdout.readline()
+        if not self.process or not self.process.stdout:
+            return None
+        try:
+            line_bytes = self.process.stdout.readline()
+        except (ValueError, OSError):
+            return None
         if not line_bytes:
             return None
         line = line_bytes.decode(errors='ignore').strip()
         if self.verbose:
-            print(line)
+            try:
+                print(line)
+            except ValueError: # when atexit if sys.stdout is already closed
+                pass
         return line
     
     def stop(self):
-        assert self.process
-        self.process.send_signal(signal.SIGINT)
-        self.process.wait()
+        # safe to call multiple times
+        self.verbose = False
+        if self.process and self.process.poll() is None:
+            self.process.send_signal(signal.SIGINT)
+            try:
+                self.process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+                self.process.wait()
+        
         print('Server exited')
+        self.process = None
     
     def __del__(self):
         if self.process:

@@ -7,13 +7,6 @@ import re
 from typing import Any, Literal
 import uuid
 
-import dash
-from dash.html import Div
-from dash import dcc, html, Input, Output, State, DiskcacheManager
-from dash.exceptions import PreventUpdate
-import dash_bootstrap_components as dbc
-import diskcache
-
 from asr_eval import CACHE_DIR
 from asr_eval.bench.dashboard.header import DashboardHeader
 from asr_eval.bench.datasets._registry import _add_custom_annotations_from_csv # pyright: ignore[reportPrivateUsage]
@@ -73,6 +66,14 @@ def run_dashboard(
         host: A dashboard host.
         port: A dashboard port.
     """
+
+    import dash
+    from dash.html import Div
+    from dash import dcc, html, Input, Output, State, DiskcacheManager
+    from dash.exceptions import PreventUpdate
+    import dash_bootstrap_components as dbc
+    import diskcache
+
     # DatasetData instances retrieved by dashboard users
     # (need to store them for pipeline pair comparison)
     session_data: dict[str, DatasetData] = {}

@@ -12,6 +12,16 @@ class _(TranscriberPipeline, register_as='canary-1b-v2-vad'):
         return LongformVAD(
             NvidiaNemoWrapper(
                 'nvidia/canary-1b-v2',
+                beam_size=16,
+            ),
+            PyannoteSegmenter(strict_limit_duration=30)
+        )
+    
+class _(TranscriberPipeline, register_as='canary-1b-v2-vad-ru'):
+    def init(self):
+        return LongformVAD(
+            NvidiaNemoWrapper(
+                'nvidia/canary-1b-v2',
                 inference_kwargs={'source_lang': 'ru', 'target_lang': 'ru'},
                 beam_size=16,
             ),

@@ -1,0 +1,15 @@
+asr_eval[all]
+faster_whisper
+git+https://github.com/salute-developers/GigaAM
+sentencepiece
+pyctcdecode==0.5.0
+speechbrain
+git+https://github.com/voicekit-team/T-one
+onnxruntime (>=1.12.0,<2.0.0)
+vosk
+-f https://csukuangfj.github.io/kaldifeat/cuda.html
+kaldifeat==1.25.5.dev20250203+cuda12.4.torch2.5.1
+-f https://k2-fsa.github.io/k2/cuda.html
+k2==1.24.4.dev20250208+cuda12.4.torch2.5.1 
+git+https://github.com/lhotse-speech/lhotse
+git+https://github.com/k2-fsa/icefall

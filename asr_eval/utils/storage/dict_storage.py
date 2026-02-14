@@ -1,9 +1,11 @@
+from __future__ import annotations
 from collections.abc import Iterator, MutableMapping
 from pathlib import Path
 import shelve
-from typing import Any, cast, override
+from typing import TYPE_CHECKING, Any, cast, override
 
-import polars as pl
+if TYPE_CHECKING:
+    import polars as pl
 
 from asr_eval.utils.storage.base_storage import BaseStorage, VALUE
 
@@ -53,6 +55,8 @@ class DictStorage(BaseStorage):
         load_values: bool = False,
         **keys: VALUE,
     ) -> pl.DataFrame:
+        import polars as pl
+        
         df_rows = list(self.iter_rows(load_values=load_values, **keys))
         return pl.DataFrame(df_rows, schema_overrides={'value': pl.Object()})
     

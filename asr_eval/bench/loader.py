@@ -2,12 +2,14 @@
 from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
-from typing import Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 import multiprocessing
 
 import numpy as np
-import polars as pl
 from wcmatch.fnmatch import fnmatch, NEGATE, SPLIT
+
+if TYPE_CHECKING:
+    import polars as pl
 
 from asr_eval.bench.parsers import get_parser
 from asr_eval.align.transcription import Transcription
@@ -240,6 +242,8 @@ class PredictionLoader:
         dataset_name: str,
         dataset_spec: DatasetSpec
     ) -> pl.DataFrame | None:
+        import polars as pl
+
         if (
             dataset_spec.n_samples == 'all'
             and dataset_spec.n_samples_mode == 'up_to'
@@ -320,6 +324,9 @@ class PredictionLoader:
         alignments, 2) call :func:`~asr_eval.bench.evaluator.get_dataset_data`
         function that averages metrics.
         """
+        
+        import polars as pl
+        
         rows: list[tuple[str, int, str, float]] = []
         for key, preds_chunk in self.grouped_loaded_predictions.items():
             if (

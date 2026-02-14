@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import pytest
-import librosa
 
 from asr_eval.align.timings import fill_word_timings_inplace
 from asr_eval.align.parsing import DEFAULT_PARSER
@@ -27,6 +26,7 @@ from asr_eval.utils.types import FLOATS
     'ignore::FutureWarning:', 'ignore::DeprecationWarning:'
 )
 def test_evaluation():
+    import librosa
     waveform: FLOATS = librosa.load('tests/testdata/formula1.mp3', sr=16000)[0] # type: ignore
     waveform += waveform[::-1] / 4  # add speech-like noise
     text = Path('tests/testdata/formula1.txt').read_text()

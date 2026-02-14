@@ -10,6 +10,7 @@ from asr_eval.models.whisper_wrapper import WhisperLongformWrapper
 
 
 class _(TranscriberPipeline, register_as='gigaam2-plus-whisper-wordfreq'):
+    # to install Vosk LM, run installation/vosk_lm.sh
     def init(self):
         return RuWordFreqComparator(
             CTCDecoderWithLM(

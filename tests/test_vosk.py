@@ -2,9 +2,9 @@ import json
 import wave
 
 import pytest
-import librosa
 
 from asr_eval.utils.types import FLOATS
+from asr_eval.models.vosk54_wrapper import VoskV54
 
 
 @pytest.mark.skip(reason='todo decide how to test optional dependencies')
@@ -48,7 +48,7 @@ def test_vosk_KaldiRecognizer(frames_per_chunk: int, prediction: list[str]):
 @pytest.mark.skip(reason='todo decide how to test optional dependencies')
 @pytest.mark.filterwarnings("ignore::DeprecationWarning", "ignore::FutureWarning")
 def test_vosk54_wrapper():
-    from asr_eval.models.vosk54_wrapper import VoskV54
+    import librosa
     
     waveform: FLOATS = librosa.load('tests/testdata/podlodka_test_0.wav', sr=16_000)[0] # type: ignore
 

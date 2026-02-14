@@ -5,9 +5,7 @@ import tempfile
 from typing import TYPE_CHECKING, Iterator, Literal
 from contextlib import contextmanager
 
-import soundfile as sf
 import numpy as np
-import librosa
 
 if TYPE_CHECKING:
     import torchaudio.transforms
@@ -33,6 +31,8 @@ def waveform_to_bytes_buffer(
     Uses soundfile library.
     """
     
+    import soundfile as sf
+
     sf.write( # type: ignore
         buffer := io.BytesIO(),
         waveform,
@@ -109,6 +109,13 @@ def resample(
                 .numpy() # type: ignore
             )
         except ImportError:
+            try:
+                import librosa
+            except ImportError as e:
+                raise RuntimeError(
+                    'Both torchaudio and librosa are not installed'
+                    ', cannot do audio resampling.'
+                ) from e
             waveform = librosa.resample( # type: ignore
                 waveform,
                 orig_sr=from_sampling_rate,
@@ -177,6 +184,8 @@ def waveform_as_file(waveform: FLOATS) -> Iterator[Path]:
         >>> with waveform_as_file(waveform) as audio_path:  # doctest: +SKIP
         ...     recognize_speech(path=audio_path)
     """
+    
+    import soundfile as sf
     
     with tempfile.NamedTemporaryFile('wb', suffix='.wav') as f:
         sf.write(f, waveform, samplerate=16_000, format='wav') # type: ignore

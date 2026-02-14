@@ -1,7 +1,6 @@
 import wave
 
 import pytest
-import librosa
 import numpy as np
 from asr_eval.utils.types import FLOATS
 
@@ -13,6 +12,8 @@ Check that both methods give the same waveform:
 
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_wave():
+    import librosa
+    
     # vosk.wav from https://github.com/alphacep/vosk-api/raw/eabd80a848de53e87e5943937146025d42ae570d/python/example/test.wav
     # adopted from https://github.com/alphacep/vosk-api/blob/eabd80a848de53e87e5943937146025d42ae570d/python/example/test_ep.py
     audio_path = 'tests/testdata/vosk.wav'

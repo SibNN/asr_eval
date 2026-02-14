@@ -3,8 +3,6 @@ from itertools import islice
 import re
 from typing import Any
 
-import polars as pl
-
 from asr_eval.utils.storage import make_storage
 
 
@@ -47,6 +45,8 @@ parser.description = description
 
 
 if __name__ == '__main__':
+    import polars as pl
+
     args = parser.parse_args()
     
     storage = make_storage(args.storage)

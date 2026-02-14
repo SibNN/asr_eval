@@ -1,15 +1,15 @@
+from __future__ import annotations
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import pandas as pd
-import dash
-from dash import dash_table
-from dash.html import Div, Audio, Img, P
-from dash.development.base_component import Component
-from dash_extensions import Purify
-import soundfile as sf
+
+if TYPE_CHECKING:
+    from dash import dash_table
+    from dash.html import Div
+    from dash.development.base_component import Component
 
 from asr_eval.align.metrics import (
     dataset_metric_to_dataframe, plot_dataset_metric
@@ -18,12 +18,23 @@ from asr_eval.bench.datasets import get_dataset_sample_by_id
 from asr_eval.bench.pipelines import get_pipeline_index
 from asr_eval.bench.evaluator import DatasetData, SampleData
 
+try:
+    # need to import like this, or the error occurs:
+    # "Component library was imported during callback."
+    import dash
+    from dash.html import Div, Audio, P
+    from dash_extensions import Purify
+except ImportError:
+    pass
+
+
 
 def render_samples(
     dataset_data: DatasetData,
     audio_urls: dict[int, str] | None = None,
     max_string_length: int | None = 250,
 ) -> Div:
+
     blocks: list[Component] = []
     for sample in dataset_data.samples:
         rendered_html_lines = render_sample_as_html_lines(sample)
@@ -31,7 +42,7 @@ def render_samples(
             # rendered_html_lines is None if skipping due to max_samples limit
             if audio_urls is not None:
                 audio_url_path = audio_urls[sample.sample_id]
-                blocks.append(Audio(
+                blocks.append(Audio( # pyright: ignore[reportPossiblyUnboundVariable]
                     src=dash.get_asset_url(audio_url_path), # type: ignore
                     autoPlay=False,
                     controls=True,
@@ -56,8 +67,8 @@ def render_samples(
                 #         )
                 #     break
                 # rendered_html_lines = list(chain(*wrapped_blocks))
-            blocks.append(P(
-                Purify(html='<br/>'.join(rendered_html_lines)),
+            blocks.append(P( # pyright: ignore[reportPossiblyUnboundVariable]
+                Purify(html='<br/>'.join(rendered_html_lines)), # pyright: ignore[reportPossiblyUnboundVariable]
                 style={'margin-bottom': '0px'},
             ))
     
@@ -69,6 +80,8 @@ def render_samples(
 
 
 def render_metric_plots(dataset_data: DatasetData) -> list[Component]:
+    from dash.html import Img
+
     dataset_metric = dataset_data.dataset_metric
     wer_base64 = plot_dataset_metric(
         dataset_metric, what='wer', show=False
@@ -93,6 +106,8 @@ def render_metric_plots(dataset_data: DatasetData) -> list[Component]:
     ]
     
 def _df_to_html(df: pd.DataFrame, **kwargs: Any) -> dash_table.DataTable:
+    from dash import dash_table
+
     return dash_table.DataTable(
         df.round(3).to_dict('records'), # type: ignore
         [{"name": i, "id": i} for i in cast(Sequence[str], df.columns)],
@@ -196,6 +211,8 @@ def get_audio_assets_url(
     audio_url_path = f'{dataset_name}/{sample_id}.mp3'
     audio_path = root_dir / audio_url_path
     if do_export and not audio_path.is_file():
+        import soundfile as sf
+        
         waveform = get_dataset_sample_by_id(
             dataset_name,
             split='test',

@@ -1,5 +1,4 @@
 import pytest
-import librosa
 import numpy as np
 
 from asr_eval.models.gigaam_wrapper import GigaAMShortformCTC
@@ -19,6 +18,7 @@ def test_ctc_mapping():
 @pytest.mark.skip(reason='todo decide how to test optional dependencies')
 @pytest.mark.filterwarnings('ignore::FutureWarning:', 'ignore::DeprecationWarning:')
 def test_forced_alignment():
+    import librosa
     waveform: FLOATS = librosa.load('tests/testdata/podlodka_test_0.wav', sr=16_000)[0] # type: ignore
     text = 'и поэтому использовать их в повседневности не получается мы вынуждены поступать зачастую интуитивно'
     

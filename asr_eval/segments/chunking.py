@@ -2,7 +2,6 @@ from itertools import pairwise
 from typing import Literal
 
 import numpy as np
-import scipy
 
 from asr_eval.utils.misc import groupby_into_spans
 from asr_eval.utils.types import FLOATS, INTS
@@ -241,6 +240,7 @@ def average_segment_features(
             at time edges of each feature array in :code:`features`). Is
             used to weight features.
     """
+    import scipy
     
     assert len(segments)
     

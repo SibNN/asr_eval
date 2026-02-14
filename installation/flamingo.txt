@@ -8,6 +8,5 @@ transformers==4.46.0
 opencv-python-headless==4.8.0.76
 kaldiio
 loguru
-
-# Pyannote with numpy 1.x support
-pyannote.audio<4
+pyannote.audio<4  # Pyannote with numpy 1.x support
+pydub

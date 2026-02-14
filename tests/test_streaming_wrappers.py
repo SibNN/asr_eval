@@ -1,6 +1,5 @@
 from pathlib import Path
 
-import librosa
 import pytest
 
 from asr_eval.align.parsing import DEFAULT_PARSER
@@ -19,6 +18,8 @@ from asr_eval.utils.types import FLOATS
 @pytest.mark.skip(reason='todo decide how to test optional dependencies')
 @pytest.mark.filterwarnings('ignore::DeprecationWarning:')
 def test_streaming_to_offline():
+    import librosa
+
     waveform: FLOATS = librosa.load('tests/testdata/vosk.wav', sr=16_000)[0] # type: ignore
 
     model = StreamingToOffline(VoskStreaming())
@@ -29,6 +30,8 @@ def test_streaming_to_offline():
 
 @pytest.mark.skip(reason='todo decide how to test optional dependencies')
 def test_offline_to_streaming():
+    import librosa
+
     waveform: FLOATS = librosa.load('tests/testdata/formula1.mp3', sr=16_000)[0] # type: ignore
     transcription = DEFAULT_PARSER.parse_transcription(Path('tests/testdata/formula1.txt').read_text())
 

@@ -1,7 +1,6 @@
 import io
 from typing import Literal
 
-import librosa
 import numpy as np
 
 from asr_eval.linguistics.linguistics import split_text_into_sentences
@@ -91,6 +90,7 @@ def _yandex_text_to_speech(
     role: str,
     speed: float = 1,
 ) -> FLOATS:
+    import librosa
     import grpc # type: ignore
     import yandex.cloud.ai.tts.v3.tts_pb2 as tts_pb2
     import yandex.cloud.ai.tts.v3.tts_service_pb2_grpc as tts_service_pb2_grpc

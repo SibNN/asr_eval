@@ -8,6 +8,13 @@ from asr_eval.models.base.longform import LongformCTC
 from asr_eval.models.wav2vec2_wrapper import Wav2vec2Wrapper
 
 
+class _(TranscriberPipeline, register_as='wav2vec2-large-960h'):
+    def init(self):
+        return LongformCTC(
+            Wav2vec2Wrapper('facebook/wav2vec2-large-960h')
+        )
+
+
 class _(TranscriberPipeline, register_as='wav2vec2-large-xlsr-53-russian'):
     def init(self):
         return LongformCTC(
@@ -62,6 +69,7 @@ class _(TranscriberPipeline, register_as='wav2vec2-large-ru-golos-lm-t-one'):
 
 _name = 'wav2vec2-large-ru-golos-lm-vosk-0.42'
 class _(TranscriberPipeline, register_as=_name):
+    # to install Vosk LM, run installation/vosk_lm.sh
     def init(self):
         return CTCDecoderWithLM(
             LongformCTC(

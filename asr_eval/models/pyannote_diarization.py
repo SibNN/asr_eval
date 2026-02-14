@@ -2,7 +2,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 import warnings
-import yaml
 import os
 from pprint import pprint
 
@@ -48,6 +47,7 @@ class PyannoteDiarizationWrapper:
             warnings.simplefilter('ignore', UserWarning)
             warnings.simplefilter('ignore', FutureWarning)
 
+            import yaml
             import torch
             import pyannote.audio
             from pyannote.audio.utils.reproducibility import (

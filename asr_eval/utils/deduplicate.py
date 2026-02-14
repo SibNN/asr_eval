@@ -9,8 +9,6 @@ from typing import TYPE_CHECKING, Any, Literal, Sequence, cast
 import numpy as np
 import pandas as pd
 from tqdm.auto import tqdm
-from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 
 if TYPE_CHECKING:
@@ -286,12 +284,14 @@ def visualize_speaker_embeddings(
     Requires :code:`pip install torch umap-learn pyannote.audio`
     """
     
-    splits = cast(dict[str, Dataset], dict(splits)) # type: ignore
-    
     import torch
     import umap  # type: ignore
     from pyannote.audio import Inference  # type: ignore
     from pyannote.audio import Model  # type: ignore
+    from sklearn.decomposition import PCA
+    from sklearn.preprocessing import StandardScaler
+    
+    splits = cast(dict[str, Dataset], dict(splits)) # type: ignore
     
     if max_samples_per_split is not None:
         splits = {

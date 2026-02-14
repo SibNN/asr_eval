@@ -3,8 +3,6 @@ import asyncio
 import io
 import concurrent.futures
 
-import soundfile as sf
-
 from asr_eval.segments.segment import TimedText
 from asr_eval.models.base.interfaces import TimedTranscriber
 from asr_eval.utils.types import FLOATS
@@ -29,21 +27,25 @@ class SaluteWrapper(TimedTranscriber):
     def __init__(
         self,
         api_key: str,
-        format: str = 'flac'
+        format: str = 'flac',
+        language: str | None = None,  # "ru-RU" for Russian
     ):
         from salute_speech.speech_recognition import SaluteSpeechClient
          
         self.client = SaluteSpeechClient(client_credentials=api_key)
         self.format = format
+        self.language = language
 
     @override
     def timed_transcribe(self, waveform: FLOATS) -> list[TimedText]:
+        import soundfile as sf
+        
         buffer = io.BytesIO()
         sf.write(buffer, waveform, samplerate=16000, format=self.format) # type: ignore
         buffer.seek(0)
         coroutine = self.client.audio.transcriptions.create( # type: ignore
             file=buffer,
-            language="ru-RU",
+            language=self.language,
             # config=SpeechRecognitionConfig(),
         )
         

@@ -3,7 +3,6 @@ from collections.abc import Sequence
 from typing import cast
 import re
 
-import librosa
 import numpy as np
 
 from asr_eval.bench.datasets import get_dataset, AudioSample
@@ -107,6 +106,7 @@ if __name__ == '__main__':
                 dataset[3]['audio']['array'],
             ])
         case _:
+            import librosa
             waveform: FLOATS = librosa.load(args.audio, sr=16_000)[0] # type: ignore
     
     if args.trim:

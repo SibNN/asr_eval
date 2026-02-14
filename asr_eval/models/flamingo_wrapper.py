@@ -43,6 +43,7 @@ class FlamingoWrapper(Transcriber):
         )
         
         with waveform_as_file(waveform) as audio_path:
+            # requires soundfile lib
             # keep the file until generation is done
             sound = self.llava_module.Sound(str(audio_path)) # type: ignore
             match self.lang:

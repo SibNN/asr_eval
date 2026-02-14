@@ -4,8 +4,6 @@ from contextlib import contextmanager
 from typing import Any, cast, override
 import warnings
 
-from pydantic import SecretStr
-
 from asr_eval.utils.types import FLOATS
 from asr_eval.correction.interfaces import TranscriptionCorrector
 
@@ -39,6 +37,9 @@ class CorrectorLangchain(TranscriptionCorrector):
     DuckDuckGo search.
     
     Works for Russian language currently.
+
+    Requires :code:`langchain_openai` and :code:`duckduckgo_search`
+    packages currently.
     
     Author: Timur Rafikov; Updated by: Oleg Sedukhin
     """
@@ -54,6 +55,7 @@ class CorrectorLangchain(TranscriptionCorrector):
         # seems to work incorrectly (run with verbose=True)
         use_web_search: bool = False,
     ):
+        from pydantic import SecretStr
         from langchain.agents import create_openai_tools_agent, AgentExecutor # type: ignore
         from langchain.tools import BaseTool, DuckDuckGoSearchRun
         from langchain_openai import ChatOpenAI

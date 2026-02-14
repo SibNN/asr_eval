@@ -20,7 +20,7 @@ class Gemma3nWrapper(ContextualTranscriber):
     
     Authors: Timur Rafikov & Oleg Sedukhin
     '''
-    def __init__(self, lang: Literal['en', 'ru'] = 'ru', domain_text: str = ''):
+    def __init__(self, lang: Literal['en', 'ru'] = 'en', domain_text: str = ''):
         from transformers.models.gemma3n.modeling_gemma3n import (
             Gemma3nForConditionalGeneration
         )

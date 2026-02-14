@@ -95,6 +95,7 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinx.ext.intersphinx',
     'sphinx_autodoc_typehints',
+    'sphinx_design',
 ]
 
 templates_path = ['_templates']

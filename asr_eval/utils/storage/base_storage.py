@@ -1,8 +1,11 @@
+from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import polars as pl
+if TYPE_CHECKING:
+    import polars as pl
+
 from tqdm.auto import tqdm
 
 

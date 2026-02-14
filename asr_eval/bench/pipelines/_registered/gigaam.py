@@ -83,6 +83,7 @@ VOSK_LM = str(CACHE_DIR / 'vosk-model-ru-0.42-compile/db/ru.lm.gz')
 
 
 class _(TranscriberPipeline, register_as='gigaam2-ctc-lm-vosk-0.42'):
+    # to install Vosk LM, run installation/vosk_lm.sh
     def init(self):
         return CTCDecoderWithLM(
             LongformCTC(GigaAMShortformCTC('v2')),
@@ -139,6 +140,7 @@ class _(TranscriberPipeline, register_as='gigaam2-ctc-lm-bond005'):
 # CTC with VAD + LM
 
 class _(TranscriberPipeline, register_as='gigaam2-ctc-vad-lm-vosk-0.42'):
+    # to install Vosk LM, run installation/vosk_lm.sh
     def init(self):
         return LongformVAD(
             CTCDecoderWithLM(

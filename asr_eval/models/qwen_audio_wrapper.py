@@ -50,6 +50,7 @@ class QwenAudioWrapper(Transcriber):
     @override
     def transcribe(self, waveform: FLOATS) -> str:
         with waveform_as_file(waveform) as audio_path:
+            # requires soundfile lib
             query = f'<audio>{audio_path}</audio>{self.instruct_tokens}'
             audio_info = cast(
                 dict[str, Any] | None,
@@ -62,7 +63,7 @@ class QwenAudioWrapper(Transcriber):
             dict[str, Any],
             self.tokenizer( # type: ignore
                 query, return_tensors='pt', audio_info=audio_info
-            ).to(self.model.device)
+            ).to(self.model.device) # type: ignore
         )
 
         pred: torch.Tensor = self.model.generate( # type: ignore

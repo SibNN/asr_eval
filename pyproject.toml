@@ -11,50 +11,134 @@ dynamic = ["version"]
 requires-python = ">=3.12"
 description = "Evaluation tools for Automatic Speech Recognition"
 authors = [{name = "Oleg Sedukhin", email = "sedukhin@sibnn.ai"}]
+
 dependencies = [
+    # core and/or lightweight dependencies
     "numpy",
-    "librosa",
-    "matplotlib",
-    "srt",
-    "termcolor",
-    "nltk",
-    "pydantic_extra_types",
-    "numba>=0.61",  # uv tries to install old numba version (for librosa) which causes error
-    "pycountry", # required by pydantic_extra_types.language_code.LanguageAlpha2
-    "openai",
     "pandas",
-    "python-dotenv",
-    "appdirs",
-    "polars",
-    "biopython",
-    "wcmatch",
-    "ansi2html",
+    "matplotlib",
+    "tqdm",
+    "nltk",  # char edit distance
+    "termcolor",  # colorized text
+    "python-dotenv",  # read .env file
+    "appdirs",  # OS-independent cache dir managment
+    "biopython",  # for char aligner
+    "wcmatch",  # wildcard expressions for pipeline/dataset names
+    "ansi2html",  # HTML colors
+    "pyyaml",  # for pyannote diarization
 ]
 
 [project.optional-dependencies]
-datasets = ["datasets<4"]  # to support trust_remote_code=True
+datasets = [
+    # supports loading the registered datasets
+    # you can install :code:`datasets>=4`, but some of the datasets won't load,
+    # becuse they do not work without :code:`trust_remote_code=True`.
+    "datasets<4", # to support trust_remote_code=True
+    "librosa",  # for loading audio with Hugging Face lib
+    "numba>=0.61",  # uv tries to install old numba version (for librosa) which causes error
+    "srt",  # for multivariant-v2
+    "requests",  # for toloka-voxdiy-rusnews dataset
+]
+models_stable = [
+    # A stable configuration that should work.
+    # If you need another versions of these packages, omit this extra
+    # and install them manually. Note that torchaudio is in active refactoring
+    # state now, and for torchcodec you need to manually select a version from
+    # the compatibility table
+    "torch==2.8.*",
+    "torchaudio==2.8.*",
+    "torchcodec==0.7",
+    "transformers==4.*",
+    "pyannote.core",
+    "pyannote.audio==4.*",  # for Pyannote VAD
+    "lightning<2.6",  # for pyannote>=4 until fixed
+    "scipy",  # for LongformCTC
+]
+kenlm = [
+    # KenLM decoding for CTC models
+    # also you need to install `pyctcdecode==0.5.0 --no-dependencies`
+    # becase pyctcdecode requires numpy 1.x that is too restrictive,
+    # but it works well with numpy 2.x; so we install it with --no-dependencies
+    # (or --no-deps for UV)
+    "huggingface_hub",  # to download kenlm checkpoints
+    "kenlm",  # for lm decoding
+    "pygtrie>=2.1,<3.0",  # for pyctcdecode
+]
 dash = [
+    # web dashboard and disk storages for experiment runs
+    "asr_eval[datasets]",
+    "polars",  # for storages
+    "diskcache",  # for storages
     "dash",
     "dash-extensions",
     "dash-bootstrap-components",
-    "hydra-core",
-    "diskcache",
+    "soundfile",  # for exporting audios
+    "polars",  # for prediction loader
+    "joblib",  # for prediction evaluator
+    "plotly",  # for plots
+    "flask",  # is directly imported in streaming dashboard
     "hydra_zen",  # for serializing to .csv
+    "hydra-core",  # for loading serialized objects from .csv
+]
+nemo = [
+    # NVIDIA NeMo speech recognition models
+    "asr_eval[models_stable]",
+    "nemo_toolkit[asr]",
+    "cuda-python>=12.3",
+]
+qwen2audio = [
+    # Qwen2-audio as speech recognizer
+    "asr_eval[models_stable]",
+    "transformers_stream_generator",
+    "transformers>4.32.0",
+    "accelerate",
+]
+openai = [
+    # local VLLM server + openai API, e.g. for Voxtral
+    "openai",
+    "pydantic_extra_types",
+    "mistral_common",
+    "pycountry", # required by pydantic_extra_types.language_code.LanguageAlpha2
+    "vllm[audio]==0.10.2",
+    "numpy==2.2.*",
+]
+ru_norm = [
+    # Russian text normalizer for evaluations
+    "pymorphy3",  # for translit normalizer
+    "torch",  # for Silero model
+]
+misc = [
+    # other non-conflicting dependencies
+    "wordfreq",  # for composite experimental pipelines
+    "yandex-speechkit",  # for yandex-tts
+    "grpcio-tools",  # for yandex-tts
+    "soundfile",  # for salute API
+    "salute_speech",  # for salute API
+    "pydub",  # for type checking, `waveform_to_pydub` is not used now
+    "pymorphy3",  # for inflecting words in Levenshtein corrector
+    "pymystem3",  # for lemmatization in Levenshtein corrector
+    "levenshtein",  # for Levenshtein corrector
+    "umap-learn",  # for audio deduplicating
+    "pydantic",  # directly imported in Langchain corrector
+    "scikit-learn",  # for WikiRAG corrector
+    "wikipedia-api",  # for WikiRAG corrector
+    "sentence-transformers",  # for WikiRAG corrector
+    "rapidfuzz",  # for WikiRAG corrector
 ]
 dev = [
     "pytest",
-    "hydra-core", # registers itself as a pytest plugin, so wil fail if installed in --no-deps mode
-    "dash", # registers itself as a pytest plugin, so wil fail if installed in --no-deps mode
     "pytest-cov",
     "coverage[toml]",
-    "sphinx==9.0.*",
+    "sphinx==9.0.*",  # need sphinx 9.x for monkey patching in docs/source/conf.py
     "sphinx_autodoc_typehints",
+    "sphinx-simplepdf",
+    "sphinx-design",
     "pyright",
     "xdoctest",
 ]
-normalize = [  # russian text normalization for evaluating
-    "pymorphy3",
-    "torch",
+all = [
+    # all extras except `dev`
+    "asr_eval[datasets,kenlm,models_stable,dash,nemo,qwen2audio,gemma3n,openai,ru_norm,misc]"
 ]
 
 [tool.setuptools.packages.find]

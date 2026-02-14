@@ -26,6 +26,10 @@ class _(TranscriberPipeline, register_as='flamingo-ru-vad'):
 
 # Gemma3n
 
+class _(TranscriberPipeline, register_as='gemma3n-vad'):
+    def init(self):
+        return LongformVAD(Gemma3nWrapper(), PyannoteSegmenter())
+
 class _(TranscriberPipeline, register_as='gemma3n-ru-vad'):
     def init(self):
         return LongformVAD(Gemma3nWrapper(lang='ru'), PyannoteSegmenter())

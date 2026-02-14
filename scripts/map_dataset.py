@@ -13,7 +13,6 @@ import warnings
 import datasets
 from datasets import Audio, Dataset, load_dataset, IterableDataset
 from tqdm.auto import tqdm
-import librosa
 
 with warnings.catch_warnings():
     warnings.simplefilter('ignore', SyntaxWarning)
@@ -33,6 +32,7 @@ def catchtime(name: str, disable: bool = False):
 
 
 if __name__ == '__main__':
+    import librosa
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--input_dataset', default='espnet/yodas')

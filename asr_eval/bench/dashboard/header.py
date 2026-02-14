@@ -1,6 +1,3 @@
-from dash import dcc, html, Input, Output, State
-from dash import clientside_callback # type: ignore
-
 from asr_eval.bench.loader import PredictionLoader
 from asr_eval.bench.dashboard.css import (
     DROPDOWN_CONTAINER_STYLE,
@@ -21,6 +18,9 @@ class DashboardHeader:
         loader: PredictionLoader,
         default_max_samples_to_render: int,
     ):
+        from dash import dcc, html, Input, Output, State
+        from dash import clientside_callback # type: ignore
+
         # all pipeline names to display
         self.all_pipelines = list(set([
             key.pipeline_name for key in loader.grouped_loaded_predictions

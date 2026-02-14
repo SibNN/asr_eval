@@ -1,5 +1,4 @@
 import pytest
-import librosa
 
 from asr_eval.models.gigaam_wrapper import GigaAMShortformCTC
 from asr_eval.utils.types import FLOATS
@@ -14,6 +13,7 @@ def model() -> GigaAMShortformCTC:
 @pytest.mark.parametrize('model', ['model'], indirect=True)
 def test_prepare_audio_for_gigaam(model: GigaAMShortformCTC):
     import torch
+    import librosa
     
     '''
     Check that we can prepare audio manually instead of GigaAM.prepare_wav(path) and get the same result.
@@ -43,6 +43,8 @@ def test_prepare_audio_for_gigaam(model: GigaAMShortformCTC):
 @pytest.mark.filterwarnings('ignore::FutureWarning:', 'ignore::UserWarning:')
 @pytest.mark.parametrize('model', ['model'], indirect=True)
 def test_giggam(model: GigaAMShortformCTC):
+    import librosa
+    
     audio_path1 = 'tests/testdata/podlodka_test_0.wav'
     audio_path2 = 'tests/testdata/vosk.wav'
     

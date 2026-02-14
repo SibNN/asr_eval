@@ -3,13 +3,13 @@ from collections import Counter
 from dataclasses import dataclass, replace
 from itertools import chain
 import textwrap
-from typing import Literal, cast
+from typing import TYPE_CHECKING, Literal, cast
 
-from joblib import Parallel, delayed # pyright: ignore[reportUnknownVariableType]
 import numpy as np
 import pandas as pd
-import plotly.express as px
-from plotly.graph_objs._figure import Figure
+
+if TYPE_CHECKING:
+    from plotly.graph_objs._figure import Figure
 
 from asr_eval.align.transcription import OuterLoc, Wildcard
 from asr_eval.align.alignment import (
@@ -154,6 +154,8 @@ class DatasetPipelinePairComparison:
         return result
     
     def plot(self) -> Figure:
+        import plotly.express as px
+
         counts = self.counts()
         labels = [
             f'{label} ({count1} vs {count2})'
@@ -319,6 +321,9 @@ def get_dataset_data(
     Returns:
         See the :class:`~asr_eval.bench.evaluator.DatasetData` docs.
     """
+    
+    from joblib import Parallel, delayed # pyright: ignore[reportUnknownVariableType]
+
     samples: list[SampleData] = []
     for sample_id, multiple_alignment in multiple_alignments.items():
         if exclude_samples_with_digits and _has_digits(multiple_alignment):
