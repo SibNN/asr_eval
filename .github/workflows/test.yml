@@ -19,9 +19,6 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v4
-      - name: uv
-        run: |
-          wget -qO- https://astral.sh/uv/install.sh | sh
       - name: test imports
         run: |
           uv sync --link-mode=symlink
