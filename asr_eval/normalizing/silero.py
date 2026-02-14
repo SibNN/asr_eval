@@ -20,13 +20,15 @@ class RuSileroNormalizer:
     A rare exception is handled that would create an inifinite loop,
     comparing with the original version. The normalizer is based on a
     neural network, so it is recommended to use caching.
+
+    TODO release a model required for RuSileroNormalizer.
     
     Example:
-        >>> from asr_eval.normalizing.silero import RuSileroNormalizer
-        >>> from asr_eval.utils.cacheable import DiskCacheable
-        >>> normalizer = RuSileroNormalizer()
-        >>> normalizer = DiskCacheable(normalizer, cache_path='sliero_normalizer_cache.db')
-        >>> print(normalizer('С 12.01.1943 г. площадь сельсовета — 1785,5 га.'))  # doctest: +NORMALIZE_WHITESPACE
+        >>> from asr_eval.normalizing.silero import RuSileroNormalizer # doctest: +SKIP
+        >>> from asr_eval.utils.cacheable import DiskCacheable # doctest: +SKIP
+        >>> normalizer = RuSileroNormalizer() # doctest: +SKIP
+        >>> normalizer = DiskCacheable(normalizer, cache_path='sliero_normalizer_cache.db') # doctest: +SKIP
+        >>> print(normalizer('С 12.01.1943 г. площадь сельсовета — 1785,5 га.'))   # doctest: +SKIP
         С двенадцатого января тысяча девятьсот сорок третьего года
         площадь сельсовета — тысяча семьсот восемьдесят пять целых
         и пять десятых гектара
