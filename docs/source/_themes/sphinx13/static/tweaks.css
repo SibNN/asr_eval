@@ -30,3 +30,32 @@ code.xref {
 a:has(code.xref) {
   text-decoration: none;
 }
+
+.noborder {
+  border: none;
+}
+
+.suppress-margin-bottom {
+  margin-bottom: 0rem !important;
+}
+
+.index-page-card {
+  padding: 0.5rem 1.2em !important;
+  background-color: #f3f6ff;
+  font-weight: 600;
+}
+
+.index-page-card .sd-card-text::before {
+  content: "";
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  background-image: url('link.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  margin-left: -8px;
+  margin-right: 8px;
+  margin-bottom: 3px;
+  vertical-align: middle;
+  /* opacity: 0.85; */
+}
