@@ -56,9 +56,7 @@ This is done automatically in :func:`~asr_eval.align.timings.fill_word_timings_i
 
     For this guide, we need a support for ASR models and datasets. Please
     install the required packages:
-
-    :code:`pip install asr_eval[datasets] "torch==2.8.*" "torchaudio==2.8.*" torchcodec==0.7 transformers`
-    
+    :code:`pip install asr_eval[datasets,models_stable]`.
     Refer to the :doc:`guide_installation` for more ASR models.
 
 In this guide we use "sova-rudevices-multivariant" Russian dataset and GigaAM-v3 model

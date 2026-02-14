@@ -20,7 +20,7 @@ Dashboard quickstart
 .. admonition:: Installation
 
     For this section, please install the following packages:
-    :code:`pip install asr_eval[datasets,normalize,dash]`.
+    :code:`pip install asr_eval[datasets,ru_norm,dash]`.
     Refer to the :doc:`guide_installation` for more ASR models.
 
 The *asr_eval* package provides a dashboard to compare multiple models on multiple
@@ -265,9 +265,7 @@ Framework recipes
 
     .. code-block:: bash
 
-        pip install asr_eval[datasets,normalize,dash] \
-            "torch==2.8.*" "torchaudio==2.8.*" torchcodec==0.7 transformers \
-            "pyannote.audio>=4" "lightning<2.6" \
+        pip install asr_eval[datasets,ru_norm,dash,models_stable] \
             git+https://github.com/salute-developers/GigaAM
 
     Other torch/torchaudio/torchcodec versions should also work.
