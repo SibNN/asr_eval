@@ -19,17 +19,41 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v4
-      - name: install
+      - name: uv
         run: |
-          # apt update && apt install nodejs npm -y  # for deploying docs
-          python3.12 -m pip install uv
-          python3.12 -m uv pip install .[dev]
-          python3.12 -m pytest tests
+          wget -qO- https://astral.sh/uv/install.sh | sh
+      - name: test imports
+        run: |
+          uv sync
+          uv pip install pytest
+          uv run python -m pytest tests/test_imports.py
+      - name: pyright
+        run: |
+          uv sync --extra all --extra dev
+          uv pip install -r installation/type_checking.txt --no-deps
+          uv run python -m pyright -p pyrightconfig.json asr_eval
+      - name: tests
+        run: |
+          uv sync --extra all --extra dev
+          uv run python -m pytest tests
+      - name: xdoctest
+        run: |
+          uv sync --extra all --extra dev
+          uv pip install git+https://github.com/salute-developers/GigaAM
+          uv run python -m xdoctest asr_eval --verbose 1
+      # - name: sphinx doctest  # disabled until doctesting fixed
+      #   run: |
+      #     uv sync --extra all --extra dev
+      #     uv pip install git+https://github.com/salute-developers/GigaAM
+      #     uv run sphinx-build -M doctest docs/source docs/build docs/source/guide_alignment_wer.rst
+      #     uv run sphinx-build -M doctest docs/source docs/build docs/source/guide_streaming_evaluation.rst
+      #     uv run sphinx-build -M doctest docs/source docs/build docs/source/guide_evaluation_dashboard.rst
       - name: build docs
         run: |
-          sphinx-apidoc -o docs/source -H asr_eval -V 0.0.1 --no-toc --no-headings --force asr_eval/
-          python3.12 -m asr_eval.utils.autodoc
-          PYTHONPATH=. sphinx-build -b html docs/source docs/build
+          uv sync --extra dev --extra dev
+          rm -rf docs/build
+          uv run sphinx-build docs/source docs/build
+          (cd docs && uv run make simplepdf)
       - name: setup pages
         if: ${{ !env.ACT }}
         uses: actions/configure-pages@v5
