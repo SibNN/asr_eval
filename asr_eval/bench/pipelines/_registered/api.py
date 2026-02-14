@@ -26,10 +26,10 @@ class _(TranscriberPipeline, register_as='yandex-speechkit-ru'):
         
 # Salute
 
-class _(TranscriberPipeline, register_as='salute-api'):
+class _(TranscriberPipeline, register_as='salute-api-en'):
     def init(self):
         return SaluteWrapper(
-            api_key=os.environ['SALUTE_KEY'],
+            api_key=os.environ['SALUTE_KEY'], language='en-US'
         )
 
 class _(TranscriberPipeline, register_as='salute-api-ru'):

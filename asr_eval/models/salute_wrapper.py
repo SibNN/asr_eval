@@ -28,7 +28,7 @@ class SaluteWrapper(TimedTranscriber):
         self,
         api_key: str,
         format: str = 'flac',
-        language: str | None = None,  # "ru-RU" for Russian
+        language: str = "en-US",  # "ru-RU" for Russian
     ):
         from salute_speech.speech_recognition import SaluteSpeechClient
          

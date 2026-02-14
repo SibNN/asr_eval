@@ -497,7 +497,7 @@ Salute API
             pip install salute_speech
 
             # check
-            python -m asr_eval.bench.check salute-api --audio EN_LONG
+            python -m asr_eval.bench.check salute-api-en --audio EN_LONG
 
     .. tab-item:: UV
 
@@ -508,4 +508,4 @@ Salute API
             uv pip install salute_speech
 
             # check
-            uv run python -m asr_eval.bench.check salute-api --audio EN_LONG
+            uv run python -m asr_eval.bench.check salute-api-en --audio EN_LONG
