@@ -16,7 +16,7 @@ permissions:
   id-token: write
 
 jobs:
-  main:
+  test-and-build:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -58,7 +58,7 @@ jobs:
           uv sync --extra all --extra dev --link-mode=symlink
           rm -rf docs/build
           uv run sphinx-build docs/source docs/build
-          (cd docs && uv run make simplepdf)
+        # (cd docs && uv run make simplepdf)
       - name: setup pages
         if: ${{ !env.ACT }}
         uses: actions/configure-pages@v5
@@ -67,7 +67,15 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: 'docs/build'
+
+  deploy:
+    if: ${{ !failure() && github.ref == 'refs/heads/main' }}
+    needs: test-and-build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: deploy to github pages
-        if: ${{ !env.ACT }}
         id: deployment
         uses: actions/deploy-pages@v4
