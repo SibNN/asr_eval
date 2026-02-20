@@ -2,6 +2,7 @@
 /outputs
 /docs/source/reference.rst
 /.vscode
+/.claude
 
 # template from https://github.com/github/gitignore/blob/main/Python.gitignore
 
