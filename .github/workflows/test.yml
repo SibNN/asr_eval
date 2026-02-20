@@ -55,7 +55,7 @@ jobs:
       #     uv run sphinx-build -M doctest docs/source docs/build docs/source/guide_evaluation_dashboard.rst
       - name: build docs
         run: |
-          uv sync --extra dev --extra dev --link-mode=symlink
+          uv sync --extra all --extra dev --link-mode=symlink
           rm -rf docs/build
           uv run sphinx-build docs/source docs/build
           (cd docs && uv run make simplepdf)
