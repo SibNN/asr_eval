@@ -27,7 +27,7 @@ jobs:
       - name: pyright
         run: |
           uv sync --extra all --extra dev --link-mode=symlink
-          uv pip install -r installation/type_checking.txt --no-deps
+          uv pip install -r requirements/type_checking.txt --no-deps
           uv run python -m pyright -p pyrightconfig.json asr_eval
       - name: tests
         run: |
