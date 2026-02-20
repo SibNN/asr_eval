@@ -1,4 +1,4 @@
-name: test, build docs and release
+name: test and build docs
 on: workflow_dispatch
 
 permissions:

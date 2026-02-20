@@ -1,9 +1,9 @@
 [build-system]
-requires = ["setuptools", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.setuptools.dynamic]
-version = {attr = "asr_eval.__version__"}
+[tool.hatch.version]
+path = "asr_eval/__init__.py"
 
 [project]
 name = "asr_eval"
@@ -138,7 +138,7 @@ dev = [
 ]
 all = [
     # all extras except `dev`
-    "asr_eval[datasets,kenlm,models_stable,dash,nemo,qwen2audio,gemma3n,openai,ru_norm,misc]"
+    "asr_eval[datasets,kenlm,models_stable,dash,nemo,qwen2audio,openai,ru_norm,misc]"
 ]
 
 [tool.setuptools.packages.find]
