@@ -9,6 +9,14 @@ See the `preprint paper <https://arxiv.org/abs/2601.20992>`_ and full PDF docume
 * Running and evaluating non-streaming ASR, and perform a detailed error analysis
 * Running and evaluating streaming ASR, producing many informative diagrams
 
+.. image:: images/showcase.png
+    :width: 80%
+    :align: left
+
+.. raw:: html
+
+    <div style="clear: both;"></div>
+
 .. grid:: 1
     :margin: 0
     :class-row: suppress-margin-bottom
@@ -161,14 +169,13 @@ Acknowledgements
 
 Several components of this project, related to the :mod:`~asr_eval.correction` module, were developed in
 collaboration with Yandex Camp students during July 2025:
-
-* Timur Rafikov https://github.com/timur-rafikov
-* Vasily Kudryavtsev https://github.com/SLENSER0
-* Yana Fitkovskaja https://github.com/fitkovskaja
-* Dmitry Ezhov https://github.com/EZHOWWW
-* Nikita Vambrikov https://github.com/Yourkrash
-* Anastasia Zvereva https://github.com/zvrva
-* Valeria Stolyarova https://github.com/lerastol
-* Mukharyam Baviev https://github.com/Mukharyam
-* Antal Schiff https://github.com/schiff-heicho
-* Mirzomansurkhon Sultanov https://github.com/Ultimatereo
+`Timur Rafikov <https://github.com/timur-rafikov>`_,
+`Vasily Kudryavtsev <https://github.com/SLENSER0>`_,
+`Yana Fitkovskaja <https://github.com/fitkovskaja>`_,
+`Dmitry Ezhov <https://github.com/EZHOWWW>`_,
+`Nikita Vambrikov <https://github.com/Yourkrash>`_,
+`Anastasia Zvereva <https://github.com/zvrva>`_,
+`Valeria Stolyarova <https://github.com/lerastol>`_,
+`Mukharyam Baviev <https://github.com/Mukharyam>`_,
+`Antal Schiff <https://github.com/schiff-heicho>`_,
+`Mirzomansurkhon Sultanov <https://github.com/Ultimatereo>`_.

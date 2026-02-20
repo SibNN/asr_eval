@@ -5,6 +5,8 @@ Evaluation and building components for Automatic Speech Recognition in Python.
 - [Preprint paper](https://arxiv.org/abs/2601.20992)
 - [Full documentation](https://sibnn.github.io/asr_eval/)
 
+<img src="https://sibnn.github.io/asr_eval/_images/showcase.png" width="100%" />
+
 ## Installation
 
 Run `pip install asr_eval[all]` (see [installation guide](https://sibnn.github.io/asr_eval/guide_installation.html) for more details).
