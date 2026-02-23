@@ -135,6 +135,8 @@ jobs:
           enable-cache: true
           cache-dependency-glob: "uv.lock"
           python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install system deps
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - name: Install (all + dev)
         run: uv sync --extra all --extra dev --link-mode=symlink
       - name: Install GigaAM (needed for doctest coverage)
@@ -192,7 +194,6 @@ jobs:
       # - name: Build PDF docs (needs Node.js – see comment above)
       #   run: cd docs && uv run make simplepdf
       - name: Upload pages artifact
-        if: ${{ !env.ACT }}
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs/build
@@ -221,6 +222,11 @@ jobs:
   # Setup: PyPI project → Settings → Trusted Publishers → add this repo/workflow.
   # Triggers: GitHub Release event, or workflow_dispatch with enable_publish=true.
   # Gated on core tests passing to avoid publishing a broken release.
+  #
+  # Optional extra protection: create a GitHub environment named "pypi" under
+  # Settings → Environments and add it here as `environment: pypi`. This lets
+  # you require manual approval before every publish. Until that environment
+  # exists the line must stay commented out (the validator rejects unknown names).
   publish:
     name: "Publish to PyPI"
     if: |
@@ -229,7 +235,7 @@ jobs:
     needs: [build, test-imports, test-full, type-check]
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment: pypi
+    # environment: pypi  # uncomment after creating the environment in repo settings
     permissions:
       id-token: write  # Required for OIDC trusted publishing
     steps:
