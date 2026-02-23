@@ -135,6 +135,7 @@ dev = [
     "sphinx-design",
     "pyright",
     "xdoctest",
+    "tiktoken",  # to cound number of tokens in scripts/make_md_docs.py
 ]
 all = [
     # all extras except `dev`

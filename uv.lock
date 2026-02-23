@@ -335,6 +335,7 @@ dev = [
     { name = "sphinx-autodoc-typehints" },
     { name = "sphinx-design" },
     { name = "sphinx-simplepdf" },
+    { name = "tiktoken" },
     { name = "xdoctest" },
 ]
 kenlm = [
@@ -523,6 +524,7 @@ requires-dist = [
     { name = "srt", marker = "extra == 'dash'" },
     { name = "srt", marker = "extra == 'datasets'" },
     { name = "termcolor" },
+    { name = "tiktoken", marker = "extra == 'dev'" },
     { name = "torch", marker = "extra == 'all'" },
     { name = "torch", marker = "extra == 'all'", specifier = "==2.8.*" },
     { name = "torch", marker = "extra == 'models-stable'", specifier = "==2.8.*" },
