@@ -17,11 +17,11 @@ uv run sphinx-build -M doctest docs/source docs/build docs/source/guide_evaluati
 
 # type checking
 uv sync --extra all --extra dev
-uv pip install -r installation/type_checking.txt --no-deps
+uv pip install -r requirements/type_checking.txt --no-deps
 uv run python -m pyright -p pyrightconfig.json asr_eval
 
 # docs building
-uv sync --extra dev --extra dev
+uv sync --extra dev
 rm -rf docs/build
 uv run sphinx-build docs/source docs/build
 (cd docs && uv run make simplepdf)
@@ -47,7 +47,7 @@ uv run python -m asr_eval.bench.check gigaam2-ctc-lm-t-one --audio RU_LONG
 # vosk (ru only)
 sudo apt install cmake -y
 uv sync --extra datasets
-uv pip install -r installation/vosk.txt
+uv pip install -r requirements/vosk.txt
 uv run python -m asr_eval.bench.check vosk-0.54-vad --audio RU_LONG
 uv run python -m asr_eval.bench.check vosk-ru-0.42-streaming --audio RU
 
@@ -77,7 +77,7 @@ uv run python -m asr_eval.bench.check speechbrain-conformer-gigaspeech-streaming
 
 # gemma3n
 uv sync --extra models_stable --extra datasets
-uv pip install -r installation/gemma3n.txt
+uv pip install -r requirements/gemma3n.txt
 uv run python -m asr_eval.bench.check gemma3n-vad
 
 # qwen2audio

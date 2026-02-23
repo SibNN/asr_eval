@@ -1,0 +1,486 @@
+name: CI
+
+# ── Triggers ──────────────────────────────────────────────────────────────────
+on:
+  workflow_dispatch:
+    inputs:
+      enable_model_tests:
+        description: "Run model check jobs (CPU-compatible envs; ~10-30 min each)"
+        type: boolean
+        default: false
+      enable_publish:
+        description: "Publish to PyPI (intended for use on release tags only)"
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  release:
+    types: [published]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least-privilege default; jobs that need more declare their own permissions.
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# UV caching note:
+#   astral-sh/setup-uv caches ~/.cache/uv keyed on uv.lock. Downloaded
+#   packages are reused across jobs and runs, so the first run after a
+#   uv.lock change pays the download cost; subsequent runs are fast.
+#   --link-mode=symlink makes venv creation O(1) by symlinking into the cache.
+# ─────────────────────────────────────────────────────────────────────────────
+
+jobs:
+
+  # ── 1. Smoke test: minimal install ──────────────────────────────────────────
+  test-imports:
+    name: "Test: imports (minimal)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install (minimal deps only)
+        run: uv sync --link-mode=symlink
+      - name: Install pytest
+        run: uv pip install pytest
+      - name: Run import tests
+        run: uv run python -m pytest tests/test_imports.py
+
+  # ── 2. Full test suite ───────────────────────────────────────────────────────
+  test-full:
+    name: "Test: full suite (pytest)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install system deps
+        run: sudo apt-get install -y --no-install-recommends ffmpeg
+      - name: Install (all + dev)
+        run: uv sync --extra all --extra dev --link-mode=symlink
+      - name: Run tests
+        run: uv run python -m pytest tests
+
+  # ── 3. Type checking ─────────────────────────────────────────────────────────
+  type-check:
+    name: "Type check (pyright)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install (all + dev)
+        run: uv sync --extra all --extra dev --link-mode=symlink
+      - name: Install type stubs (--no-deps avoids pulling in conflicting versions)
+        run: uv pip install -r requirements/type_checking.txt --no-deps
+      - name: Run pyright
+        run: uv run python -m pyright -p pyrightconfig.json asr_eval
+
+  # ── 4. Doctests ───────────────────────────────────────────────────────────────
+  xdoctest:
+    name: "Doctests (xdoctest)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install (all + dev)
+        run: uv sync --extra all --extra dev --link-mode=symlink
+      - name: Install GigaAM (needed for doctest coverage)
+        run: uv pip install git+https://github.com/salute-developers/GigaAM
+      - name: Run xdoctest
+        run: uv run python -m xdoctest asr_eval --verbose 1
+
+  # ── 5. Build wheel + sdist ────────────────────────────────────────────────────
+  build:
+    name: "Build package"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Build wheel and sdist
+        run: uv build
+      - name: Upload dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7
+
+  # ── 6. Build Sphinx documentation ─────────────────────────────────────────────
+  # Uses --extra dev only (no model deps). If Sphinx autodoc needs to import
+  # model modules, add mock entries to docs/source/conf.py instead of pulling
+  # in heavy model dependencies here.
+  #
+  # To enable PDF docs via sphinx-simplepdf (requires Node.js):
+  #   - Replace ubuntu-latest with nikolaik/python-nodejs:python3.12-nodejs24
+  #     container, or add `uses: actions/setup-node@v4`
+  #   - Uncomment the simplepdf step below
+  build-docs:
+    name: "Build docs (Sphinx)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install (dev deps only)
+        run: uv sync --extra dev --link-mode=symlink
+      - name: Build HTML docs
+        run: |
+          rm -rf docs/build
+          uv run sphinx-build docs/source docs/build
+      # - name: Build PDF docs (needs Node.js – see comment above)
+      #   run: cd docs && uv run make simplepdf
+      - name: Upload pages artifact
+        if: ${{ !env.ACT }}
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/build
+
+  # ── 7. Deploy GitHub Pages ─────────────────────────────────────────────────────
+  # Only deploys on main branch pushes/dispatches; skipped on PRs.
+  deploy-docs:
+    name: "Deploy to GitHub Pages"
+    if: ${{ !failure() && github.ref == 'refs/heads/main' }}
+    needs: build-docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  # ── 8. Publish to PyPI ─────────────────────────────────────────────────────────
+  # Uses OIDC trusted publishing – no API token needed.
+  # Setup: PyPI project → Settings → Trusted Publishers → add this repo/workflow.
+  # Triggers: GitHub Release event, or workflow_dispatch with enable_publish=true.
+  # Gated on core tests passing to avoid publishing a broken release.
+  publish:
+    name: "Publish to PyPI"
+    if: |
+      github.event_name == 'release' ||
+      (github.event_name == 'workflow_dispatch' && inputs.enable_publish == true)
+    needs: [build, test-imports, test-full, type-check]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: pypi
+    permissions:
+      id-token: write  # Required for OIDC trusted publishing
+    steps:
+      - name: Download dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Publish to PyPI
+        run: uv publish
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # Model check jobs
+  # ───────────────────────────────────────────────────────────────────────────────
+  # Each job installs an isolated environment with only the extras required for
+  # that model group, reflecting the conflicting-dependency reality documented in
+  # guide_installation.rst. This mirrors what a user would do locally.
+  #
+  # Enabled via:  Actions → Run workflow → enable_model_tests = true
+  #
+  # HuggingFace model weights are cached between runs per job (key per model
+  # group). First run after cache miss still downloads weights from HF Hub.
+  #
+  # GPU-dependent models (NeMo, Gemma3n, Voxtral, Qwen2-Audio) are listed at
+  # the bottom, commented out. Uncomment and change runs-on to a self-hosted
+  # GPU runner label to enable them.
+  # ═══════════════════════════════════════════════════════════════════════════════
+
+  check-whisper:
+    name: "Check: Whisper / Wav2Vec2 / Vikhr"
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.enable_model_tests == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Cache HuggingFace model weights
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: ${{ runner.os }}-hf-whisper-wav2vec-vikhr
+      - name: Install system deps
+        run: sudo apt-get install -y --no-install-recommends ffmpeg
+      - name: Install
+        run: uv sync --extra models_stable --extra datasets --link-mode=symlink
+      - run: uv run python -m asr_eval.bench.check whisper-tiny --audio EN_LONG
+      - run: uv run python -m asr_eval.bench.check wav2vec2-large-960h --audio EN_LONG
+      - run: uv run python -m asr_eval.bench.check vikhr-borealis-vad --audio RU_LONG
+
+  check-kenlm:
+    name: "Check: Wav2Vec2 + KenLM"
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.enable_model_tests == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Cache HuggingFace model weights
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: ${{ runner.os }}-hf-kenlm
+      - name: Install system deps
+        run: sudo apt-get install -y --no-install-recommends ffmpeg
+      - name: Install
+        run: uv sync --extra models_stable --extra datasets --extra kenlm --link-mode=symlink
+      - name: Install pyctcdecode (--no-deps avoids numpy 1.x constraint)
+        run: uv pip install pyctcdecode==0.5.0 --no-deps
+      - run: uv run python -m asr_eval.bench.check wav2vec2-large-ru-golos-lm-t-one --audio RU_LONG
+
+  check-gigaam:
+    name: "Check: GigaAM + KenLM"
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.enable_model_tests == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Cache HuggingFace model weights
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: ${{ runner.os }}-hf-gigaam
+      - name: Install system deps
+        run: sudo apt-get install -y --no-install-recommends ffmpeg
+      - name: Install
+        run: uv sync --extra models_stable --extra datasets --extra kenlm --link-mode=symlink
+      - name: Install GigaAM
+        run: uv pip install git+https://github.com/salute-developers/GigaAM
+      - name: Install pyctcdecode (--no-deps avoids numpy 1.x constraint)
+        run: uv pip install pyctcdecode==0.5.0 --no-deps
+      - run: uv run python -m asr_eval.bench.check gigaam3-rnnt-vad --audio RU_LONG
+      - run: uv run python -m asr_eval.bench.check gigaam2-ctc-lm-t-one --audio RU_LONG
+
+  check-vosk:
+    name: "Check: Vosk"
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.enable_model_tests == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install system deps (cmake needed to build vosk from source)
+        run: sudo apt-get install -y --no-install-recommends ffmpeg cmake
+      - name: Install
+        run: uv sync --extra datasets --link-mode=symlink
+      - name: Install Vosk
+        run: uv pip install -r requirements/vosk.txt
+      - run: uv run python -m asr_eval.bench.check vosk-0.54-vad --audio RU_LONG
+      - run: uv run python -m asr_eval.bench.check vosk-ru-0.42-streaming --audio RU
+
+  check-t-one:
+    name: "Check: T-One"
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.enable_model_tests == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Cache HuggingFace model weights
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: ${{ runner.os }}-hf-t-one
+      - name: Install system deps
+        run: sudo apt-get install -y --no-install-recommends ffmpeg
+      - name: Install
+        run: uv sync --extra models_stable --extra datasets --extra kenlm --link-mode=symlink
+      - name: Install pyctcdecode (--no-deps avoids numpy 1.x constraint)
+        run: uv pip install pyctcdecode==0.5.0 --no-deps
+      - name: Install T-One (--no-deps avoids numpy 1.x constraint from pyctcdecode)
+        run: uv pip install git+https://github.com/voicekit-team/T-one --no-deps
+      - name: Install T-One runtime deps
+        run: uv pip install "huggingface-hub>=0.14,<1" "onnxruntime>=1.12,<2"
+      - run: uv run python -m asr_eval.bench.check t-one-vad --audio RU_LONG
+
+  check-speechbrain:
+    name: "Check: SpeechBrain"
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.enable_model_tests == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Cache HuggingFace model weights
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: ${{ runner.os }}-hf-speechbrain
+      - name: Install system deps
+        run: sudo apt-get install -y --no-install-recommends ffmpeg
+      - name: Install
+        run: uv sync --extra models_stable --extra datasets --link-mode=symlink
+      - name: Install SpeechBrain (pinned huggingface_hub – avoids breaking API change)
+        run: uv pip install speechbrain "huggingface_hub<1"
+      - run: uv run python -m asr_eval.bench.check speechbrain-conformer-gigaspeech-streaming
+
+  check-faster-whisper:
+    name: "Check: Faster-Whisper"
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.enable_model_tests == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Cache HuggingFace model weights
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: ${{ runner.os }}-hf-faster-whisper
+      - name: Install system deps
+        run: sudo apt-get install -y --no-install-recommends ffmpeg
+      - name: Install
+        run: uv sync --extra models_stable --extra datasets --link-mode=symlink
+      - name: Install faster-whisper
+        run: uv pip install faster_whisper
+      # If you see "Unable to load libcudnn_ops.so*" on a GPU runner, set:
+      #   LD_LIBRARY_PATH=$LD_LIBRARY_PATH:<path-to-nvidia-cudnn-lib>
+      - run: uv run python -m asr_eval.bench.check faster-whisper-internal-vad --audio EN_LONG
+
+  # ── GPU-only model checks ──────────────────────────────────────────────────
+  # Uncomment a job and change `runs-on` to your self-hosted GPU runner label.
+
+  # check-nemo:
+  #   name: "Check: NeMo (GPU)"
+  #   if: ${{ github.event_name == 'workflow_dispatch' && inputs.enable_model_tests == true }}
+  #   runs-on: [self-hosted, gpu]
+  #   timeout-minutes: 40
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: astral-sh/setup-uv@v5
+  #       with:
+  #         enable-cache: true
+  #         cache-dependency-glob: "uv.lock"
+  #         python-version: ${{ env.PYTHON_VERSION }}
+  #     - run: sudo apt-get install -y --no-install-recommends ffmpeg
+  #     - run: uv sync --extra models_stable --extra datasets --extra nemo --link-mode=symlink
+  #     - run: uv run python -m asr_eval.bench.check parakeet-tdt-0.6b-v3-vad --audio EN_LONG
+
+  # check-gemma3n:
+  #   name: "Check: Gemma3n (GPU)"
+  #   if: ${{ github.event_name == 'workflow_dispatch' && inputs.enable_model_tests == true }}
+  #   runs-on: [self-hosted, gpu]
+  #   timeout-minutes: 40
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: astral-sh/setup-uv@v5
+  #       with:
+  #         enable-cache: true
+  #         cache-dependency-glob: "uv.lock"
+  #         python-version: ${{ env.PYTHON_VERSION }}
+  #     - run: sudo apt-get install -y --no-install-recommends ffmpeg
+  #     - run: uv sync --extra models_stable --extra datasets --link-mode=symlink
+  #     - run: uv pip install -r requirements/gemma3n.txt
+  #     - run: uv run python -m asr_eval.bench.check gemma3n-vad
+
+  # check-voxtral:
+  #   name: "Check: Voxtral via VLLM (GPU)"
+  #   # Also requires a running VLLM server; configure OPENAI_API_BASE env var.
+  #   if: ${{ github.event_name == 'workflow_dispatch' && inputs.enable_model_tests == true }}
+  #   runs-on: [self-hosted, gpu]
+  #   timeout-minutes: 60
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: astral-sh/setup-uv@v5
+  #       with:
+  #         enable-cache: true
+  #         cache-dependency-glob: "uv.lock"
+  #         python-version: ${{ env.PYTHON_VERSION }}
+  #     - run: uv sync --extra models_stable --extra datasets --extra openai --link-mode=symlink
+  #     - run: uv run python -m asr_eval.bench.check voxtral-3B
+
+  # check-qwen2audio:
+  #   name: "Check: Qwen2-Audio (GPU)"
+  #   # flash-attn compilation is very slow (~20 min); consider pre-baking it
+  #   # into a custom Docker image for the self-hosted runner.
+  #   if: ${{ github.event_name == 'workflow_dispatch' && inputs.enable_model_tests == true }}
+  #   runs-on: [self-hosted, gpu]
+  #   timeout-minutes: 60
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: astral-sh/setup-uv@v5
+  #       with:
+  #         enable-cache: true
+  #         cache-dependency-glob: "uv.lock"
+  #         python-version: ${{ env.PYTHON_VERSION }}
+  #     - run: uv sync --extra models_stable --extra datasets --extra qwen2audio --link-mode=symlink
+  #     - run: uv pip install flash-attn --no-build-isolation
+  #     - run: uv run python -m asr_eval.bench.check qwen2-audio-vad

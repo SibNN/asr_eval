@@ -92,7 +92,7 @@ please install as follows.
             source venv/bin/activate
 
             pip install .[all,dev]
-            pip install -r installation/type_checking.txt --no-dependencies
+            pip install -r requirements/type_checking.txt --no-dependencies
 
             # then you can run tests and type checking:
             python -m pytest tests
@@ -107,7 +107,7 @@ please install as follows.
             cd asr_eval
 
             uv sync --extra all --extra dev
-            uv pip install -r installation/type_checking.txt --no-deps
+            uv pip install -r requirements/type_checking.txt --no-deps
 
             # then you can run tests and type checking:
             uv run python -m pytest tests
@@ -272,7 +272,7 @@ Gemma3n
 
             # install
             pip install asr_eval[models_stable,datasets]
-            pip install -r installation/gemma3n.txt  # from asr_eval repo
+            pip install -r requirements/gemma3n.txt  # from asr_eval repo
 
             # check
            python -m asr_eval.bench.check gemma3n-vad
@@ -283,7 +283,7 @@ Gemma3n
 
             # install
             uv pip install asr_eval[models_stable,datasets]
-            uv pip install -r installation/gemma3n.txt  # from asr_eval repo
+            uv pip install -r requirements/gemma3n.txt  # from asr_eval repo
 
             # check
             uv run python -m asr_eval.bench.check gemma3n-vad
@@ -399,7 +399,7 @@ Vosk (ru only)
             # install
             sudo apt install cmake -y
             pip install asr_eval[datasets]
-            pip install -r installation/vosk.txt  # from asr_eval repo
+            pip install -r requirements/vosk.txt  # from asr_eval repo
 
             # check
             python -m asr_eval.bench.check vosk-0.54-vad --audio RU_LONG
@@ -412,7 +412,7 @@ Vosk (ru only)
             # install
             sudo apt install cmake -y
             uv pip install asr_eval[datasets]
-            uv pip install -r installation/vosk.txt  # from asr_eval repo
+            uv pip install -r requirements/vosk.txt  # from asr_eval repo
 
             # check
             uv run python -m asr_eval.bench.check vosk-0.54-vad --audio RU_LONG
