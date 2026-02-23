@@ -40,6 +40,29 @@ env:
 
 jobs:
 
+  # ── 0. Seed the UV cache ─────────────────────────────────────────────────────
+  # GitHub Actions cache is restored at job START and saved at job END.
+  # Parallel jobs that start simultaneously all get a cache miss on the first
+  # run and download packages independently. This job runs first to populate
+  # ~/.cache/uv so that test-full, type-check, and xdoctest (which all need
+  # --extra all --extra dev) find a warm cache and only create symlinks.
+  #
+  # test-imports, build, and build-docs do NOT need --extra all, so they run
+  # in parallel with this job without waiting.
+  setup:
+    name: "Seed UV cache (all + dev)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Sync (all + dev) to populate UV package cache
+        run: uv sync --extra all --extra dev --link-mode=symlink
+
   # ── 1. Smoke test: minimal install ──────────────────────────────────────────
   test-imports:
     name: "Test: imports (minimal)"
@@ -62,6 +85,7 @@ jobs:
   # ── 2. Full test suite ───────────────────────────────────────────────────────
   test-full:
     name: "Test: full suite (pytest)"
+    needs: setup
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -81,6 +105,7 @@ jobs:
   # ── 3. Type checking ─────────────────────────────────────────────────────────
   type-check:
     name: "Type check (pyright)"
+    needs: setup
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -100,6 +125,7 @@ jobs:
   # ── 4. Doctests ───────────────────────────────────────────────────────────────
   xdoctest:
     name: "Doctests (xdoctest)"
+    needs: setup
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
