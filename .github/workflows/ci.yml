@@ -72,7 +72,7 @@ jobs:
           cache-dependency-glob: "uv.lock"
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Install system deps
-        run: sudo apt-get install -y --no-install-recommends ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - name: Install (all + dev)
         run: uv sync --extra all --extra dev --link-mode=symlink
       - name: Run tests
@@ -253,7 +253,7 @@ jobs:
           path: ~/.cache/huggingface
           key: ${{ runner.os }}-hf-whisper-wav2vec-vikhr
       - name: Install system deps
-        run: sudo apt-get install -y --no-install-recommends ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - name: Install
         run: uv sync --extra models_stable --extra datasets --link-mode=symlink
       - run: uv run python -m asr_eval.bench.check whisper-tiny --audio EN_LONG
@@ -278,7 +278,7 @@ jobs:
           path: ~/.cache/huggingface
           key: ${{ runner.os }}-hf-kenlm
       - name: Install system deps
-        run: sudo apt-get install -y --no-install-recommends ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - name: Install
         run: uv sync --extra models_stable --extra datasets --extra kenlm --link-mode=symlink
       - name: Install pyctcdecode (--no-deps avoids numpy 1.x constraint)
@@ -303,7 +303,7 @@ jobs:
           path: ~/.cache/huggingface
           key: ${{ runner.os }}-hf-gigaam
       - name: Install system deps
-        run: sudo apt-get install -y --no-install-recommends ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - name: Install
         run: uv sync --extra models_stable --extra datasets --extra kenlm --link-mode=symlink
       - name: Install GigaAM
@@ -326,7 +326,7 @@ jobs:
           cache-dependency-glob: "uv.lock"
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Install system deps (cmake needed to build vosk from source)
-        run: sudo apt-get install -y --no-install-recommends ffmpeg cmake
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg cmake
       - name: Install
         run: uv sync --extra datasets --link-mode=symlink
       - name: Install Vosk
@@ -352,7 +352,7 @@ jobs:
           path: ~/.cache/huggingface
           key: ${{ runner.os }}-hf-t-one
       - name: Install system deps
-        run: sudo apt-get install -y --no-install-recommends ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - name: Install
         run: uv sync --extra models_stable --extra datasets --extra kenlm --link-mode=symlink
       - name: Install pyctcdecode (--no-deps avoids numpy 1.x constraint)
@@ -381,7 +381,7 @@ jobs:
           path: ~/.cache/huggingface
           key: ${{ runner.os }}-hf-speechbrain
       - name: Install system deps
-        run: sudo apt-get install -y --no-install-recommends ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - name: Install
         run: uv sync --extra models_stable --extra datasets --link-mode=symlink
       - name: Install SpeechBrain (pinned huggingface_hub – avoids breaking API change)
@@ -406,7 +406,7 @@ jobs:
           path: ~/.cache/huggingface
           key: ${{ runner.os }}-hf-faster-whisper
       - name: Install system deps
-        run: sudo apt-get install -y --no-install-recommends ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - name: Install
         run: uv sync --extra models_stable --extra datasets --link-mode=symlink
       - name: Install faster-whisper
@@ -430,7 +430,7 @@ jobs:
   #         enable-cache: true
   #         cache-dependency-glob: "uv.lock"
   #         python-version: ${{ env.PYTHON_VERSION }}
-  #     - run: sudo apt-get install -y --no-install-recommends ffmpeg
+  #     - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
   #     - run: uv sync --extra models_stable --extra datasets --extra nemo --link-mode=symlink
   #     - run: uv run python -m asr_eval.bench.check parakeet-tdt-0.6b-v3-vad --audio EN_LONG
 
@@ -446,7 +446,7 @@ jobs:
   #         enable-cache: true
   #         cache-dependency-glob: "uv.lock"
   #         python-version: ${{ env.PYTHON_VERSION }}
-  #     - run: sudo apt-get install -y --no-install-recommends ffmpeg
+  #     - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
   #     - run: uv sync --extra models_stable --extra datasets --link-mode=symlink
   #     - run: uv pip install -r requirements/gemma3n.txt
   #     - run: uv run python -m asr_eval.bench.check gemma3n-vad
