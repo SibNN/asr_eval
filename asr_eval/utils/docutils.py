@@ -1,5 +1,6 @@
 from __future__ import annotations
 import ast
+import re
 import textwrap
 from dataclasses import dataclass
 from pathlib import Path
@@ -67,32 +68,30 @@ class Def:
     (for classes includes code for all methods).
     """
 
+    @property
+    def human_readable_type(self) -> str:
+        return self.type.replace('_', ' ').capitalize()
 
-def pretty_format_module_def(d: Def, source_path: str) -> str:
-    type_ = d.type.replace('_', ' ').capitalize()
-    name = d.name.replace('.', '::')
-    if d.def_path == source_path:
+    def defined_at(self, skip_default_path: str) -> str:
         where_defined = 'defined'
-    else:
-         where_defined = f'defined in {d.def_path}'
-    where_defined += f' at lines {d.lines[0]}-{d.lines[1]}'
+        if self.def_path != skip_default_path:
+            where_defined += f' in {self.def_path}'
+        where_defined += f' at lines {self.lines[0]}-{self.lines[1]}'
+        return where_defined
 
-    definition = d.definition
-    if d.type != 'variable':
-        definition += ' ...'
-    definition = f'```\n{definition}\n```'
-
-    return (
-        f'{type_} `{name}` ({where_defined})'
-        + '\n'
-        + definition
-    )
-
-def pretty_format_module_defs(defs: list[Def], source_path: str) -> str:
-    return '\n\n'.join(
-        '## ' + pretty_format_module_def(d, source_path=source_path)
-        for d in defs
-    )
+    @property
+    def definition_ellipsis(self) -> str:
+        definition = self.definition
+        if self.type != 'variable':
+            last_line = definition.split('\n')[-1]
+            prefix = re.match(r'\s*', last_line)
+            assert prefix is not None
+            definition += f'\n{prefix.group()}...'
+        return definition
+    
+    @property
+    def definition_md_block(self) -> str:
+        return f'```\n{self.definition_ellipsis}\n```'
 
 
 def extract_definitions(package_root: Path, relative_path: Path) -> list[Def]:
@@ -120,16 +119,39 @@ def extract_definitions(package_root: Path, relative_path: Path) -> list[Def]:
     qualify_map = _build_qualify_map(tree, exposing_module)
 
     local_nodes: dict[str, ast.stmt] = {}
-    for node in tree.body:
+    local_end_lines: dict[str, int | None] = {}
+    body = tree.body
+    for i, node in enumerate(body):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             local_nodes[node.name] = node
+            local_end_lines[node.name] = None
         elif isinstance(node, ast.Assign):
             for target in node.targets:
                 if isinstance(target, ast.Name):
                     local_nodes[target.id] = node
+                    end_line: int | None = None
+                    if i + 1 < len(body):
+                        next_node = body[i + 1]
+                        if (
+                            isinstance(next_node, ast.Expr)
+                            and isinstance(next_node.value, ast.Constant)
+                            and isinstance(next_node.value.value, str)
+                        ):
+                            end_line = cast(int, next_node.end_lineno)
+                    local_end_lines[target.id] = end_line
         elif isinstance(node, ast.AnnAssign):
             if isinstance(node.target, ast.Name):
                 local_nodes[node.target.id] = node
+                end_line = None
+                if i + 1 < len(body):
+                    next_node = body[i + 1]
+                    if (
+                        isinstance(next_node, ast.Expr)
+                        and isinstance(next_node.value, ast.Constant)
+                        and isinstance(next_node.value.value, str)
+                    ):
+                        end_line = cast(int, next_node.end_lineno)
+                local_end_lines[node.target.id] = end_line
 
     import_map = _build_import_map(tree, package_root)
 
@@ -143,6 +165,7 @@ def extract_definitions(package_root: Path, relative_path: Path) -> list[Def]:
                 node=local_nodes[name],
                 source_lines=source_lines,
                 qualify_map=qualify_map,
+                end_line=local_end_lines.get(name),
             )
             result.append(def_obj)
             node = local_nodes[name]
