@@ -34,6 +34,12 @@ and [reference](https://sibnn.github.io/asr_eval/asr_eval.streaming.html))
 - A base class and buffers for streaming models
 - Streaming evaluation diagrams
 
+## AI disclaimer
+
+Currently, LLM coding is used only for few non-critical components
+(streaming dashboard, CI pipeline). We also plan to employ LLM to generate
+regression tests, given docstring specifications.
+
 ## Contributing
 
 This project is in active development stage. Feel free to contrubite:
