@@ -1,3 +1,4 @@
+import argparse
 import shutil
 import subprocess
 import textwrap
@@ -12,12 +13,19 @@ def num_tokens(string: str, encoding_name: str = 'gpt-4') -> int:
     tokens = encoding.encode(string, disallowed_special=())
     return len(tokens)
 
+# args
+parser = argparse.ArgumentParser()
+parser.add_argument('--module', type=str, default='asr_eval')
+parser.add_argument('--out', type=str, default='docs/agents')
+parser.add_argument('--ignore_var_all', action='store_true')
+args = parser.parse_args()
+
 # inputs
 repo_dir = Path('.')
-files = sorted(Path('asr_eval').rglob('*.py'))
+files = sorted(Path(args.module).rglob('*.py'))
 
 # outputs
-generated_docs_dir = Path('docs/agents')
+generated_docs_dir = Path(args.out)
 generated_tree_file = (
     generated_docs_dir.parent / (generated_docs_dir.stem + '_tree.txt')
 )
@@ -27,7 +35,9 @@ shutil.rmtree(generated_docs_dir, ignore_errors=True)
 for path in files:
     path = path.relative_to(repo_dir)
 
-    defs = extract_definitions(repo_dir, path)
+    defs = extract_definitions(repo_dir, path, all=not args.ignore_var_all)
+
+    print(path, len(defs))
 
     if defs:
         module = defs[0].module

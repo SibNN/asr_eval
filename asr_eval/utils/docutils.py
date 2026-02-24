@@ -94,13 +94,21 @@ class Def:
         return f'```\n{self.definition_ellipsis}\n```'
 
 
-def extract_definitions(package_root: Path, relative_path: Path) -> list[Def]:
+def extract_definitions(
+    package_root: Path,
+    relative_path: Path,
+    all: bool = True,
+) -> list[Def]:
     """An utility to build documentation for LLM agents.
 
     Accepts a package root, such as `Path(`/home/user/asr_eval_public`)`
     and relative path, such as `Path(`asr_eval/align/alignment.py`)`.
 
-    Reads the `__all__` field and finds all the objects defined in it.
+    If ``all`` is ``True`` (default), reads the ``__all__`` field and finds
+    all the objects defined in it. If ``all`` is ``False``, ignores
+    ``__all__`` and returns a ``Def`` for every top-level definition in the
+    file.
+
     Analyzes the code and return a `Def` for each object. If the object
     is defined in another file, reads that file and returns a `Def`.
 
@@ -111,9 +119,12 @@ def extract_definitions(package_root: Path, relative_path: Path) -> list[Def]:
     source_lines = source.splitlines()
     tree = ast.parse(source)
 
-    all_names = _find_all_names(tree)
-    if not all_names:
-        return []
+    if all:
+        all_names = _find_all_names(tree)
+        if not all_names:
+            return []
+    else:
+        all_names = _find_all_top_level_names(tree)
 
     exposing_module = _path_to_module(relative_path)
     qualify_map = _build_qualify_map(tree, exposing_module)
@@ -221,6 +232,22 @@ def _module_to_file(module: str, package_root: Path) -> Path | None:
     if path.exists():
         return path
     return None
+
+
+def _find_all_top_level_names(tree: ast.Module) -> list[str]:
+    names: list[str] = []
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if not node.name.startswith('_'):
+                names.append(node.name)
+        elif isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and not target.id.startswith('_'):
+                    names.append(target.id)
+        elif isinstance(node, ast.AnnAssign):
+            if isinstance(node.target, ast.Name) and not node.target.id.startswith('_'):
+                names.append(node.target.id)
+    return names
 
 
 def _find_all_names(tree: ast.Module) -> list[str] | None:
