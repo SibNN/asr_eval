@@ -72,7 +72,7 @@ class Parser:
         >>> from dataclasses import asdict
         >>> asdict(parsed.blocks[0]) # doctest: +NORMALIZE_WHITESPACE
         {'value': 'hi', 'uid': 'id0', 'start_pos': 0, 'end_pos': 2,
-         'start_time': nan, 'end_time': nan}
+         'start_time': nan, 'end_time': nan, 'attrs': {}, 'flags': set()}
         >>> print(parsed.colorize()) # doctest: +SKIP
         
     .. raw:: html
