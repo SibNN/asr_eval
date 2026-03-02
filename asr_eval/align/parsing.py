@@ -1,6 +1,8 @@
 from __future__ import annotations
+from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass
+from itertools import chain
 import re
 import string
 from typing import Callable
@@ -98,6 +100,25 @@ class Parser:
            :code:`3 / 4 $` (with spaces) are different options, and both
            should be included in a multivariant block. See
            :doc:`/guide_alignment_wer` for details.
+    
+    Words (and, in general tokens) can have attributes
+    (:attr:`~asr_eval.align.transcription.Token.attrs`) and flags
+    ():attr:`~asr_eval.align.transcription.Token.flags`). They are
+    written in brackets, separated by comman from each other, and by "!"
+    from the text. For example, the following syntax will add flag "abc"
+    and attr "w" with value "10" to the words bar, baz, qux:
+    
+    Example:
+    
+        >>> from asr_eval.align.parsing import DEFAULT_PARSER
+        >>> text = '"Foo [abc,w=10! bar {baz} qux ]"'
+        >>> transcription = DEFAULT_PARSER.parse_transcription(text)
+        >>> for block in transcription.blocks: # doctest: +SKIP
+        ...     print(block)
+        Token(foo)
+        Token(bar, attrs:w=10, flags:abc)
+        MultiVariantBlock([Token(baz, attrs:w=10, flags:abc)], [])
+        Token(qux, attrs:w=10, flags:abc)
     """
     
     tokenizing: str = rf'\w+|[^\w\s{PUNCT}]+'
@@ -168,8 +189,10 @@ class Parser:
         supports both multivariant and single-variant transcriptions.
         """
         text = self.preprocessing(text)
+        text, attrs_per_token = _extract_and_trim_attrs(text)
         tokens = self._split_text_into_tokens(text)
         result = SingleVariantTranscription(text, tuple(tokens))
+        _assign_attrs_inplace(result, attrs_per_token)
         for i, t in enumerate(result.list_all_tokens()):
             t.uid = 'id' + str(i)
         return result
@@ -202,6 +225,7 @@ class Parser:
             r'(?<=})([^{}]+?)(?={)'   # single variant
         )
         text = self.preprocessing(text)
+        text, attrs_per_token = _extract_and_trim_attrs(text)
         blocks: list[Token | MultiVariantBlock] = []
         for match in re.finditer(MULTIVARIANT_PATTERN, '}' + text + '{'):
             text_part = match.group()
@@ -262,6 +286,7 @@ class Parser:
                 blocks += new_tokens
         
         result = Transcription(text, tuple(blocks))
+        _assign_attrs_inplace(result, attrs_per_token)
         
         for i, t in enumerate(result.list_all_tokens()):
             t.uid = 'id' + str(i)
@@ -330,3 +355,84 @@ def _regexp_split_text_into_tokens(
             start_pos=match.start(),
             end_pos=match.end(),
         )
+
+
+@dataclass(slots=True)
+class _MarkedAttr:
+    value: str
+    start: int
+    end: int
+
+_ATTRS_PATTERN = re.compile(
+    r'(\[)'  # starting [
+    r'([^!\]]*)' # marks
+    r'(!)' # ! symbol
+    r'([^\]]*)' # transcription
+    r'(\])' # ending ]
+)
+
+def _extract_and_trim_attrs(text: str) -> tuple[str, list[list[str]]]:
+    # we start with this: X = "one two [w=10!Kafka AWS] three"
+    # and convert to this: Y = "one two Kafka AWS three"
+    # while extracting this: [("w=10", 8, 17)]
+    # where (8, 17) is the position of "Kafka AWS" in Y
+
+    # span of value, start symbol, end symbol
+    attrs: list[_MarkedAttr] = []
+
+    # iterating while modifying the string
+    while (match := re.search(_ATTRS_PATTERN, text)):
+        
+        # example: [digits,a=b!три четыре]
+        # here: "digits,a=b" - flags for "три четыре"
+        
+        # extract groups (_ATTRS_PATTERN has 5 groups)
+        _, attr, _, _text, _ = match.groups()
+
+        assert attr, f'Attrs should not be empty: {match.group()}'
+
+        # extract group positions
+        s1, _s2, s3, _s4, s5 = [match.span(i) for i in range(1, 6)]
+
+        if len(attrs):
+            assert s1[0] >= attrs[-1].end, 'Overlapping attrs'
+
+        # spans to cut from text ("[digits,a=b!" and "]" in our example)
+        start1, end1 = s1[0], s3[1]
+        start2, end2 = s5
+
+        # cut spans from text
+        text = text[:start1] + text[end1:start2] + text[end2:]
+
+        # save the attrs
+        attr = _MarkedAttr(attr, start1, start1 + start2 - end1)
+        attrs.append(attr)
+
+        assert text[attr.start:attr.end] == _text
+
+    attrs_per_token: list[list[str]] = [[] for _ in range(len(text))]
+    for attr in attrs:
+        for pos in range(attr.start, attr.end):
+            for value in attr.value.split(','):
+                attrs_per_token[pos].append(value)
+    
+    return text, attrs_per_token
+
+def _assign_attrs_inplace(
+    transcription: Transcription,
+    attrs_per_token: list[list[str]]
+):
+    for token in transcription.list_all_tokens():
+        attrs_for_token = Counter(chain(*[
+            attrs_per_token[pos]
+            for pos in range(token.start_pos, token.end_pos)
+        ]))
+        for attr, count in attrs_for_token.most_common():
+            assert count == token.end_pos - token.start_pos, (
+                f'Attr {attr} half-covered a word {token.to_text()}'
+            )
+            if '=' in attr:
+                k, v = attr.split('=', 1)
+                token.attrs[k] = v
+            else:
+                token.flags.add(attr)
