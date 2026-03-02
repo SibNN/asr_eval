@@ -101,12 +101,12 @@ class Parser:
            should be included in a multivariant block. See
            :doc:`/guide_alignment_wer` for details.
     
-    Words (and, in general tokens) can have attributes
+    Words (and, in general, tokens) can have attributes
     (:attr:`~asr_eval.align.transcription.Token.attrs`) and flags
-    ():attr:`~asr_eval.align.transcription.Token.flags`). They are
-    written in brackets, separated by comman from each other, and by "!"
-    from the text. For example, the following syntax will add flag "abc"
-    and attr "w" with value "10" to the words bar, baz, qux:
+    (:attr:`~asr_eval.align.transcription.Token.flags`). They are
+    written in brackets, separated by comma from each other, and by "!"
+    from the text. For example, the following syntax adds flag "abc"
+    and attribute "w" with value "10" to the words bar, baz, qux:
     
     Example:
     
