@@ -199,6 +199,7 @@ def run_dashboard(
         wer_averaging_mode: Literal['plain', 'concat'] = 'concat',
         exclude_samples_with_digits: bool = False,
         max_samples_to_render: int | None = None,
+        keep_only_tokens_with_flag: str | None = None,
     ) -> DatasetData:
         multiple_alignments = loader.get_multiple_alignments(
             dataset_name=dataset_name,
@@ -213,6 +214,7 @@ def run_dashboard(
             wer_averaging_mode=wer_averaging_mode,
             exclude_samples_with_digits=exclude_samples_with_digits,
             max_samples_to_render=max_samples_to_render,
+            keep_only_tokens_with_flag=keep_only_tokens_with_flag,
         )
         return dataset_data
         
@@ -227,6 +229,7 @@ def run_dashboard(
         max_insertions: int | None,
         averaging_mode: Literal['plain', 'concat'],
         session_id: str,
+        keep_only_tokens_with_flag: str | None = None,
     ) -> Sequence[Any] | None:
         # browser session ID should always exist by the time the button is
         # clickable
@@ -249,6 +252,7 @@ def run_dashboard(
             wer_averaging_mode=averaging_mode,
             exclude_samples_with_digits=exclude_with_digits,
             max_samples_to_render=max_samples,
+            keep_only_tokens_with_flag=keep_only_tokens_with_flag,
         )
         
         # store the data to enable further calls to compare pipeline pairs
@@ -344,6 +348,7 @@ def run_dashboard(
         State('selector-max-insertions-enabled', 'value'),
         State('selector-max-insertions', 'value'),
         State('selector-averaging-mode', 'value'),
+        State('selector-use-flag', 'value'),
         ###
         State('session-id', 'data'),
         ###
@@ -372,6 +377,8 @@ def run_dashboard(
         _max_insertions_enabled: list[str],
         _max_insertions: str,
         averaging_mode: Literal['plain', 'concat'],
+        _use_flag: list[str],
+        # ['True'] if checked, [] is unchecked
         session_id: str,
     ):
         # a wrapper for args conversion and to enable lru_cache
@@ -385,6 +392,9 @@ def run_dashboard(
         max_insertions = (
             int(_max_insertions) if max_insertions_enabled else None
         )
+
+        use_flag = 'True' in _use_flag
+        keep_only_tokens_with_flag = 'f' if use_flag else None
         
         return handle_retrieve_click(
             dataset_display_name=dataset_display_name,
@@ -396,6 +406,7 @@ def run_dashboard(
             max_insertions=max_insertions,
             averaging_mode=averaging_mode,
             session_id=session_id,
+            keep_only_tokens_with_flag=keep_only_tokens_with_flag,
         )
     
     @app.callback( # type: ignore

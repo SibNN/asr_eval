@@ -117,6 +117,15 @@ class DashboardHeader:
                 'minHeight': '30px' 
             },
         )
+        self.selector_use_flag = dcc.Checklist(
+            id='selector-use-flag',
+            options=[
+                {'label': 'Consider only flagged words', 'value': 'True'}
+            ],
+            value=[],
+            inline=True,
+            labelStyle=FLEX_ROW | WER_CHECKBOX,
+        )
         self.button_text = 'Show data'
         self.button_running_text = 'Running...'
         self.apply_selectors_button = html.Button(
@@ -143,6 +152,7 @@ class DashboardHeader:
                 html.Label('Averaging mode:'),
                 self.selector_averaging_mode,
             ], style=FLEX_ROW | {'justifyContent': 'flex-start'}),
+            self.selector_use_flag,
         ], id='wer-settings-content', style=WER_CONTENT_STYLE)
 
         # 3. Assemble the Header

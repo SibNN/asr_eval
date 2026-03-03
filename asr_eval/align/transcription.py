@@ -493,6 +493,11 @@ class InnerLoc(OuterLoc):
     inner_mod: Literal['at', 'pre']
     inner_pos: int
 
+def _is_insertion_loc(loc: InnerLoc | OuterLoc) -> bool: # pyright: ignore[reportUnusedFunction]
+    if isinstance(loc, InnerLoc):
+        return loc.inner_mod == 'pre'
+    else:
+        return loc.mod == 'pre'
 
 def get_outer_slots(
     blocks: Sequence[Token | MultiVariantBlock]
