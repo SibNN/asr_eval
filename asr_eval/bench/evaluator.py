@@ -292,12 +292,15 @@ def keep_errors_only_in_flagged_tokens_inplace(
     See :attr:`~asr_eval.align.transcription.Token.flags` for flag
     storage and :class:`~asr_eval.align.parsing.Parser` for flag syntax.
     """
+    n_flagged = 0
     for slot, values in list(alignment.slots.items()):
         is_flagged = (
             not _is_insertion_loc(slot)
             and flag in alignment.true.slot_to_token(slot).flags
         )
-        if not is_flagged:
+        if is_flagged:
+            n_flagged += 1
+        else:
             # switch all to correct
             updated_values: list[WORD_ERROR_TYPE] = []
             for value in values:
@@ -312,6 +315,7 @@ def keep_errors_only_in_flagged_tokens_inplace(
                 alignment.slots[slot] = updated_values
             else:
                 del alignment.slots[slot]
+    alignment._override_true_len_for_metrics = n_flagged # pyright: ignore[reportPrivateUsage]
 
 
 def get_dataset_data(
