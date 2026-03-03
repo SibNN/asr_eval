@@ -94,16 +94,38 @@ class Token:
     """The end time in seconds, is NaN by default, can be filled by
     :func:`~asr_eval.align.timings.fill_word_timings_inplace`.
     """
+
+    attrs: dict[str, Any] = field(default_factory=dict[str, Any])
+    """Key-value attributes, most often empty.
+    
+    May be used, for example, for word weights.
+    """
+
+    flags: set[str] = field(default_factory=set[str])
+    """Flags, most often empty.
+    
+    May be used to flag specific words to evaluate on.
+    """
     
     
     def __repr__(self) -> str:
-        strings = [
+        reprs = [
             str(self.value),
             # f'pos=({self.start_pos}, {self.end_pos})'
         ]
         if self.is_timed:
-            strings.append(f't=({self.start_time:.1f}, {self.end_time:.1f})')
-        return f'Token(' + ', '.join(strings) + ')'
+            reprs.append(f't=({self.start_time:.1f}, {self.end_time:.1f})')
+        if self.attrs:
+            reprs.append(
+                'attrs:'
+                + ','.join(f'{k}={v}' for k, v in self.attrs.items())
+            )
+        if self.flags:
+            reprs.append(
+                'flags:'
+                + ','.join(self.flags)
+            )
+        return f'Token(' + ', '.join(reprs) + ')'
 
     @property
     def is_timed(self) -> bool:
@@ -241,6 +263,11 @@ class Transcription:
         
             <iframe src="_static/transcription_docstring.html"
                 style="border: none; width: 100%; height: 50px; overflow: hidden;"></iframe>
+    
+    Transcription tokens can have attributes and flags, see examples in
+    the :class:`~asr_eval.align.parsing.Parser` docs, see also
+    fields :attr:`~asr_eval.align.transcription.Token.attrs` and
+    :attr:`~asr_eval.align.transcription.Token.flags`.
     """
     
     text: str
@@ -466,6 +493,11 @@ class InnerLoc(OuterLoc):
     inner_mod: Literal['at', 'pre']
     inner_pos: int
 
+def _is_insertion_loc(loc: InnerLoc | OuterLoc) -> bool: # pyright: ignore[reportUnusedFunction]
+    if isinstance(loc, InnerLoc):
+        return loc.inner_mod == 'pre'
+    else:
+        return loc.mod == 'pre'
 
 def get_outer_slots(
     blocks: Sequence[Token | MultiVariantBlock]

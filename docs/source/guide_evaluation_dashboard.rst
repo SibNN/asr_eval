@@ -115,6 +115,14 @@ oscillatory hallucinations. See
 micro-averaging across samples, if "plain" uses macro-averaging. See
 :ref:`Summarizing a dataset <summarizing_a_dataset>` for details.
 
+**⚙️ WER Settings -> Consider only flagged words.** Experimental feature.
+If checked, will calculate
+WER and highlight errors only on flagged words and phrases, which have the
+following annotation syntax: "Word1 word2 [f!word3 {word4} word5] word6". The
+parts "[f!" and "]" will be dropped when parsing, and the words "word3",
+"word4", "word5" will only be considered when calculating WER and highlighting
+errors.
+
 The dashboard outputs
 -----------------------------
 

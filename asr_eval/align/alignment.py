@@ -311,6 +311,10 @@ class Alignment:
     after a word in the ground truth. See :doc:`/guide_alignment_wer`
     for details.
     """
+
+    _override_true_len_for_metrics: int | None = None
+    # used for calculating WER only for highlighed words, see
+    # `keep_errors_only_in_flagged_tokens_inplace` in evaluator.py
     
     def __init__(
         self,
@@ -455,7 +459,11 @@ class Alignment:
         }
         
         metrics = Metrics(
-            true_len=self.get_true_len(),
+            true_len=(
+                self.get_true_len()
+                if self._override_true_len_for_metrics is None
+                else self._override_true_len_for_metrics
+            ),
             n_replacements=sum([
                 pos.n_replacements for pos in err_positions.values()
             ]),

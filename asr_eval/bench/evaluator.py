@@ -1,5 +1,6 @@
 from __future__ import annotations
 from collections import Counter
+import copy
 from dataclasses import dataclass, replace
 from itertools import chain
 import textwrap
@@ -11,9 +12,9 @@ import pandas as pd
 if TYPE_CHECKING:
     from plotly.graph_objs._figure import Figure
 
-from asr_eval.align.transcription import OuterLoc, Wildcard
+from asr_eval.align.transcription import OuterLoc, Wildcard, _is_insertion_loc # pyright: ignore[reportPrivateUsage]
 from asr_eval.align.alignment import (
-    Alignment, ErrorListingElement, MultipleAlignment
+    WORD_ERROR_TYPE, Alignment, Correct, Deletion, ErrorListingElement, Insertion, MultipleAlignment, Replacement
 )
 from asr_eval.align.metrics import DatasetMetric, Metrics
 
@@ -277,6 +278,46 @@ def _has_digits(multiple_alignment: MultipleAlignment)-> bool:
     return False
 
 
+def keep_errors_only_in_flagged_tokens_inplace(
+    alignment: Alignment, flag: str = 'f',
+):
+    """Keeps errors (replacements, deletions, insertions) only in tokens
+    flagged with the given flag.
+    
+    For other tokens, drops deletions and converts replacements and
+    insertions into :class:`~asr_eval.align.alignment.Correct`. Works
+    inplace. Thus, we may count and highlight errors only in the flagged
+    tokens.
+    
+    See :attr:`~asr_eval.align.transcription.Token.flags` for flag
+    storage and :class:`~asr_eval.align.parsing.Parser` for flag syntax.
+    """
+    n_flagged = 0
+    for slot, values in list(alignment.slots.items()):
+        is_flagged = (
+            not _is_insertion_loc(slot)
+            and flag in alignment.true.slot_to_token(slot).flags
+        )
+        if is_flagged:
+            n_flagged += 1
+        else:
+            # switch all to correct
+            updated_values: list[WORD_ERROR_TYPE] = []
+            for value in values:
+                match value:
+                    case Correct():
+                        updated_values.append(value)
+                    case Replacement() | Insertion():
+                        updated_values.append(Correct(value.token))
+                    case Deletion():
+                        pass # filter out deletions
+            if len(updated_values):
+                alignment.slots[slot] = updated_values
+            else:
+                del alignment.slots[slot]
+    alignment._override_true_len_for_metrics = n_flagged # pyright: ignore[reportPrivateUsage]
+
+
 def get_dataset_data(
     multiple_alignments: dict[int, MultipleAlignment],
     count_absorbed_insertions: bool = True,
@@ -284,6 +325,7 @@ def get_dataset_data(
     wer_averaging_mode: Literal['plain', 'concat'] = 'concat',
     exclude_samples_with_digits: bool = False,
     max_samples_to_render: int | None = None,
+    keep_only_tokens_with_flag: str | None = None,
 ) -> DatasetData:
     """Takes raw multiple alignments (usually from
     :meth`~asr_eval.bench.loader.PredictionLoader.get_multiple_alignments`)
@@ -323,6 +365,14 @@ def get_dataset_data(
     """
     
     from joblib import Parallel, delayed # pyright: ignore[reportUnknownVariableType]
+
+    if keep_only_tokens_with_flag is not None:
+        multiple_alignments = copy.deepcopy(multiple_alignments)
+        for multiple_alignment in multiple_alignments.values():
+            for alignment in multiple_alignment.alignments.values():
+                keep_errors_only_in_flagged_tokens_inplace(
+                    alignment, flag=keep_only_tokens_with_flag
+                )
 
     samples: list[SampleData] = []
     for sample_id, multiple_alignment in multiple_alignments.items():
