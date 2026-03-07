@@ -5,7 +5,7 @@ Some main utilities:
 - :class:`~asr_eval.align.parsing.Parser` and
   :const:`~asr_eval.align.parsing.DEFAULT_PARSER` to parse
   predictions and annotations (possibly multivariant), which
-  may include normalization, lowercase and diactritic conversion,
+  may include normalization, lowercase and diacritic conversion,
   splitting into words and punctuation removal.
 - :class:`~asr_eval.align.transcription.Transcription` as a format for
   parsed transcription.

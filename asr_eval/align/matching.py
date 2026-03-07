@@ -38,7 +38,7 @@ class Match:
     
     Note:
         This is a lower-level object only needed if you work with
-        :func:`~asr_eval.align.solvers.dynprog.Match.solve_optimal_alignment`
+        :func:`~asr_eval.align.solvers.dynprog.solve_optimal_alignment`
         directly. If you work with
         :func:`~asr_eval.align.alignment.Alignment`, matches are
         automatically converted into
@@ -84,10 +84,10 @@ class Match:
 
 def _match_from_pair(true: Token | None, pred: Token | None) -> Match: # pyright: ignore[reportUnusedFunction]
     """
-    Constructs `Match` object and fill `status` and `score` fields.
+    Constructs `Match` object and fills `status` and `score` fields.
     
     This function does not solve an optimal alighment problem. If both
-    word sequences are the same, or the first is `[Wildcard()]`, then
+    tokens are the same, or the first is :code:`Wildcard()`, then
     match is considered 'correct', otherwise incorrect. In incorrect
     match, if both texts are not empty, it is considered 'replacement',
     otherwise 'deletion' or 'insertion'.
@@ -144,21 +144,21 @@ class AlignmentScore:
     insertions).
     """
     
-    n_correct: int = 0
-    """The total number of correct matches. Consider the case where
-    "so nothing" matches with "nothing huh". We can match "so" with
-    "nothing" and "nothing" with "huh" - this gives n_word_errors = 2
-    that is optimal. Alternatively, we can match "nothing" with
-    "nothing", and let "so" be deletion and "huh: be insertion. This
-    also gives n_word_errors = 2, but is clearly better.
-    """
-    
     n_char_errors: int = 0
     """The sum of character errors in each matches. Note that this is
     not related CER, because if we match "no thing" with "nothing" we
     get n_char_errors = 2 + 2 ("no" deletion plus "thing" to "nothing"
     replacement). This is larger than number of errors in character
     alignment (which is 1).
+    """
+    
+    n_correct: int = 0
+    """The total number of correct matches. Consider the case where
+    "so nothing" matches with "nothing huh". We can match "so" with
+    "nothing" and "nothing" with "huh" - this gives n_word_errors = 2
+    that is optimal. Alternatively, we can match "nothing" with
+    "nothing", and let "so" be deletion and "huh" be insertion. This
+    also gives n_word_errors = 2, but is clearly better.
     """
 
     def __add__(self, other: AlignmentScore) -> AlignmentScore:
@@ -252,8 +252,8 @@ class MatchesList:
     """A total length of the ground truth.
     
     If there are multivariant blocks in the ground truth, only the
-    selected block (the one that matched with the prediction) contribute
-    to the `total_true_len`.
+    selected block (the one that matched with the prediction)
+    contributes to the `total_true_len`.
     
     Also, :class:`~asr_eval.align.transcription.Wildcard` tokens in the
     ground truth do not increment the total_true_len. See also
@@ -273,7 +273,7 @@ class MatchesList:
         return MatchesList(
             matches=matches,
             total_true_len=sum(_true_len(m) for m in matches),
-            score=sum([m.score for m in matches], AlignmentScore())
+            score=sum((m.score for m in matches), AlignmentScore())
         )
 
     def prepend(self, match: Match) -> MatchesList:
@@ -281,6 +281,7 @@ class MatchesList:
         
         :meta private:
         """
+        # ! This is O(n) because it copies the entire list
         return MatchesList(
             matches=[match] + self.matches,
             total_true_len=_true_len(match) + self.total_true_len,

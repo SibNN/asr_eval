@@ -77,8 +77,9 @@ class Insertion(_TokenContainerMixin):
 
 
 WORD_ERROR_TYPE = Correct | Replacement | Insertion | Deletion
-"""A wrapper to store a :class:`~asr_eval.align.transcription.Token`
-and an associated error type.
+"""A union of wrappers that store a
+:class:`~asr_eval.align.transcription.Token` and an associated error
+type.
 """
 
 
@@ -159,7 +160,7 @@ class ErrorListingElement:
     """
     
     true: Token | MultiVariantBlock | None
-    """For an "at" slot contains the correxponding block. For a "pre"
+    """For an "at" slot contains the corresponding block. For a "pre"
     slot is None.
     """
     
@@ -250,7 +251,7 @@ class Alignment:
     """A word-to-word alignment between ground truth and prediction.
     
     The constructor internally runs
-    :func:`~asr_eval.align.solvers.recursive.solve_optimal_alignment`,
+    :func:`~asr_eval.align.solvers.dynprog.solve_optimal_alignment`,
     then places each of the predicted words into one of the
     :attr:`~asr_eval.align.alignment.Alignment.slots`. Each slot
     represents a specific position in the ground truth: before, at or
@@ -385,7 +386,7 @@ class Alignment:
         for loc, slot_values in self.slots.items():
             assert len(slot_values)
             loc_outer = OuterLoc(loc.mod, loc.pos)
-            if not loc_outer in err_positions_dict:
+            if loc_outer not in err_positions_dict:
                 true = (
                     self.true.blocks[loc_outer.pos]
                     if loc_outer.mod == 'at'
@@ -404,7 +405,7 @@ class Alignment:
             err_pos = err_positions_dict[loc_outer]
             err_pos.pred += slot_values
             
-            # count <Correct | Replacement | Insertion | Deletion> per cell
+            # count (Correct | Replacement | Insertion | Deletion) per cell
             slot_replacements = (
                 sum(isinstance(x, Replacement) for x in slot_values)
             )
@@ -483,8 +484,8 @@ class Alignment:
         max_cell_size: int | None = 100,
         name: str | None = 'pred',
     ) -> str:
-        """Visualizes the alignment. Returns a string contatining
-        of lines: the ground truth and the prediction.
+        """Visualizes the alignment. Returns a string containing
+        the lines: the ground truth and the prediction.
 
         :code:`name` argument specifies how the prediction will
         be titled in the output string. If None, will not add name.
@@ -551,7 +552,7 @@ def _absorb_insertions_into_replacements_inplace(
             next_slot = true.get_next_slot(slot_loc)
             if next_slot is not None and next_slot in slots:
                 next_values = slots[next_slot]
-                for i in np.arange(len(next_values)):
+                for _ in np.arange(len(next_values)):
                     if not isinstance(next_values[0], Insertion):
                         break
                     next_text = cast(str, next_values[0].token.value) # type: ignore
@@ -752,7 +753,7 @@ class MultipleAlignment:
         def _colorize_err(
             text: str,
             mode: Literal['ansi', 'html', None],
-            type: Literal[
+            type_: Literal[
                 'unlabeled', 'err', 'err_first', 'err_second', 'err_both'
             ] = 'err',
         ) -> tuple[str, int]:
@@ -760,7 +761,7 @@ class MultipleAlignment:
                 case None:
                     return text, len(text)
                 case 'html':
-                    match type:
+                    match type_:
                         case 'unlabeled':
                             color = '#FFDB85'
                         case 'err':
@@ -793,7 +794,7 @@ class MultipleAlignment:
             # returns (text, text_len) tuple for a cell
             # text_len is a count of printable characters in the text,
             # excluding ANSI color codes and HTML tags
-            nonlocal baseline_word_lengths, self
+            nonlocal baseline_word_lengths
             words: list[str] = []
             lengths: list[int] = []
             for x in cell:
@@ -809,9 +810,9 @@ class MultipleAlignment:
                 text_len = len(text)
                 if not isinstance(x, Correct):
                     if unlabeled:
-                        type = 'unlabeled'
+                        type_ = 'unlabeled'
                     elif table.shape[0] != 2:
-                        type = 'err'
+                        type_ = 'err'
                     else:
                         # model1 vs model2 vs ground truth
                         cell_first = table[0, col]
@@ -825,12 +826,12 @@ class MultipleAlignment:
                         both_have_errors = first_has_errors and second_has_errors
                         is_second = row == 1
                         if both_have_errors:
-                            type = 'err_both'
+                            type_ = 'err_both'
                         elif is_second:
-                            type = 'err_second'
+                            type_ = 'err_second'
                         else:
-                            type = 'err_first'
-                    text, text_len = _colorize_err(text, color_mode, type=type)
+                            type_ = 'err_first'
+                    text, text_len = _colorize_err(text, color_mode, type_=type_)
                 words.append(text)
                 lengths.append(text_len)
             return (

@@ -24,12 +24,12 @@ def draw_timed_transcription(
     ax: plt.Axes | None = None,
     graybox_y: tuple[float, float] | None = None,
 ):
-    '''An utility to draw a transcription, possibly multivariant, with
+    """An utility to draw a transcription, possibly multivariant, with
     filled timings (see the full example in
     :func:`~asr_eval.align.timings.fill_word_timings_inplace`).
     
-    Is used in streaming evaluation diagrams.
-    '''
+    Used in streaming evaluation diagrams.
+    """
     ax = ax or plt.gca()
 
     if len(transcription.blocks) == 0:

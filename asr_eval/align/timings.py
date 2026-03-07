@@ -99,7 +99,7 @@ class CannotFillTimings(ValueError):
     pass
     
 
-def _propagate_timings(
+def _propagate_timings_inplace(
     from_block: list[_TokenEncoded],
     to_block: list[_TokenEncoded],
 ) -> bool:
@@ -165,7 +165,7 @@ def _propagate_timings(
         return True
 
     # custom rules
-    for currency_symbol in '$', '€', '¥', '£', '₽', '₹', '¥':
+    for currency_symbol in '$', '€', '¥', '£', '₽', '₹', '₩':
         # for example, from ['100', '000', '$'] to from ['$', '100', '000']
         if (
             len(from_block) == len(to_block) > 1
@@ -175,6 +175,7 @@ def _propagate_timings(
             propagate_pairwise(from_block[:-1], to_block[1:])
             to_block[0].ref.start_time = to_block[1].ref.start_time
             to_block[0].ref.end_time = to_block[1].ref.end_time
+            return True
     
     return False
 
@@ -215,7 +216,7 @@ def fill_word_timings_inplace(
             it will still able to fill the timings for a block
             :code:`{1|one}`. We first fill the timings for the word
             "one", then mirror them to the word "1".
-        waveform: The audio 16000 kHz, possibly long. For long audios
+        waveform: The audio 16000 Hz, possibly long. For long audios
             will wrap the CTC model into a
             :class:`~asr_eval.models.base.longform.LongformCTC` that
             works via logit averaging of uniform chunks with overlap.
@@ -325,7 +326,6 @@ def fill_word_timings_inplace(
         spans = spans[len(word.idxs):]
         word.ref.start_time = spans_for_word[0][0] * model.tick_size
         word.ref.end_time = spans_for_word[-1][1] * model.tick_size
-        # print(word.ref.value, word.ref.start_time, word.ref.end_time)
 
     # process the remaining multivariant options
     for block in encoded_multivariant:
@@ -348,7 +348,7 @@ def fill_word_timings_inplace(
                                     or len(option1) == len(option2)
                                 )
                             ):
-                                can_propagate = _propagate_timings(
+                                can_propagate = _propagate_timings_inplace(
                                     from_block=option1, to_block=option2
                                 )
                                 if can_propagate:
@@ -387,13 +387,13 @@ def fill_word_timings_inplace(
                 else finish_time
             )
             if np.isnan(prev_end_time):
-                    raise CannotFillTimings(
-                        'Cannot find a left boundary for Wildcard()'
-                    )
+                raise CannotFillTimings(
+                    'Cannot find a left boundary for Wildcard()'
+                )
             if np.isnan(next_start_time):
-                    raise CannotFillTimings(
-                        'Cannot find a right boundary for Wildcard()'
-                    )
+                raise CannotFillTimings(
+                    'Cannot find a right boundary for Wildcard()'
+                )
             # TODO make and return deep copy of all refs
             t.ref.start_time = prev_end_time
             t.ref.end_time = next_start_time

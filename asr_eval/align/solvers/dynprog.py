@@ -221,13 +221,9 @@ def solve_optimal_alignment(
                 ))
         
         assert len(candidates)
-        # for c in candidates:
-        #     print('   ', c)
         # max score is less errors
         best_candidate = max(candidates, key=lambda cell_data: cell_data.score)
         score_table[row_idx, col_idx] = best_candidate
-        # print(f'Cell {row_idx, col_idx}
-        #   n_word_errors={best_candidate.score.n_word_errors}')
     
     with Timer(verbose='\tfill table' if profile else None):
         # backward propagation with filling score_table

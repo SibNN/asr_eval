@@ -44,7 +44,6 @@ def char_align(
     string contains "-" char, and the missing character in the first
     or the second text is filled with a :code:`placeholder`.
         
-        
     Args:
         text_1: The first text to align.
         text_2: The second text to align.
@@ -124,7 +123,7 @@ def get_spans_for_char_aligned(
     contain space. Splits by these positions, and returns the resulting
     spans.
     
-    This can be userful to match predictions from two models, where
+    This can be useful to match predictions from two models, where
     there may be cases when a single word from one first model matches
     with two words from another model. In this case the current function
     will return an interval spanning both words.

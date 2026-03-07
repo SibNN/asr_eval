@@ -32,7 +32,7 @@ class Metrics:
     
     To obtain WER value, run
     :meth:`~asr_eval.align.metrics.Metrics.word_error_rate`. See examples
-    in the :meth:`~asr_eval.align.alignment.Alignment` dostrings and
+    in the :meth:`~asr_eval.align.alignment.Alignment` docstrings and
     the user guide :doc:`/guide_alignment_wer`.
     """
     
@@ -62,7 +62,7 @@ class Metrics:
                 depends on the generation limit. See also the related
                 parameter :code:`max_consecutive_insertions` in
                 :meth:`~asr_eval.align.alignment.Alignment.error_listing`,
-                that have a similar semantic but is more flexible.
+                that has similar semantics but is more flexible.
         """
         
         wer = self.n_errors / np.clip(self.true_len, 1, None)
@@ -146,7 +146,7 @@ def bootstrap[T: Sequence[Any] | npt.NDArray[Any]](
     rounds: int = 100,
     random_seed: int | None = 0,
 ) -> MetricDistribution:
-    """Calculate a metric uncertainty via boostrapping.
+    """Calculates a metric uncertainty via bootstrapping.
     
     Given a list of samples and a function :code:`calc_metric` that
     calcualtes averaged metric, run the function :code:`rounds` times,

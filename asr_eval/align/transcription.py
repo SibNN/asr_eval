@@ -125,7 +125,7 @@ class Token:
                 'flags:'
                 + ','.join(self.flags)
             )
-        return f'Token(' + ', '.join(reprs) + ')'
+        return 'Token(' + ', '.join(reprs) + ')'
 
     @property
     def is_timed(self) -> bool:
@@ -228,7 +228,6 @@ class Transcription:
     :class:`~asr_eval.align.transcription.Wildcard` insertions. Stores
     `.text` field (the original text) and list of tokens (words) that
     keep references to the positions in the original text.
-    A generic for two transcription subclasses:
 
     Has a subclass
     :class:`~asr_eval.align.transcription.SingleVariantTranscription`
@@ -368,11 +367,7 @@ class Transcription:
         if len(resulting_blocks) == 0:
             end_pos = 0
         else:
-            match (t := resulting_blocks[-1]):
-                case Token():
-                    end_pos = t.end_pos
-                case MultiVariantBlock():
-                    end_pos = t.end_pos
+            end_pos = resulting_blocks[-1].end_pos
         resulting_text = self.text[:end_pos]
 
         if len(blocks_partial_tail_options):
@@ -403,19 +398,17 @@ class Transcription:
         ]
         
         token_idx = 0
-        token_uid_to_color: dict[TOKEN_UID, str] = {}
         
         formatting_spans = [FormattingSpan(
             Formatting(attrs={'bold'}), 0, len(self.text)
         )]
         
         def mark_token(token: Token):
-            nonlocal token_idx, token_uid_to_color
+            nonlocal token_idx
             color = colors[token_idx % len(colors)]
             formatting_spans.append(FormattingSpan(
                 Formatting(on_color=color), token.start_pos, token.end_pos,
             ))
-            token_uid_to_color[token.uid] = color
             token_idx += 1
             
         for block in self.blocks:
@@ -637,7 +630,7 @@ class TranscriptionPath(Transcription):
     ) -> InnerLoc | OuterLoc | None:
         """A step forward: from the previous slot to the next.
         
-        Returns None if we reached the beginning.
+        Returns None if we reached the end.
         """
         
         idx = self.slot_loc_to_idx(loc)

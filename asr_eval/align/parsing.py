@@ -2,6 +2,7 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass
+from functools import lru_cache
 from itertools import chain
 import re
 import string
@@ -27,8 +28,8 @@ PUNCT = re.escape(r""".,!?:;…-‑–—'"‘“”«»()[]{}""")
 r"""
 A default set of punctuation characters to exclude from words
 :code:`.,!?:;…-‑–—'"‘“”«»()[]{}`. Note that this does not affect parsing
-multivariant syntax. To override, create a
-:class:`~asr_eval.align.parsing.Parser` with custom
+control characters "{", "|", "}" in multivariant syntax. To override,
+create a :class:`~asr_eval.align.parsing.Parser` with custom
 :attr:`~asr_eval.align.parsing.Parser.tokenizing` field.
 
 :meta hide-value:
@@ -136,8 +137,8 @@ class Parser:
     such as normalizers or filler word removers. Note that after parsing
     the
     :attr:`~asr_eval.align.transcription.Transcription.text` field in
-    :class:`~asr_eval.align.transcription.Transcription` willcontain the
-    preprocessed version, and the original version will be gone.
+    :class:`~asr_eval.align.transcription.Transcription` will contain
+    the preprocessed version, and the original version will be gone.
     
     Example:
         >>> from asr_eval.align.parsing import Parser
@@ -196,38 +197,40 @@ class Parser:
         for i, t in enumerate(result.list_all_tokens()):
             t.uid = 'id' + str(i)
         return result
+    
+    _MULTIVARIANT_PATTERN = re.compile(
+        r'({[^{}]*?})'            # multi variant
+        '|'
+        r'(?<=})([^{}]+?)(?={)'   # single variant
+    )
+
+    # We could also parse multivariant strings with pyparsing:
+
+    # from pyparsing import CharsNotIn, OneOrMore, Suppress as S, Group,
+    #     Empty, ZeroOrMore
+
+    # WORDS = CharsNotIn('{|}\n')('words')
+    # OPTION = Group(WORDS | Empty())('option')
+    # MULTI = Group(S('{') + OPTION + OneOrMore(S('|') + OPTION) \
+    #     + S('}'))('multi')
+    # MV_STRING = ZeroOrMore(MULTI | WORDS)
+
+    # results = MV_STRING.parse_string('{a|b} ! {1|2 3|} x y {3|4}',
+    #     parse_all=True)
+    # print(results.as_list())
+
+    # however, this is not obvious for ones who are not familiar with
+    # pyparsing, and also gives uninformative parsing errors
 
     def parse_transcription(self, text: str) -> Transcription:
         """Parses a text possibly containing multivariant blocks.
         
         See example in the class docstring.
         """
-        # We can also parse multivariant strings with pyparsing:
-
-        # from pyparsing import CharsNotIn, OneOrMore, Suppress as S, Group,
-        #     Empty, ZeroOrMore
-
-        # WORDS = CharsNotIn('{|}\n')('words')
-        # OPTION = Group(WORDS | Empty())('option')
-        # MULTI = Group(S('{') + OPTION + OneOrMore(S('|') + OPTION) \
-        #     + S('}'))('multi')
-        # MV_STRING = ZeroOrMore(MULTI | WORDS)
-
-        # results = MV_STRING.parse_string('{a|b} ! {1|2 3|} x y {3|4}',
-        #     parse_all=True)
-        # print(results.as_list())
-
-        # however, this is not obvious for ones who are not familiar with
-        # pyparsing, and also gives uninformative parsing errors
-        MULTIVARIANT_PATTERN = re.compile(
-            r'({[^{}]*?})'            # multi variant
-            '|'
-            r'(?<=})([^{}]+?)(?={)'   # single variant
-        )
         text = self.preprocessing(text)
         text, attrs_per_token = _extract_and_trim_attrs(text)
         blocks: list[Token | MultiVariantBlock] = []
-        for match in re.finditer(MULTIVARIANT_PATTERN, '}' + text + '{'):
+        for match in re.finditer(self._MULTIVARIANT_PATTERN, '}' + text + '{'):
             text_part = match.group()
             start = match.start() - 1  # account for '}' (see in re.finditer)
             end = match.end() - 1      # account for '}' (see in re.finditer)
@@ -327,6 +330,14 @@ def _shift_tokens_inplace(tokens: list[Token], shift: int = 0):
         t.end_pos += shift
 
 
+@lru_cache(maxsize=100)
+def _compile_regexp(patterns: tuple[tuple[str, str]]) -> re.Pattern[str]:
+    pattern = '|'.join(
+        f'(?P<{name}>{subpattern})' for name, subpattern in patterns
+    )
+    return re.compile(pattern, re.MULTILINE|re.DOTALL|re.UNICODE)
+
+
 def _regexp_split_text_into_tokens(
     text: str, patterns: dict[str, str]
 ) -> Iterable[Token]:
@@ -335,12 +346,9 @@ def _regexp_split_text_into_tokens(
     For each match returns a
     :class:`~asr_eval.align.transcription.Token`.
     """
-    pattern = '|'.join(
-        f'(?P<{name}>{subpattern})' for name, subpattern in patterns.items()
-    )
-    for match in re.finditer(
-        re.compile(pattern, re.MULTILINE|re.DOTALL|re.UNICODE), text
-    ):
+    # this is overcompilcated, TODO simplify?
+    pattern = _compile_regexp(tuple(patterns.items()))
+    for match in re.finditer(pattern, text):
         found_groups = [
             (name, substr)
             for name, substr in match.groupdict().items()
@@ -372,6 +380,7 @@ _ATTRS_PATTERN = re.compile(
 )
 
 def _extract_and_trim_attrs(text: str) -> tuple[str, list[list[str]]]:
+
     # we start with this: X = "one two [w=10!Kafka AWS] three"
     # and convert to this: Y = "one two Kafka AWS three"
     # while extracting this: [("w=10", 8, 17)]
@@ -381,6 +390,7 @@ def _extract_and_trim_attrs(text: str) -> tuple[str, list[list[str]]]:
     attrs: list[_MarkedAttr] = []
 
     # iterating while modifying the string
+    # TODO speedup this logic for long texts
     while (match := re.search(_ATTRS_PATTERN, text)):
         
         # example: [digits,a=b!три четыре]
