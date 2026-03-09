@@ -1,6 +1,5 @@
 from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
-# from concurrent.futures import ThreadPoolExecutor
 
 from asr_eval.streaming.buffer import ID_TYPE
 from asr_eval.streaming.model import OutputChunk, Signal, StreamingASR
@@ -36,7 +35,7 @@ def transcribe_parallel(
     send_all_without_delays: bool = False,
     real_time_interval_sec: float = 1 / 25,
     speed_multiplier: float = 1,
-) -> dict[ID_TYPE, list[OutputChunk]]:
+) -> list[tuple[ID_TYPE, list[OutputChunk]]]:
     """Transcribes the waveforms in parallel, but with no more than
     :code:`n_threads` simultaneous senders.
     
@@ -66,4 +65,4 @@ def transcribe_parallel(
         return sender.id, chunks
     
     with ThreadPoolExecutor(max_workers=n_threads) as executor:
-        return dict(executor.map(process_sender, waveforms))
+        return list(executor.map(process_sender, waveforms))
