@@ -19,6 +19,12 @@ def receive_transcription(
 ) -> Iterable[OutputChunk]:
     """Blocks and waits until the full transcription (ended with
     :code:`Signal.FINISH`) received for the given ID.
+
+    If the :code:`asr` is not running, and therefore the output buffer 
+    is not replenished, this function will hang forever.
+    If the :code:`asr` is stopped during :code:`receive_transcription`,
+    will raise a `RuntimeError` wrapping `Exit` (see the
+    :class:`~asr_eval.streaming.model.StreamingASR` docs for details).
     """
 
     while True:
@@ -38,6 +44,9 @@ def transcribe_parallel(
 ) -> list[tuple[ID_TYPE, list[OutputChunk]]]:
     """Transcribes the waveforms in parallel, but with no more than
     :code:`n_threads` simultaneous senders.
+
+    This is a short wrapper for several lower-level calls, see their
+    docstrings to understand parameters.
     
     Call :code:`asr.start_thread()` before calling this method, and
     :code:`asr.stop_thread()` after.
