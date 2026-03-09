@@ -41,6 +41,7 @@ class StreamingToOffline(Transcriber):
     
     @override
     def transcribe(self, waveform: FLOATS) -> str:
+        # as stated in Transcriber, this method accepts 16kHz waveform
         id = new_uid()
         audio = resample(
             waveform,

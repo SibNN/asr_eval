@@ -162,14 +162,12 @@ def visualize_history(
         
     ax.set_xlabel('Real time') # type: ignore
     ax.set_ylabel('Chunk index') # type: ignore
-    # extend_lims(plt.gca(), dxmin=-0.1, dxmax=0.1, dymin=-1, dymax=1)
 
 
 def streaming_error_vs_latency_histogram(
     evals: list[StreamingEvaluationResults],
     ax: plt.Axes | None = None,
     max_latency: float = 10,
-    # relative_to
 ):
     """Summarizes error percentage versus latency in a historgram, given
     evaluations for multiple samples.
@@ -190,7 +188,7 @@ def streaming_error_vs_latency_histogram(
     
     bins = np.linspace(0, 10, num=31).round(2).tolist()
     bins = [b for b in bins if b <= max_latency]
-    bins += [1000]
+    bins += [np.inf]
 
     for status, pos_status in [
         ('correct', ['correct']),
@@ -218,8 +216,13 @@ def streaming_error_vs_latency_histogram(
     ax.bar(xrange, height=ratios['not_yet'], # type: ignore
            bottom=ratios['correct'] + ratios['error'], color='gray')
     ax.set_xticks(xrange) # type: ignore
-    ax.set_xticklabels([f'{a:g}-{b:g}' for a, b in pairwise(bins)], # type: ignore
-                       rotation=90)
+    ax.set_xticklabels( # type: ignore
+        [
+            f'{a:g}-{b:g}' if np.isfinite(b) else f'{a:g}-inf'
+            for a, b in pairwise(bins)
+        ],
+        rotation=90,
+    )
 
 
 def latency_plot(
@@ -253,6 +256,8 @@ def show_last_alignments(
 ):
     """Visualizes the last alignments (finalized transcriptions),
     given evaluations for multiple samples.
+
+    Sorts evals by audio length before drawing.
     
     See more details and examples in the user guide:
     :doc:`/guide_streaming_evaluation`.
