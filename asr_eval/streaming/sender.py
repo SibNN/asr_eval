@@ -23,7 +23,7 @@ __all__ = [
 @dataclass(slots=True)
 class Cutoff:
     """A container for audio position and a real time (relative) moment.
-    Is used to shedule a waveform sending into
+    Is used to schedule a waveform sending into
     :class:`~asr_eval.streaming.model.StreamingASR`.
     
     Let we have an audio `waveform` and two consecutive cutoffs
@@ -39,7 +39,7 @@ class Cutoff:
        :code:`c1.t_audio`.
     2. :code:`waveform[:c2.arr_pos]` gives an audio with length
        :code:`c2.t_audio`.
-    1. :code:`waveform[c1.arr_pos:c2.arr_pos]` should be sent at the
+    3. :code:`waveform[c1.arr_pos:c2.arr_pos]` should be sent at the
        time :code:`c2.t_real`.
     """
     t_real: float
@@ -60,22 +60,21 @@ class Cutoff:
 
 
 def get_uniform_cutoffs(
-    waveform: FLOATS,
+    audio_length_sec: float,
     real_time_interval_sec: float = 1 / 25,
     speed_multiplier: float = 1.0,
     sampling_rate: int = 16_000,
 ) -> list[Cutoff]:
-    """Returns a uniform shedule to send the audio.
+    """Returns a uniform schedule to send the audio.
 
     Args:
-        waveform: The audio in float32 dtype.
+        audio_length_sec: The audio length in seconds.
         real_time_interval_sec: How often in real time to send chunks?
         speed_multiplier: For example, if :code:`speed_multiplier=2`,
             will sent the audio twice of normal speed, that is, a 10
             seconds audio will be sent in 5 seconds.
         sampling_rate: The sampling rate of the :code:`waveform`.
     """
-    audio_length_sec = len(waveform) / sampling_rate
     audio_interval_sec = (
         real_time_interval_sec * speed_multiplier
     )
@@ -95,11 +94,11 @@ def get_uniform_cutoffs(
 
 
 def _validate_cutoffs(cutoffs: list[Cutoff]) -> list[Cutoff]:
+    assert len(cutoffs) >= 2
+
     if cutoffs[-1].arr_pos == cutoffs[-2].arr_pos:
         # cut a possible small ending
         cutoffs = cutoffs[:-1]
-    
-    assert len(cutoffs) >= 2
 
     assert all(np.diff([c.arr_pos for c in cutoffs]) > 0), (
         'at least one audio chunk has zero size'
@@ -149,7 +148,7 @@ class StreamingSender:
 
     _history: list[InputChunk] = field(default_factory=list[InputChunk])
     _thread: threading.Thread | None = None
-    _done = False
+    _done: bool = False
 
     def __post_init__(self):
         self.cutoffs = _validate_cutoffs(self.cutoffs)
@@ -160,7 +159,7 @@ class StreamingSender:
 
     def start_sending(self, without_delays: bool = False) -> Self:
         """If :code:`without_delays=False` (default) starts sending in a
-        separate thread according to the shedule given in constuctor.
+        separate thread according to the schedule given in constuctor.
         If :code:`without_delays=True` sends all the chunks immediately.
         Non-blocking.
         """
@@ -205,7 +204,7 @@ class StreamingSender:
             print(
                 f'Sending: id={self.id}'
                 f', real {cutoff1.t_real:.3f}..{cutoff2.t_real:.3f}'
-                f', audio {cutoff2.t_audio:.3f}..{cutoff2.t_audio:.3f}'
+                f', audio {cutoff1.t_audio:.3f}..{cutoff2.t_audio:.3f}'
             )
         data = self.waveform[cutoff1.arr_pos:cutoff2.arr_pos]
         data = convert_audio_format(data, to_audio_type=self.asr.audio_type)
@@ -219,13 +218,11 @@ class StreamingSender:
     def _run(self, send_to: InputBuffer):
         try:
             start_time = time.time()
-            densify_total_saved_time = 0.
             
             for cutoff1, cutoff2 in pairwise(self.cutoffs):
                 wait_start_time = time.time()
                 delay = (
                     start_time
-                    - densify_total_saved_time
                     + cutoff2.t_real
                     - wait_start_time
                 )

@@ -12,12 +12,12 @@ ID_TYPE = int | str
 
 class StreamingQueue[T]:
     """Similar to :code:`queue.Queue` with the following differences:
-    - Typization. This is a generic class for any element type.
-    - Each element has an ID (not unqiue), and we can :code:`.get()` the
+    - Type-parameterized. This is a generic class for any element type.
+    - Each element has an ID (not unique), and we can :code:`.get()` the
       next element for a specific ID. For example, IDs can be audio
       recording IDs for each audio chunk, when transcribing multiple
       recordings in parallel.
-    - If an exception occurs, the procucer thread can :code:`.put()` the
+    - If an exception occurs, the producer thread can :code:`.put()` the
       exception into the queue, instead of the next chunk. It will be
       raised in the consumer thread on the next :code:`.get()`
       operation.
@@ -26,8 +26,11 @@ class StreamingQueue[T]:
     def __init__(self, name: str = 'unnamed'):
         self._name = name
         self._buffer: list[tuple[T, ID_TYPE]] = []
+        # TODO `dict[ID_TYPE, deque[T]]` would give O(1) removal
         self._error: RuntimeError | None = None
-        self._condition = threading.Condition()
+
+        # should be re-entrant to support wrappers like ASRStreamingQueue
+        self._condition = threading.Condition(threading.RLock())
     
     def put(self, data: T, id: ID_TYPE = 0) -> None:
         """Add new element into a queue (non-blocking, thread-safe)."""
@@ -39,13 +42,12 @@ class StreamingQueue[T]:
         for i, (_item, item_id) in enumerate(self._buffer):
             if item_id == id:
                 return self._buffer.pop(i)
-        else:
-            return None
+        return None
     
     def get(
         self, id: ID_TYPE | None = None, timeout: float | None = None
     ) -> tuple[T, ID_TYPE]:
-        """Wait for an alement to appear in the queue, pop and return
+        """Wait for an element to appear in the queue, pop and return
         it (blocking, thread-safe).
         
         Args:
@@ -78,13 +80,13 @@ class StreamingQueue[T]:
         """Set the queue into error state.
         
         Any consumers that try to :code:`.get()` from the queue will
-        recieve this exception wrapped into a :code:`RuntimeError`. This
+        receive this exception wrapped into a :code:`RuntimeError`. This
         allows to propagate exceptions from sender to consumer thread
         to terminate the program.
         """
-        if self._error:  # already set
-            return
         with self._condition:
+            if self._error:  # already set
+                return
             self._error = RuntimeError(
                 f'Error in the StreamingBuffer "{self._name}"'
             )

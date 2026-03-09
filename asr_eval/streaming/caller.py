@@ -1,6 +1,5 @@
 from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
-# from concurrent.futures import ThreadPoolExecutor
 
 from asr_eval.streaming.buffer import ID_TYPE
 from asr_eval.streaming.model import OutputChunk, Signal, StreamingASR
@@ -20,6 +19,12 @@ def receive_transcription(
 ) -> Iterable[OutputChunk]:
     """Blocks and waits until the full transcription (ended with
     :code:`Signal.FINISH`) received for the given ID.
+
+    If the :code:`asr` is not running, and therefore the output buffer 
+    is not replenished, this function will hang forever.
+    If the :code:`asr` is stopped during :code:`receive_transcription`,
+    will raise a `RuntimeError` wrapping `Exit` (see the
+    :class:`~asr_eval.streaming.model.StreamingASR` docs for details).
     """
 
     while True:
@@ -36,9 +41,12 @@ def transcribe_parallel(
     send_all_without_delays: bool = False,
     real_time_interval_sec: float = 1 / 25,
     speed_multiplier: float = 1,
-) -> dict[ID_TYPE, list[OutputChunk]]:
+) -> list[tuple[ID_TYPE, list[OutputChunk]]]:
     """Transcribes the waveforms in parallel, but with no more than
     :code:`n_threads` simultaneous senders.
+
+    This is a short wrapper for several lower-level calls, see their
+    docstrings to understand parameters.
     
     Call :code:`asr.start_thread()` before calling this method, and
     :code:`asr.stop_thread()` after.
@@ -49,7 +57,7 @@ def transcribe_parallel(
         waveform: FLOATS
     ) -> tuple[ID_TYPE, list[OutputChunk]]:
         cutoffs = get_uniform_cutoffs(
-            waveform=waveform,
+            audio_length_sec=len(waveform) / 16000,
             real_time_interval_sec=real_time_interval_sec,
             speed_multiplier=speed_multiplier,
         )
@@ -66,4 +74,4 @@ def transcribe_parallel(
         return sender.id, chunks
     
     with ThreadPoolExecutor(max_workers=n_threads) as executor:
-        return dict(executor.map(process_sender, waveforms))
+        return list(executor.map(process_sender, waveforms))

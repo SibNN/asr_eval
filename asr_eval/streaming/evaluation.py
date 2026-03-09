@@ -80,10 +80,9 @@ class StreamingEvaluationResults:
     
     @property
     def start_timestamp(self) -> float:
-        """A start time, where the first input chunks was put into the
-        input buffer.Should be always zero, because all the timestamps
-        in the :code:`StreamingEvaluationResults` are relative to this
-        moment.
+        """A start time, where the first input chunk was put into the
+        input buffer. Is always zero after time-normalisation performed
+        by :func:`~asr_eval.streaming.evaluation.evaluate_streaming`.
         """
         
         return self.input_chunks[0].put_timestamp
@@ -120,23 +119,23 @@ def make_sender(
         asr: A streaming transcriber to send chunks into.
         real_time_interval_sec: How often in real time to send chunks?
         speed_multiplier: For example, if :code:`speed_multiplier=2`,
-            will sent the audio twice of normal speed, that is, a 10
+            will send the audio twice of normal speed, that is, a 10
             seconds audio will be sent in 5 seconds.
-        uid: Assign UID to the recording (select ranfom of omitted).
+        uid: Assign UID to the recording (select random of omitted).
     
     Returns:
         - A sending schedule in form of a list of cutoffs. See
             :func:`~asr_eval.streaming.sender.get_uniform_cutoffs` for
             details.
-        - A sender object thatis ready to start sending. Call
+        - A sender object that is ready to start sending. Call
         :meth:`~asr_eval.streaming.sender.StreamingSender.start_sending`
         to start sending chunks.
     """
     assert asr.is_thread_started()
-    id = uid or new_uid()
+    uid = uid or new_uid()
     cutoffs = get_uniform_cutoffs(
         # this is crucial to do before resampling
-        waveform=waveform,
+        audio_length_sec=len(waveform) / 16000,
         real_time_interval_sec=real_time_interval_sec,
         speed_multiplier=speed_multiplier,
     )
@@ -150,7 +149,7 @@ def make_sender(
         for c in cutoffs
     ]
     sender = StreamingSender(
-        id=id,
+        id=uid,
         verbose=False,
         cutoffs=cutoffs_resampled,
         waveform=waveform,
@@ -173,7 +172,7 @@ def evaluate_streaming(
     Aligns partial transcriptions against starting parts of the ground
     truth.
     
-    For each of the :code:`timestamps` obtains ths starting part of the
+    For each of the :code:`timestamps` obtains the starting part of the
     :code:`timed_transcription` up to the specified timestamp, and
     aligns against the partial transcription that was received up to
     the specified timestamp. If the timestamp is inside a word in the
@@ -207,7 +206,7 @@ def evaluate_streaming(
             30 partial alignments.
     
     Returns:
-        A :class:`~asr_eval.streaming.evalution.StreamingEvaluationResults`
+        A :class:`~asr_eval.streaming.evaluation.StreamingEvaluationResults`
         dataclass that scores the resulting partial alignments, as well
         as the input data.
     """
@@ -309,10 +308,6 @@ class PartialAlignment:
                 tail.insert(0, match)
             else:
                 head.insert(0, match)
-        
-        # debug
-        # print('HEAD', head, [m.status for m in head])
-        # print('TAIL', tail, [m.status for m in tail])
         
         # process head
         for i, match in enumerate(head):
@@ -442,7 +437,7 @@ def get_audio_seconds_sent(
 def get_audio_seconds_processed(
     time: float, output_chunks: Sequence[OutputChunk]
 ) -> float:
-    """Given a full history of output chunks, and a :code:`time``, finds
+    """Given a full history of output chunks, and a :code:`time`, finds
     the last sent chunk with put timestamp before :code:`time` and
     returns its
     :attr:`~asr_eval.streaming.model.OutputChunk.seconds_processed`. If
@@ -479,7 +474,7 @@ def get_partial_alignments(
     Args:
         input_history: The input chunks history.
         output_history: The output chunks history.
-        true_word_timings: The ground truth transcription for the
+        timed_transcription: The ground truth transcription for the
             whole audio with filled timings for each token. Is typically
             obtained with
             :func:`~asr_eval.align.timings.fill_word_timings_inplace`.
@@ -495,15 +490,17 @@ def get_partial_alignments(
         output_history = output_history[:-1]
 
     # check that timings are not None and do not decrease
-    assert np.all(np.diff([x.put_timestamp for x in input_history])[1:] >= 0)
-    assert np.all(np.diff([x.end_time for x in input_history])[1:] >= 0)
-    assert np.all(np.diff([x.put_timestamp for x in output_history])[1:] >= 0)
+    assert np.all(np.diff([x.put_timestamp for x in input_history]) >= 0)
+    assert np.all(np.diff([x.end_time for x in input_history]) >= 0)
+    assert np.all(np.diff([x.put_timestamp for x in output_history]) >= 0)
     
     partial_alignments: list[PartialAlignment] = []
     for i, output_chunk in enumerate(output_history):
         partial_alignments.append(PartialAlignment(
             pred=DEFAULT_PARSER.parse_single_variant_transcription(
                 TranscriptionChunk.join(output_history[:i + 1])
+                # TODO optimize, this is a nested O(n^2) loop
+                # however, typically should be fine
             ),
             alignment=None, # type: ignore
             at_time=output_chunk.put_timestamp,
@@ -538,25 +535,15 @@ def get_partial_alignments(
             partial_alignments_for_times.append(pa)
         partial_alignments = partial_alignments_for_times
     
+    def _partial_align(pa: PartialAlignment) -> MatchesList:
+        true = timed_transcription.get_starting_part(pa.audio_seconds_sent)
+        return solve_optimal_alignment(true, pa.pred)[0]
+
     if processes > 1:
-        pool = mp.Pool(processes=processes)
-        alignments = pool.map(
-            lambda pa: solve_optimal_alignment(
-                timed_transcription.get_starting_part( \
-                    pa.audio_seconds_sent),
-                pa.pred,
-            )[0],
-            partial_alignments
-        )
+        with mp.Pool(processes=processes) as pool:
+            alignments = pool.map(_partial_align, partial_alignments)
     else:
-        alignments = [
-            solve_optimal_alignment(
-                timed_transcription.get_starting_part( \
-                    pa.audio_seconds_sent),
-                pa.pred,
-            )[0]
-            for pa in partial_alignments
-        ]
+        alignments = [_partial_align(pa) for pa in partial_alignments]
     
     for al, pa in zip(alignments, partial_alignments):
         pa.alignment = al
@@ -579,7 +566,7 @@ def remap_time(
     
     Technically, :code:`remap_time` adds artificial delays in some
     places, shifting put timestamps and get timestamps forward for both
-    input and output chuks. More concretely, it iterates chunks from
+    input and output chunks. More concretely, it iterates chunks from
     the first to the last and finds input chunks that were
     taken from the input buffer until they should be placed in the
     buffer according to the :code:`cutoffs` schedule. When such a
@@ -590,9 +577,13 @@ def remap_time(
     looked if :code:`without_delays=False` in senders.
     
     Note:
+        This erases any delay between :code:`get_timestamp` and
+        :code:`put_timestamp` in output chunks.
+    
+    Note:
         This is not applicable (would work incorrectly) for
         :class:`~asr_eval.streaming.model.StreamingASR` that start
-        another threads from its main beckground thread (where
+        another threads from its main background thread (where
         :attr:`~asr_eval.streaming.model.StreamingASR.is_multithreaded`
         is True).
     """

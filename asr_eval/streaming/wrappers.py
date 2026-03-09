@@ -41,27 +41,29 @@ class StreamingToOffline(Transcriber):
     
     @override
     def transcribe(self, waveform: FLOATS) -> str:
-        id = new_uid()
-        audio = resample(
+        # as stated in Transcriber, this method accepts 16kHz waveform
+        uid = new_uid()
+        sampling_rate = self.streaming_model.sampling_rate
+        waveform = resample(
             waveform,
             from_sampling_rate=16_000,
-            to_sampling_rate=self.streaming_model.sampling_rate,
+            to_sampling_rate=sampling_rate,
         )
         cutoffs = get_uniform_cutoffs(
-            waveform,
-            sampling_rate=self.streaming_model.sampling_rate,
+            audio_length_sec=len(waveform) / sampling_rate,
+            sampling_rate=sampling_rate,
         )
         sender = StreamingSender(
-            id=id,
+            id=uid,
             cutoffs=cutoffs,
-            waveform=audio,
+            waveform=waveform,
             asr=self.streaming_model,
         )
         sender.start_sending(
             without_delays=True,
         )
         output_chunks = list(receive_transcription(
-            asr=self.streaming_model, id=id
+            asr=self.streaming_model, id=uid
         ))
         return TranscriptionChunk.join(output_chunks)
 
@@ -97,7 +99,8 @@ class OfflineToStreaming(StreamingASR):
     """
 
     def __init__(self, offline_model: Transcriber, interval: float = 0.5):
-        super().__init__()
+        # Transcriber is hardcoded to use 16000 Hz
+        super().__init__(sampling_rate=16000)
         self.offline_model = offline_model
         self.chunk_size = int(16_000 * interval)
         self.accumulated_audios: dict[ID_TYPE, FLOATS] = (
@@ -128,7 +131,7 @@ class OfflineToStreaming(StreamingASR):
                 self.output_buffer.put(OutputChunk(
                     data=Signal.FINISH, seconds_processed=end_time
                 ), id=id)
-                self.accumulated_audios.pop(id, 0)
+                self.accumulated_audios.pop(id, None)
     
     @property
     @override
