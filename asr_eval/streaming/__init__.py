@@ -16,7 +16,7 @@ WAV etc.) and sample rates - this is defined in the
 :attr:`~asr_eval.streaming.model.StreamingASR.audio_type` and
 :attr:`~asr_eval.streaming.model.StreamingASR.sampling_rate` fields.
 
-**Output format**. A each output chunk contains a
+**Output format**. Each output chunk contains a
 :class:`~asr_eval.streaming.model.TranscriptionChunk` which carries a
 text and a chunk ID. Re-emitting new chunk with the same ID allows to
 correct a partial transcription emitted earlier.

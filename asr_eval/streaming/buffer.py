@@ -28,7 +28,9 @@ class StreamingQueue[T]:
         self._buffer: list[tuple[T, ID_TYPE]] = []
         # TODO `dict[ID_TYPE, deque[T]]` would give O(1) removal
         self._error: RuntimeError | None = None
-        self._condition = threading.Condition()
+
+        # should be re-entrant to support wrappers like ASRStreamingQueue
+        self._condition = threading.Condition(threading.RLock())
     
     def put(self, data: T, id: ID_TYPE = 0) -> None:
         """Add new element into a queue (non-blocking, thread-safe)."""

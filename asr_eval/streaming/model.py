@@ -126,7 +126,7 @@ def check_consistency(
     than audio seconds taken from the input buffer by the time the
     output is put into the buffer.
     
-    Fails indicate errors in the chunk processing pipeline (sender,
+    Failures indicate errors in the chunk processing pipeline (sender,
     buffer or model).
 
     Raises:
@@ -134,8 +134,8 @@ def check_consistency(
     """
     for input_chunk in input_chunks:
         assert input_chunk.put_timestamp <= input_chunk.get_timestamp
-    for input_chunk in output_chunks:
-        assert input_chunk.put_timestamp <= input_chunk.get_timestamp
+    for output_chunk in output_chunks:
+        assert output_chunk.put_timestamp <= output_chunk.get_timestamp
     for output_chunk in output_chunks:
         if output_chunk.data is not Signal.FINISH:
             seconds_consumed = max([
@@ -250,7 +250,7 @@ class InputBuffer(ASRStreamingQueue[InputChunk]):
         size: int,
         id: ID_TYPE | None = None,
     ) -> tuple[ID_TYPE, AUDIO_CHUNK_TYPE | None, bool, float]:
-        """ Internally calles ;code:`.get()` as many times as needed and
+        """ Internally calls :code:`.get()` as many times as needed and
         concatenates and/or slices the results to obtain the desired
         array size.
         
@@ -272,7 +272,7 @@ class InputBuffer(ASRStreamingQueue[InputChunk]):
             2. Audio chunk of the desired size (or less if
                :code:`Signal.FINISH` reached).
             3. A flag if :code:`Signal.FINISH` reached.
-            4. The audio end time of the last recived chunk (even if its
+            4. The audio end time of the last recieved chunk (even if its
                part is still in the rechunking buffer). TODO maybe set
                the audio end time more correctly?
         """
@@ -295,10 +295,11 @@ class InputBuffer(ASRStreamingQueue[InputChunk]):
                     if is_finished:
                         id = _id
                         break
-                for _id, buffered_chunk in self._audio_buffer.items():
-                    if len(buffered_chunk) >= size:
-                        id = _id
-                        break
+                else:
+                    for _id, buffered_chunk in self._audio_buffer.items():
+                        if len(buffered_chunk) >= size:
+                            id = _id
+                            break
                 
                 # if id is not None now, we found an id to return
                 if id is not None:
@@ -406,7 +407,7 @@ class StreamingASR(ABC):
        the transcription is done.
     
     Models may fill :code:`.seconds_processed` field in
-    :class:`~asr_eval.streming.model.OutputChunk` - audio seconds
+    :class:`~asr_eval.streaming.model.OutputChunk` - audio seconds
     processed (for the current recording ID) before yielding the current
     output chunk. This may be useful, because we could send 100 chunks
     (let it be 10 sec in total), but the model performs slow
@@ -452,7 +453,7 @@ class StreamingASR(ABC):
     
     **Exception handling:**
     
-    1. Any exception raised from the :code:`StreamingASR`:code:` thread
+    1. Any exception raised from the :code:`StreamingASR` thread
        will set the output buffer in the error state. This will raise
        the exception when reading from the output buffer.
     2. Trying to write invalid data into the input buffer (including
@@ -476,7 +477,7 @@ class StreamingASR(ABC):
     sampling_rate: int
     """Sampling rate for the input audio chunks.
     
-    TODO clarify what to set for bytes or WAV.
+    Should equal array size per second.
     """
     
     def __init__(self, sampling_rate: int = 16_000):
@@ -486,7 +487,7 @@ class StreamingASR(ABC):
     def start_thread(self) -> Self:
         """Start the background thread with
         :meth:`~asr_eval.streaming.model.StreamingASR._run` that
-        processes input chunks and emits outputs chunks.
+        processes input chunks and emits output chunks.
         """
         
         assert self._thread is None
@@ -499,7 +500,7 @@ class StreamingASR(ABC):
         return self
     
     def stop_thread(self) -> None:
-        """Stops the background thrad started with
+        """Stops the background thread started with
         :meth:`~asr_eval.streaming.model.StreamingASR.start_thread`.
         """
 
@@ -540,7 +541,7 @@ class StreamingASR(ABC):
     @abstractmethod
     def _run(self):
         """A background thread that processes input chunks and emits
-        outputs chunks.
+        output chunks.
 
         Is started with
         :meth:`~asr_eval.streaming.model.StreamingASR.start_thread` and
@@ -552,7 +553,7 @@ class StreamingASR(ABC):
         a new output chunk, use :code:`self.output_buffer.put()`
         (non-blocking).
         
-        For example, if 16_000 floats/sec are streamed, and an exteral
+        For example, if 16_000 floats/sec are streamed, and an external
         sender sends chunks of size 1600 10 times per second, but your
         model want to get 1s chunks, call
         `self.input_buffer.get_with_rechunking(size=16_000)`. This will
@@ -582,11 +583,11 @@ class StreamingASR(ABC):
         """
     
     @property
-    def is_multithreaded(self) -> bool:  # for remap_time, TODO docs
+    def is_multithreaded(self) -> bool:
         """Whether another threads are started from the background
         thread :meth:`~asr_eval.streaming.model.StreamingASR._run`.
         
-        False by defatult. If overriden with True, the evaluation
+        False by default. If overriden with True, the evaluation
         protocol will not try to use
         :func:`~asr_eval.streaming.evaluation.remap_time`."""
 
