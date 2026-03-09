@@ -57,7 +57,7 @@ def transcribe_parallel(
         waveform: FLOATS
     ) -> tuple[ID_TYPE, list[OutputChunk]]:
         cutoffs = get_uniform_cutoffs(
-            waveform=waveform,
+            audio_length_sec=len(waveform) / 16000,
             real_time_interval_sec=real_time_interval_sec,
             speed_multiplier=speed_multiplier,
         )

@@ -135,7 +135,7 @@ def make_sender(
     uid = uid or new_uid()
     cutoffs = get_uniform_cutoffs(
         # this is crucial to do before resampling
-        waveform=waveform,
+        audio_length_sec=len(waveform) / 16000,
         real_time_interval_sec=real_time_interval_sec,
         speed_multiplier=speed_multiplier,
     )

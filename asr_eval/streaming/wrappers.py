@@ -43,19 +43,20 @@ class StreamingToOffline(Transcriber):
     def transcribe(self, waveform: FLOATS) -> str:
         # as stated in Transcriber, this method accepts 16kHz waveform
         id = new_uid()
-        audio = resample(
+        sampling_rate = self.streaming_model.sampling_rate
+        waveform = resample(
             waveform,
             from_sampling_rate=16_000,
-            to_sampling_rate=self.streaming_model.sampling_rate,
+            to_sampling_rate=sampling_rate,
         )
         cutoffs = get_uniform_cutoffs(
-            waveform,
-            sampling_rate=self.streaming_model.sampling_rate,
+            audio_length_sec=len(waveform) / sampling_rate,
+            sampling_rate=sampling_rate,
         )
         sender = StreamingSender(
             id=id,
             cutoffs=cutoffs,
-            waveform=audio,
+            waveform=waveform,
             asr=self.streaming_model,
         )
         sender.start_sending(
