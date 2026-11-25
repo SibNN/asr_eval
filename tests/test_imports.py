@@ -70,6 +70,7 @@ from asr_eval.models.pyannote_diarization import *
 from asr_eval.models.pyannote_vad import *
 from asr_eval.models.qwen_audio_wrapper import *
 from asr_eval.models.qwen2_audio_wrapper import *
+from asr_eval.models.qwen3_asr_wrapper import *
 from asr_eval.models.salute_wrapper import *
 from asr_eval.models.speechbrain_wrapper import *
 from asr_eval.models.t_one_wrapper import *
