@@ -53,6 +53,10 @@ asr_eval.models
    :members:
    :show-inheritance:
 
+.. automodule:: asr_eval.models.qwen3_asr_wrapper
+   :members:
+   :show-inheritance:
+
 .. automodule:: asr_eval.models.qwen_audio_wrapper
    :members:
    :show-inheritance:
